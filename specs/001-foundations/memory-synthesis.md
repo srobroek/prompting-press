@@ -2,7 +2,7 @@
 
 > Generated markdown-first (MCP `speckit-memory-hub` not configured). Durable memory
 > (`docs/memory/decisions|bugs|architecture/`) is freshly initialized and empty, so this synthesis
-> draws on the **governance layer** (constitution v1.0.0 decisions C-01…C-09) and
+> draws on the **governance layer** (constitution v1.0.0 Principles I–VII + roadmap decisions C-01…C-09) and
 > `docs/memory/PROJECT_CONTEXT.md`. Phase: **Plan** → prioritizes boundary definitions, module
 > ownership, and architectural-drift risks.
 

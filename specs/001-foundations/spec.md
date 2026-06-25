@@ -217,9 +217,10 @@ regenerating) and observe the freshness check fail.
 - **FR-008**: The repository MUST contain a prompt-definition JSON Schema, with a stable identifier,
   that is itself a valid JSON Schema.
 - **FR-009**: The schema MUST express a prompt's role constrained to `system`, `user`, or `assistant`.
-- **FR-010**: The schema MUST express, at the prompt-definition root: a default template `body`, a
-  `variables` block, an optional output-model reference, and an optional named `variants` map. It MUST
-  NOT define any model field (the library records no model — Clarifications).
+- **FR-010**: The schema MUST express, at the prompt-definition root: a required `name` (the logical
+  prompt's reference key), a required `role`, a default template `body`, a `variables` block, an
+  optional output-model reference, and an optional named `variants` map. It MUST NOT define any model
+  field (the library records no model — Clarifications).
 - **FR-010a**: The `variables` block MUST express, per variable: a name, a type, JSON-Schema
   validation constraints (e.g. `format`, `minimum`, `pattern`, `enum`), and a provenance tag
   constrained to `trusted`, `untrusted`, or `external` — rich enough for a later spec to generate a

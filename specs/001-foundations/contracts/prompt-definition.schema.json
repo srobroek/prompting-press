@@ -67,7 +67,7 @@
         "provenance": {
           "type": "string",
           "enum": ["trusted", "untrusted", "external"],
-          "description": "Per-field provenance tag (FR-010a). DECLARATIVE METADATA ONLY — there is NO runtime enforcement of this tag in the current library version; it is not a security guard by itself. Untrusted-input guarding (the opt-in, additive guard expansion + lint) is introduced in a later spec per constitution decision C-09. Do not assume the library protects `untrusted`/`external` fields until that version."
+          "description": "Per-field provenance tag (FR-010a). DECLARATIVE METADATA ONLY — there is NO runtime enforcement of this tag in the current library version; it is not a security guard by itself. Untrusted-input guarding (the opt-in, additive guard expansion + lint) is introduced in a later spec per roadmap decision C-09 (deriving from constitution Principle IV). Do not assume the library protects `untrusted`/`external` fields until that version."
         },
         "format": { "type": "string" },
         "pattern": { "type": "string" },
