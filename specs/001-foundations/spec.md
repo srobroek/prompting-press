@@ -15,6 +15,42 @@ the schema→shape codegen pipeline, and the CI guardrails that enforce the cons
 invariants. **No prompt renders in this spec** — there is no engine, no validation, no rendering. The
 deliverable is a buildable, governed skeleton with the contract authored and enforced.
 
+## Clarifications
+
+### Session 2026-06-25
+
+- Q: Where do per-field variable-provenance tags live, and is the typed Vars model hand-authored or
+  generated? → A: **Generate-then-extend.** The schema's `variables` block carries, per variable,
+  name + type + provenance tag + JSON-Schema validation constraints. Codegen emits a real
+  Pydantic/Zod/garde model from it (type-safe; native validators like `format: email`, `minimum`,
+  `pattern` come through), which the user *extends* in-language for validation JSON Schema can't
+  express (cross-field, arbitrary predicates). This **reverses the grilling session's "hand-authored
+  Vars" lean** — Pydantic/Zod/garde remain the validation runtime and the generation *target*, not a
+  replacement. (Per-prompt Vars-model generation is a spec 003+ consumer concern; spec 001 only makes
+  the schema's `variables` block rich enough to support it.)
+- Q: What shape is the output-model reference? → A: **Optional opaque string** (e.g. `"NodeOutput"`).
+  Stored and echoed; never resolved, loaded, or parsed (the only form that is both portable across
+  languages and boundary-safe per Principle III).
+- Q: What differs per variant vs. is shared? → A: **Only the template body differs per variant.**
+  Role, the `variables`/provenance set, and the output-model reference are shared (they define the
+  prompt's identity and input contract; one Vars model, one agreement check). **No model concept** —
+  the library records no model; model-specific phrasing (e.g. an Opus arm vs a Haiku arm) is achieved
+  by naming variants and having the caller select them (selection is caller-owned, per the
+  constitution).
+- Q: How is the default variant modeled? → A: **Root `body` is the default arm.** A prompt definition
+  carries its default template at the root `body` field; `variants:` holds named override objects
+  (each `{ body, meta? }`). There is no `default:` marker — the default is structural, so a definition
+  can never have zero or two defaults. The default arm is surfaced with the reserved name `default`
+  and an `is_default: true` flag (name = how you select it; flag = how you identify the fallback). A
+  `variants:` entry literally named `default` MUST be rejected (collision with the root).
+- Q: How is programmatic variant selection (round-robin, A/B, grouping) supported? → A: **The library
+  exposes selection metadata; the caller selects (Branch A).** Each variant — and the default — may
+  carry an optional, free-form, **library-opaque** `meta` object (e.g. weight, group, tags). The
+  library stores and exposes it, and exposes the full ordered arm list (default included), so the
+  caller can implement round-robin, weighted A/B, grouping, or any programmatic selection. The library
+  never interprets `meta`, never selects, and holds no selection state — it stays a stateless, pure
+  renderer (Principles III and V; this does not re-introduce the eliminated `VariantSelector` seam).
+
 ## User Scenarios & Testing *(mandatory)*
 
 The "users" of this foundational spec are **library contributors** (who build, extend, and add the
@@ -181,18 +217,34 @@ regenerating) and observe the freshness check fail.
 - **FR-008**: The repository MUST contain a prompt-definition JSON Schema, with a stable identifier,
   that is itself a valid JSON Schema.
 - **FR-009**: The schema MUST express a prompt's role constrained to `system`, `user`, or `assistant`.
-- **FR-010**: The schema MUST express a template body, a set of named variants, free-form metadata, an
-  output-model reference, and per-field variable-provenance tags constrained to `trusted`,
-  `untrusted`, or `external`.
-- **FR-011**: The schema MUST encode the variant default rule: a single-variant definition needs no
-  declared default; a multi-variant definition MUST declare an explicit default, and one that does
-  not MUST fail validation.
+- **FR-010**: The schema MUST express, at the prompt-definition root: a default template `body`, a
+  `variables` block, an optional output-model reference, and an optional named `variants` map. It MUST
+  NOT define any model field (the library records no model — Clarifications).
+- **FR-010a**: The `variables` block MUST express, per variable: a name, a type, JSON-Schema
+  validation constraints (e.g. `format`, `minimum`, `pattern`, `enum`), and a provenance tag
+  constrained to `trusted`, `untrusted`, or `external` — rich enough for a later spec to generate a
+  typed Vars model from it (generate-then-extend).
+- **FR-011**: The schema MUST model the default variant structurally: the root `body` IS the default
+  arm. There MUST be no `default:` marker. The default arm is surfaced under the reserved name
+  `default` with an `is_default: true` indicator. A definition therefore can never have zero or two
+  defaults.
+- **FR-011a**: Each `variants` entry MUST be an object carrying its own `body` (the only field that
+  differs per variant) and an optional, free-form, **library-opaque** `meta` object; the root
+  (default) arm MAY likewise carry `meta`. Role, `variables`/provenance, and the output-model
+  reference are shared across all arms and MUST NOT be redefined per variant.
+- **FR-011b**: The schema MUST reject a `variants` entry literally named `default` (collision with the
+  structural default arm).
+- **FR-011c**: The schema MUST treat each variant's `meta` as opaque free-form data — it carries no
+  schema-enforced selection semantics (weight, group, etc. are conventions the caller interprets, not
+  the library).
 - **FR-012**: The schema MUST be expressive enough to represent every prompt-definition field the
   roadmap names for v1, even where no consumer uses the field yet, to avoid later churn of the single
   source of truth.
 - **FR-013**: The repository MUST include example prompt-definition documents — both well-formed
   (accepted) and malformed (rejected) — that exercise the schema's constraints and serve as the
-  validation fixtures.
+  validation fixtures. Coverage MUST include: a single-body (no `variants`) definition; a multi-variant
+  definition; an invalid role; an invalid provenance tag; a `variants` entry named `default`
+  (rejected, FR-011b); and a variant attempting to redefine role/variables (rejected, FR-011a).
 
 **Codegen**
 
@@ -224,14 +276,21 @@ regenerating) and observe the freshness check fail.
 
 ### Key Entities *(include if feature involves data)*
 
-- **Prompt Definition**: the schema-defined shape of a single prompt — its role, template body,
-  variant set, metadata, output-model reference, and per-field provenance tags. The contract from
-  which all per-language shapes are generated. (Defined here; consumed in later specs.)
-- **Variant**: a named alternative within a prompt definition. A definition has one or more; with more
-  than one, an explicit default is required.
-- **Variable-provenance tag**: a per-field classification — `trusted`, `untrusted`, or `external` —
-  declared on the prompt definition's variables. (Plumbed in later specs; only its shape is defined
-  here.)
+- **Prompt Definition**: the schema-defined shape of a single prompt — its role, a default template
+  `body`, a `variables` block, an optional output-model reference (opaque string), optional opaque
+  metadata, and an optional `variants` map. The contract from which all per-language shapes are
+  generated. No model field. (Defined here; consumed in later specs.)
+- **Variant**: a named alternative within a prompt definition, differing **only** in template `body`
+  (role, variables/provenance, and output-ref are shared). The root `body` is the implicit `default`
+  arm (`is_default: true`); `variants:` holds named override objects. Each arm (default included) may
+  carry an opaque `meta` object for caller-driven selection.
+- **Variable declaration**: a `variables`-block entry — name + type + JSON-Schema constraints +
+  provenance tag (`trusted` | `untrusted` | `external`) — rich enough to generate a typed Vars model
+  (Pydantic/Zod/garde) from in a later spec (generate-then-extend). (Shape defined here; generation is
+  a later spec.)
+- **Selection metadata (`meta`)**: optional, free-form, **library-opaque** data on any arm. The
+  library stores and exposes it (and the ordered arm list) but never interprets it; the caller uses it
+  for round-robin / A/B / grouping / programmatic selection.
 - **Workspace member**: a crate or package in the layout (engine kernel, Rust consumer, Python
   binding, TypeScript binding, package wrappers, reserved Go placeholder), each with a defined role
   and dependency direction.

@@ -53,3 +53,17 @@
   engine/binding/render logic. PASS.
 
 All items pass on iteration 1. Spec ready for `/speckit.clarify` or `/speckit.plan`.
+
+### Validation findings (iteration 2 — post-clarify, 2026-06-25)
+
+Five clarifications integrated (see spec §Clarifications): generate-then-extend Vars model
+(reverses the grill's hand-authored lean); opaque-string output ref; variants differ only in body
+(no model concept); root `body` = structural default arm (no `default:` marker; reserved `default`
+name + `is_default`); Branch-A opaque selection `meta` (caller selects, library stateless). Added
+FR-010a, FR-011a/b/c; revised FR-009/010/011/013; updated Key Entities.
+
+Re-validation: all 16 checkbox items remain PASS (16/16). No regressions — the clarifications
+*tightened* the data model (more-specific FRs, sharper entities) without introducing implementation
+detail or new ambiguity. The Vars-generation *mechanism* (the one residual "how") is explicitly
+scoped to specs 003+; spec 001 only fixes the schema's expressiveness, which is correct for a
+single-source-of-truth deliverable. No [NEEDS CLARIFICATION] markers. Ready for `/speckit.plan`.
