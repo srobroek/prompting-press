@@ -1,4 +1,5 @@
 installed:
+- agent-assign
 - agent-context
 - archive
 - brownfield
@@ -216,6 +217,14 @@ hooks:
     prompt: Would you like to verify that security boundaries are represented in the
       tasks?
     description: ''
+    condition: null
+  - extension: agent-assign
+    command: speckit.agent-assign.assign
+    enabled: true
+    optional: true
+    priority: 10
+    prompt: Assign agents to the generated tasks?
+    description: Automatically assign specialized agents to tasks after generation
     condition: null
   before_implement:
   - extension: onboard

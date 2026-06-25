@@ -911,6 +911,37 @@
       },
       "registered_skills": [],
       "installed_at": "2026-06-25T10:19:37.099106+00:00"
+    },
+    "agent-assign": {
+      "version": "1.0.0",
+      "source": "local",
+      "manifest_hash": "sha256:5e5c8ca8e58d032fa4485c4c06f270623911fd12f1e8a7e0dec971531d7a8802",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "agy": [
+          "speckit.agent-assign.assign",
+          "speckit.agent-assign.validate",
+          "speckit.agent-assign.execute"
+        ],
+        "claude": [
+          "speckit.agent-assign.assign",
+          "speckit.agent-assign.validate",
+          "speckit.agent-assign.execute"
+        ],
+        "codex": [
+          "speckit.agent-assign.assign",
+          "speckit.agent-assign.validate",
+          "speckit.agent-assign.execute"
+        ],
+        "zed": [
+          "speckit.agent-assign.assign",
+          "speckit.agent-assign.validate",
+          "speckit.agent-assign.execute"
+        ]
+      },
+      "registered_skills": [],
+      "installed_at": "2026-06-25T13:20:43.171483+00:00"
     }
   }
 }
