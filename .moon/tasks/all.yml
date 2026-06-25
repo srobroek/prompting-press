@@ -1,0 +1,32 @@
+# .moon/tasks/all.yml
+# Global tasks inherited by every project in the workspace.
+# No inheritedBy condition → inherited by all projects unconditionally.
+#
+# NOTE: :codegen is NOT defined here yet (US3 will add it).
+# This file is the natural place to add it when the time comes.
+
+$schema: 'https://moonrepo.dev/schemas/tasks.json'
+
+fileGroups:
+  sources:
+    - 'src/**/*'
+    - 'Cargo.toml'
+  tests:
+    - 'tests/**/*'
+    - 'benches/**/*'
+
+tasks:
+  build:
+    command: 'cargo build --package $project'
+    inputs:
+      - '@group(sources)'
+    env:
+      CARGO_TERM_COLOR: 'always'
+
+  test:
+    command: 'cargo test --package $project'
+    inputs:
+      - '@group(sources)'
+      - '@group(tests)'
+    env:
+      CARGO_TERM_COLOR: 'always'

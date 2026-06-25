@@ -1,19 +1,28 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: (none) → 1.0.0
-Bump rationale: MAJOR — initial ratification of the spec roadmap. Created from
-  the resolved post-grilling design (feature-scope.md) and constitution v1.0.0.
+Version change: 1.0.0 → 1.1.0
+Bump rationale: MINOR — structural addition: new decision C-10 (release tooling
+  & version axes) and an annotation to spec 007's Notes/Governed-by. No existing
+  entry redefined or reversed.
 
-Changes this revision:
+Changes this revision (1.1.0, 2026-06-25):
+  - Added decision C-10 — release-please (unified linked library-package version)
+    + native per-ecosystem build/publish (cargo publish / maturin / @napi-rs/cli);
+    GoReleaser evaluated and rejected (binary builder, not library/wheel/addon).
+    Reaffirms the two distinct version axes (package vs prompt-content/C-05).
+  - Spec 007: added C-10 to Governed-by; recorded release-tooling decision in Notes.
+
+Prior revision (1.0.0, 2026-06-25):
+  Bump rationale: MAJOR — initial ratification of the spec roadmap. Created from
+    the resolved post-grilling design (feature-scope.md) and constitution v1.0.0.
   - Added specs 001–007 (Phase 0 Foundations … Phase 6 v1 Release)
   - Added decisions C-01 … C-09 (the load-bearing constitution principles + R1)
   - Added Deferred section (Go binding, inline partials, token budgeting, etc.)
   - Added Never section (boundary defense — requires constitution amendment)
 
-Specs affected: 001, 002, 003, 004, 005, 006, 007
-Open questions added/resolved: 3 added (codegen tooling, PyO3/napi receivers,
-  MiniJinja drift) — all resolved within the grill except as noted.
+Specs affected: 007 (this revision); 001–007 (initial).
+Open questions added/resolved: none this revision; 3 added at 1.0.0.
 
 Notes: Supersedes the informal docs/research/roadmap.md (which remains as a
   human-readable narrative; this ledger is the governance artifact of record).
@@ -89,6 +98,25 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   mutation:** 3-way tag (`trusted | untrusted | external`); configurable,
   opt-in, additive guard expansion; sanitization/stripping rejected. _Principle
   IV / feature-scope §4.4._
+- **C-10 — Release tooling & version axes (for 007):** two distinct version
+  axes, kept separate. (a) **Library-package version** — managed by
+  **release-please** in monorepo manifest mode with the `linked-versions`
+  plugin: ONE unified version across all three published packages
+  (crate / wheel / npm), driven by conventional commits. Rationale: C-01 (one
+  shared core, byte-identical) makes independent per-package versions
+  incoherent. (b) **Prompt-content version** — git-owned and content-addressed
+  via `template_hash`/`render_hash` (C-05/Principle V); release tooling MUST NOT
+  touch this axis. Artifact build+publish uses **native per-ecosystem tools, not
+  a single multi-language releaser**: `cargo publish` (crates.io), maturin /
+  maturin-action (PyPI wheels — manylinux/universal2/abi3 for the PyO3 cdylib),
+  `@napi-rs/cli` platform-package split (npm native addon). **GoReleaser
+  evaluated and rejected** (2026-06-25): its builders emit *binaries* (rust =
+  cargo-zigbuild binaries w/ limited workspace support; python = "coming soon";
+  node/bun/deno = single-executable apps), but all three of our deliverables are
+  libraries/wheels/native-addons — it would contribute only a trivial
+  `cargo publish` after-hook and nothing to the hard wheel + napi-prebuild
+  paths. Exact tool versions verified at spec-007 time (verify-at-spec-time
+  discipline). _Spec-007 governance; does not affect 001._
 
 ## Planned Specs
 
@@ -217,9 +245,15 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   license/NOTICE; publish; Bellwether integration validation.
 - **Scope (out):** anything in the Deferred/Never lists below.
 - **Depends on:** 006.
-- **Governed by:** C-03, C-05.
+- **Governed by:** C-03, C-05, C-10.
 - **Notes:** README must carry the type-safety half prominently — the press
-  imagery must not bury the actual differentiator (brief R6).
+  imagery must not bury the actual differentiator (brief R6). **Release tooling
+  (C-10):** release-please (manifest mode + `linked-versions`) for the unified
+  library-package version + changelogs from conventional commits, paired with
+  native build/publish — `cargo publish`, maturin-action (wheels),
+  `@napi-rs/cli` (npm prebuilds). GoReleaser evaluated and rejected (binary
+  builder, not a library/wheel/native-addon publisher — see C-10). Verify exact
+  tool versions when 007 is specced.
 
 ## Deferred
 
@@ -282,4 +316,4 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 
 ---
 
-**Version**: 1.0.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-25
+**Version**: 1.1.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-25

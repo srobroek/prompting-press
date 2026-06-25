@@ -1,0 +1,26 @@
+# prompting-press-node — the napi (Node-API) binding (FR-003).
+# The second of exactly two crates allowed to depend on an FFI toolkit. `napi` and
+# `napi-derive` live here and MUST NOT leak into the kernel or the Rust consumer
+# (constitution Principle II / C-02); both are reached via their own path deps below.
+
+[package]
+name = "prompting-press-node"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Node.js binding (napi/Node-API) for Prompting Press."
+
+# cdylib: the .node native addon loaded by the Node.js runtime.
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+prompting-press-core = { path = "../prompting-press-core" }
+prompting-press = { path = "../prompting-press" }
+# napi 3.x is the current Node-API binding line; `napi-derive` supplies the `#[napi]`
+# attribute macro. No extra features needed for a stub.
+napi = "3"
+napi-derive = "3"

@@ -339,3 +339,8 @@ packages/*/node_modules/
 *.dylib
 *.pyd
 *.node
+
+# moon: local task cache (regenerable; never committed). Config under .moon/*.yml
+# and .moon/tasks/ IS tracked — only the cache dir is ignored.
+.moon/cache/
+.moon/docker/

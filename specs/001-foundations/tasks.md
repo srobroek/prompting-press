@@ -45,16 +45,16 @@ direction (kernel ← consumer ← bindings; kernel FFI-free), Go reserved-only.
 **Independent Test**: `moon run :build` (or the orchestrated build) builds all 4 crates as stubs;
 `cargo tree -p prompting-press-core` shows no binding/FFI crate; `packages/go` is excluded from the build.
 
-- [ ] T005 [P] [US1] Create `crates/prompting-press-core/` stub crate (`Cargo.toml` + `src/lib.rs`), library, **no** `pyo3`/`napi` deps — the engine kernel (FR-001).
-- [ ] T006 [US1] Create `crates/prompting-press/` stub crate depending on `prompting-press-core`; **no** FFI deps; this is the Rust consumer/public surface (FR-002). (depends on T005)
-- [ ] T007 [P] [US1] Create `crates/prompting-press-py/` stub crate: `crate-type = ["cdylib"]`, depends on core/consumer + `pyo3` — the only crate that may dep `pyo3` (FR-003).
-- [ ] T008 [P] [US1] Create `crates/prompting-press-node/` stub crate: `crate-type = ["cdylib"]`, depends on core/consumer + `napi`/`napi-derive` — the only crate that may dep `napi` (FR-003).
-- [ ] T009 [P] [US1] Create `packages/python/` published-package skeleton (pyproject.toml + maturin config pointing at `prompting-press-py`; no logic) (FR-004). **Verify `maturin` is available** before relying on it (critique E3 / CHK026).
-- [ ] T010 [P] [US1] Create `packages/typescript/` published-package skeleton (package.json + napi-rs CLI config pointing at `prompting-press-node`; no logic) (FR-004). **Verify the `napi-rs` CLI is available** before relying on it (critique E3 / CHK026).
-- [ ] T011 [P] [US1] Create `packages/go/` reserved placeholder (a marker README only; **no** `go.mod`, no toolchain), excluded from the workspace and build (FR-005).
-- [ ] T012 [US1] Add the 4 crates to the root `Cargo.toml` workspace members; confirm `packages/go` is NOT a member. (depends on T005–T008)
-- [ ] T013 [US1] Wire moon projects/tasks for the active members (`:build`, `:test`); one orchestrated build/test command (FR-006). **Replace the bootstrap `.moon/workspace.yml` globs** (`apps/*`…`packages/*`…`tools/*` — which don't match `crates/*` and would sweep in `packages/go`) with explicit/enumerated membership: include `crates/*`, exclude `packages/go`, so no crate falls outside the gates by glob accident (security SEC-005). (depends on T012)
-- [ ] T014 [US1] Verify the layout: `moon run :build` builds all 4 stub crates; `cargo tree -p prompting-press-core` and `-p prompting-press` show no `pyo3`/`napi` (manual confirmation of the invariant US4 will then automate). (depends on T013) — satisfies SC-001, acceptance US1.
+- [X] T005 [P] [US1] Create `crates/prompting-press-core/` stub crate (`Cargo.toml` + `src/lib.rs`), library, **no** `pyo3`/`napi` deps — the engine kernel (FR-001).
+- [X] T006 [US1] Create `crates/prompting-press/` stub crate depending on `prompting-press-core`; **no** FFI deps; this is the Rust consumer/public surface (FR-002). (depends on T005)
+- [X] T007 [P] [US1] Create `crates/prompting-press-py/` stub crate: `crate-type = ["cdylib"]`, depends on core/consumer + `pyo3` — the only crate that may dep `pyo3` (FR-003).
+- [X] T008 [P] [US1] Create `crates/prompting-press-node/` stub crate: `crate-type = ["cdylib"]`, depends on core/consumer + `napi`/`napi-derive` — the only crate that may dep `napi` (FR-003).
+- [X] T009 [P] [US1] Create `packages/python/` published-package skeleton (pyproject.toml + maturin config pointing at `prompting-press-py`; no logic) (FR-004). **Verify `maturin` is available** before relying on it (critique E3 / CHK026).
+- [X] T010 [P] [US1] Create `packages/typescript/` published-package skeleton (package.json + napi-rs CLI config pointing at `prompting-press-node`; no logic) (FR-004). **Verify the `napi-rs` CLI is available** before relying on it (critique E3 / CHK026).
+- [X] T011 [P] [US1] Create `packages/go/` reserved placeholder (a marker README only; **no** `go.mod`, no toolchain), excluded from the workspace and build (FR-005).
+- [X] T012 [US1] Add the 4 crates to the root `Cargo.toml` workspace members; confirm `packages/go` is NOT a member. (depends on T005–T008)
+- [X] T013 [US1] Wire moon projects/tasks for the active members (`:build`, `:test`); one orchestrated build/test command (FR-006). **Replace the bootstrap `.moon/workspace.yml` globs** (`apps/*`…`packages/*`…`tools/*` — which don't match `crates/*` and would sweep in `packages/go`) with explicit/enumerated membership: include `crates/*`, exclude `packages/go`, so no crate falls outside the gates by glob accident (security SEC-005). (depends on T012)
+- [X] T014 [US1] Verify the layout: `moon run :build` builds all 4 stub crates; `cargo tree -p prompting-press-core` and `-p prompting-press` show no `pyo3`/`napi` (manual confirmation of the invariant US4 will then automate). (depends on T013) — satisfies SC-001, acceptance US1.
 
 **Checkpoint**: buildable polyglot workspace; dependency direction correct; Go reserved. **MVP increment.**
 

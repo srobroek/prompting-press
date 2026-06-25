@@ -1,0 +1,6 @@
+# .moon/toolchains.yml
+# Enable Rust toolchain support. Version intentionally omitted — moon will use
+# the toolchain pinned in rust-toolchain.toml (rustc 1.95.0 via mise/rustup).
+# syncToolchainConfig: moon reads Cargo.toml manifests and lockfile for hashing.
+rust:
+  syncToolchainConfig: true
