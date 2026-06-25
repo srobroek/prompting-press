@@ -1,12 +1,16 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.0.0 → 1.1.0
-Bump rationale: MINOR — structural addition: new decision C-10 (release tooling
-  & version axes) and an annotation to spec 007's Notes/Governed-by. No existing
-  entry redefined or reversed.
+Version change: 1.1.0 → 1.1.1
+Bump rationale: PATCH — status transition only: spec 001 planned → implemented
+  (T034, after its end-to-end validation gate T033 passed all SC-001..SC-007).
+  No scope/decision change.
 
-Changes this revision (1.1.0, 2026-06-25):
+Changes this revision (1.1.1, 2026-06-25):
+  - Spec 001 status: planned → implemented (code complete + SC-verified; moves to
+    'verified' after the Phase-3 QA gates run).
+
+Prior revision (1.1.0, 2026-06-25):
   - Added decision C-10 — release-please (unified linked library-package version)
     + native per-ecosystem build/publish (cargo publish / maturin / @napi-rs/cli);
     GoReleaser evaluated and rejected (binary builder, not library/wheel/addon).
@@ -21,7 +25,7 @@ Prior revision (1.0.0, 2026-06-25):
   - Added Deferred section (Go binding, inline partials, token budgeting, etc.)
   - Added Never section (boundary defense — requires constitution amendment)
 
-Specs affected: 007 (this revision); 001–007 (initial).
+Specs affected: 001 (this revision, → implemented); 007 (1.1.0); 001–007 (initial).
 Open questions added/resolved: none this revision; 3 added at 1.0.0.
 
 Notes: Supersedes the informal docs/research/roadmap.md (which remains as a
@@ -120,7 +124,7 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 
 ## Planned Specs
 
-### 001 — Foundations: crate layout, JSON Schema, codegen, CI guardrails  [status: planned]
+### 001 — Foundations: crate layout, JSON Schema, codegen, CI guardrails  [status: implemented]
 
 - **Description:** The project spine — restructure to the load-bearing crate
   layout, define the prompt-definition JSON Schema, build the schema→shape codegen
@@ -316,4 +320,4 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 
 ---
 
-**Version**: 1.1.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-25
+**Version**: 1.1.1 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-25

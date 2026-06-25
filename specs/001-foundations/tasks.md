@@ -117,9 +117,9 @@ generated file fails the freshness gate; each failure names the invariant + loca
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T032 [P] Add per-package README skeletons (crates + packages) noting "generated — do not edit" for generated dirs (FR-016 clarity). *(Registry-name reservation is spec 007, NOT here.)*
-- [ ] T033 Run the `quickstart.md` validation end-to-end (US1–US4 commands) and confirm SC-001..SC-007. The negative-scope review (SC-007 / FR-021 / FR-022) MUST be an **auditable checklist**, asserting each forbidden capability is absent individually: no template-engine integration, no `render`/rendering path, no typed-Vars validation runtime, no agreement-check/variant-resolution/hashing logic, no I/O (file/DB/network), no LLM call, no request-body assembly, no token counting, no output parsing.
-- [ ] T034 [P] Update `docs/research/roadmap.md` / `.specify/memory/roadmap.md` ledger: mark spec 001 `in-progress` → `implemented` once T033 passes.
+- [X] T032 [P] Add per-package README skeletons (crates + packages) noting "generated — do not edit" for generated dirs (FR-016 clarity). *(Registry-name reservation is spec 007, NOT here.)*
+- [X] T033 Run the `quickstart.md` validation end-to-end (US1–US4 commands) and confirm SC-001..SC-007. The negative-scope review (SC-007 / FR-021 / FR-022) MUST be an **auditable checklist**, asserting each forbidden capability is absent individually: no template-engine integration, no `render`/rendering path, no typed-Vars validation runtime, no agreement-check/variant-resolution/hashing logic, no I/O (file/DB/network), no LLM call, no request-body assembly, no token counting, no output parsing.
+- [X] T034 [P] Update `docs/research/roadmap.md` / `.specify/memory/roadmap.md` ledger: mark spec 001 `in-progress` → `implemented` once T033 passes.
 
 ---
 

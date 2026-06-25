@@ -6,8 +6,12 @@ $schema: 'https://moonrepo.dev/schemas/project.json'
 
 language: 'unknown'
 
-# Do not inherit the global all.yml tasks (build/test use `cargo …` which
-# is wrong for this project). Override with explicit task list only.
+# Exclude the global all.yml tasks (build/test run `cargo …`, which is wrong for
+# this non-crate project and breaks the `:build`/`:test` fan-out — F-001).
+workspace:
+  inheritedTasks:
+    exclude: ['build', 'test']
+
 tasks:
   check-schema:
     description: 'T016 — Assert prompt-definition.schema.json is a valid Draft 2020-12 document (FR-008).'

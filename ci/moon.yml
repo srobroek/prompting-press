@@ -10,6 +10,12 @@ $schema: 'https://moonrepo.dev/schemas/project.json'
 
 language: 'unknown'
 
+# Exclude the global all.yml tasks (cargo build/test are Rust-only and break the
+# `:build`/`:test` fan-out on this non-crate project — F-001).
+workspace:
+  inheritedTasks:
+    exclude: ['build', 'test']
+
 tasks:
   check-ffi:
     description: 'T028 — Assert pyo3/napi are absent from FFI-free crates (FR-018, FR-020; Principle II / C-02).'
