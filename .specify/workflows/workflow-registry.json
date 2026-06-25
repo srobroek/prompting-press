@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "workflows": {
+    "speckit": {
+      "name": "Speckit Steering Cycle",
+      "version": "1.0.0",
+      "description": "Runs the steering flow through specification, dependency wiring, critique, issue sync, checkpoint, and implementation.",
+      "source": "/Users/sjors/.claude/skills/project-setup/scripts/speckit/workflows/speckit",
+      "installed_at": "2026-06-25T06:00:35.299336+00:00",
+      "updated_at": "2026-06-25T06:00:35.299745+00:00"
+    },
+    "speckit-quality": {
+      "name": "Speckit Quality Gates",
+      "version": "1.0.0",
+      "description": "Runs post-implementation quality gates: verify-tasks \u2192 verify \u2192 review \u2192 cleanup \u2192 sync \u2192 sync-conflicts \u2192 retro \u2192 checkpoint.",
+      "source": "/Users/sjors/.claude/skills/project-setup/scripts/speckit/workflows/speckit-quality",
+      "installed_at": "2026-06-25T06:00:35.784659+00:00",
+      "updated_at": "2026-06-25T06:00:35.785693+00:00"
+    },
+    "speckit-full": {
+      "name": "Speckit Full Steering Cycle",
+      "version": "1.0.0",
+      "description": "Runs the full steering flow from specification through dependency sync, implementation, verification, review, cleanup, conflict checks, retrospective, and checkpoint.",
+      "source": "/Users/sjors/.claude/skills/project-setup/scripts/speckit/workflows/speckit-full",
+      "installed_at": "2026-06-25T06:00:36.100198+00:00",
+      "updated_at": "2026-06-25T06:00:36.100752+00:00"
+    }
+  }
+}

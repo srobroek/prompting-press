@@ -1,0 +1,8 @@
+projects:
+  - "apps/*"
+  - "services/*"
+  - "functions/*/*"
+  - "workers/*/*"
+  - "libs/*"
+  - "packages/*"
+  - "tools/*"

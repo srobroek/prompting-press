@@ -1,0 +1,39 @@
+name: prompting-press
+version: 1.0.0
+description: APM project for prompting-press
+author: Sjors Robroek
+dependencies:
+  apm:
+  - srobroek/agentic-packages/packages/core
+  - srobroek/agentic-packages/packages/mcp-codebase-memory
+  - srobroek/agentic-packages/packages/mcp-context7
+  - srobroek/agentic-packages/packages/mcp-package-version
+  - srobroek/agentic-packages/packages/mcp-repomix
+  - srobroek/agentic-packages/packages/agent-coder
+  - srobroek/agentic-packages/packages/agent-pr-reviewer
+  - srobroek/agentic-packages/packages/agent-adversarial-challenger
+  - srobroek/agentic-packages/packages/speckit
+  - srobroek/agentic-packages/packages/steering-speckit
+  - srobroek/agentic-packages/packages/speckit-dag-hooks
+  - srobroek/agentic-packages/packages/language-python
+  - srobroek/agentic-packages/packages/language-typescript
+  - srobroek/agentic-packages/packages/language-go
+  - srobroek/agentic-packages/packages/language-rust
+  - srobroek/agentic-packages/packages/python-quality
+  - srobroek/agentic-packages/packages/typescript-quality
+  - srobroek/agentic-packages/packages/go-quality
+  - srobroek/agentic-packages/packages/rust-quality
+  - srobroek/agentic-packages/packages/language-steering-python
+  - srobroek/agentic-packages/packages/language-steering-typescript
+  - srobroek/agentic-packages/packages/language-steering-go
+  - srobroek/agentic-packages/packages/language-steering-rust
+  - srobroek/agentic-packages/packages/review
+  - srobroek/agentic-packages/packages/security
+  - srobroek/agentic-packages/packages/steering-subagent-routing
+  - srobroek/agentic-packages/packages/project-lifecycle
+  - srobroek/agentic-packages/packages/hooks-git-safety
+  - srobroek/agentic-packages/packages/hooks-bash-safety
+  - srobroek/agentic-packages/packages/mcp-serena
+  mcp: []
+includes: auto
+scripts: {}
