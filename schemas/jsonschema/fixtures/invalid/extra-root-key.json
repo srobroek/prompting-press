@@ -1,0 +1,6 @@
+{
+  "name": "extra-root-key-example",
+  "role": "user",
+  "body": "Hello world.",
+  "unknown_top_level_field": "this key is not in the schema and additionalProperties is false"
+}

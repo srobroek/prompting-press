@@ -1,0 +1,5 @@
+This file is intentionally not valid JSON.
+role: system
+body: Hello world
+---
+YAML-ish content that jsonschema cannot parse.

@@ -7,3 +7,4 @@ projects:
   prompting-press: "crates/prompting-press"
   prompting-press-py: "crates/prompting-press-py"
   prompting-press-node: "crates/prompting-press-node"
+  schemas: "schemas"

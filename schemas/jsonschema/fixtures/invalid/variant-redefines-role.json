@@ -1,0 +1,11 @@
+{
+  "name": "variant-redefines-role-example",
+  "role": "system",
+  "body": "Default arm body.",
+  "variants": {
+    "alternative": {
+      "body": "Alternative arm body.",
+      "role": "user"
+    }
+  }
+}

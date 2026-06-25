@@ -1,0 +1,5 @@
+{
+  "name": "bad-role-example",
+  "role": "developer",
+  "body": "This prompt has a role value that is not in the enum."
+}

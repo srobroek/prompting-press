@@ -67,11 +67,11 @@ direction (kernel ← consumer ← bindings; kernel FFI-free), Go reserved-only.
 **Independent Test**: the schema meta-validates as Draft 2020-12; 100% of well-formed fixtures accept,
 100% of malformed reject (incl. named-`default` and per-variant-extras rejections).
 
-- [ ] T015 [US2] Promote the design contract to the implementation location: author `schemas/jsonschema/prompt-definition.schema.json` from `specs/001-foundations/contracts/prompt-definition.schema.json` — Draft 2020-12, stable `$id`, sealed root, `role`/`provenance` enums, `variables` block (type+provenance+constraints, FR-010a), root `body`=default, `variants` map with named-`default` rejection (FR-011b) and per-variant sealing (FR-011a), opaque `meta`/`metadata`. Avoid `anyOf` (typify weak area, research D1/D5). (FR-008..012)
-- [ ] T016 [US2] Add a schema meta-validation check (assert the schema is itself a valid Draft 2020-12 document — FR-008), runnable as a moon task.
-- [ ] T017 [P] [US2] Create well-formed (`accept`) fixtures under `schemas/jsonschema/fixtures/valid/`: single-body (no variants), multi-variant, variant-with-`meta` (per data-model.md matrix). (FR-013)
-- [ ] T018 [P] [US2] Create malformed (`reject`) fixtures under `schemas/jsonschema/fixtures/invalid/`: invalid role, invalid provenance tag, `variants` entry named `default`, variant redefining role/variables, extra root key, non-parseable doc. (FR-013)
-- [ ] T019 [US2] Add a fixtures-validation task (validate every `valid/` doc → accept, every `invalid/` doc → reject) as a moon task; this is the US2 acceptance gate. (depends on T015–T018) — satisfies SC-002, SC-006.
+- [X] T015 [US2] Promote the design contract to the implementation location: author `schemas/jsonschema/prompt-definition.schema.json` from `specs/001-foundations/contracts/prompt-definition.schema.json` — Draft 2020-12, stable `$id`, sealed root, `role`/`provenance` enums, `variables` block (type+provenance+constraints, FR-010a), root `body`=default, `variants` map with named-`default` rejection (FR-011b) and per-variant sealing (FR-011a), opaque `meta`/`metadata`. Avoid `anyOf` (typify weak area, research D1/D5). (FR-008..012)
+- [X] T016 [US2] Add a schema meta-validation check (assert the schema is itself a valid Draft 2020-12 document — FR-008), runnable as a moon task.
+- [X] T017 [P] [US2] Create well-formed (`accept`) fixtures under `schemas/jsonschema/fixtures/valid/`: single-body (no variants), multi-variant, variant-with-`meta` (per data-model.md matrix). (FR-013)
+- [X] T018 [P] [US2] Create malformed (`reject`) fixtures under `schemas/jsonschema/fixtures/invalid/`: invalid role, invalid provenance tag, `variants` entry named `default`, variant redefining role/variables, extra root key, non-parseable doc. (FR-013)
+- [X] T019 [US2] Add a fixtures-validation task (validate every `valid/` doc → accept, every `invalid/` doc → reject) as a moon task; this is the US2 acceptance gate. (depends on T015–T018) — satisfies SC-002, SC-006.
 
 **Checkpoint**: schema is the single source of truth and proven by fixtures.
 
