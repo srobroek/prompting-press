@@ -16,3 +16,8 @@ description = "Public Rust consumer surface for Prompting Press, layered on the 
 
 [dependencies]
 prompting-press-core = { path = "../prompting-press-core" }
+# Required by the code-generated shape module (src/generated/prompt_definition.rs),
+# emitted from the JSON Schema by cargo-typify. serde derives + serde_json open-object
+# maps (meta/metadata). FFI-free, so this stays within the no-pyo3/no-napi rule (C-02).
+serde = { workspace = true }
+serde_json = { workspace = true }

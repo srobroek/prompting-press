@@ -25,3 +25,19 @@ tasks:
       - 'jsonschema/prompt-definition.schema.json'
       - 'jsonschema/scripts/validate_fixtures.py'
       - 'jsonschema/fixtures/**/*'
+
+  codegen-check:
+    description: 'T027 — Determinism gate (SC-003): regenerate all three artifacts and assert git diff is clean.'
+    command: 'bash schemas/scripts/codegen-check.sh'
+    deps:
+      - 'prompting-press:codegen'
+      - 'prompting-press-python:codegen'
+      - 'prompting-press-typescript:codegen'
+    inputs:
+      - 'jsonschema/prompt-definition.schema.json'
+      - '/crates/prompting-press/src/generated/prompt_definition.rs'
+      - '/packages/python/python/prompting_press/generated/prompt_definition.py'
+      - '/packages/typescript/src/generated/prompt-definition.ts'
+    options:
+      runFromWorkspaceRoot: true
+      cache: false

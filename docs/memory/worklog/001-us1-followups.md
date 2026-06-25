@@ -44,6 +44,31 @@ deferred items routed to their owning spec, recorded so they survive across sess
   windows-latest, which likely forces a Windows branch in `crates/prompting-press-py/build.rs`
   (or a CI step providing the Python import lib). Verify Windows PyO3 link behavior at that time.
 
+## US3 codegen — typify `propertyNames`/`not` panic (resolved)
+
+- **Finding (T022 spike):** `cargo-typify` 0.7.0 PANICS (`unimplemented!` at convert.rs:1763) on
+  `variants.propertyNames = { "not": { "const": "default" } }` — it has no handling for `not`
+  subschemas. Isolated/confirmed: deleting only that key makes typify generate clean output
+  (correct enums, `#[serde(deny_unknown_fields)]`, `serde_json::Map` for open objects, deterministic).
+- **Probed the other two generators against the schema AS-IS:** datamodel-code-generator (Python)
+  and json-schema-to-typescript both exit 0 and SILENTLY DROP `propertyNames` (Python → `dict`,
+  TS → `{ [k:string]: Variant }`). No generated type in ANY language can encode "map key must not
+  equal 'default'" — `propertyNames` is inherently a validation constraint, not a type constraint.
+- **Decision:** Rust codegen step strips `properties.variants.propertyNames` from a TYPIFY-INPUT
+  COPY of the schema (`jq 'del(.properties.variants.propertyNames)'`), NOT from the canonical
+  `schemas/jsonschema/prompt-definition.schema.json`. The schema stays the single source of truth,
+  cross-language consistent. The reserved-`default` rule (FR-011b) remains enforced by the US2
+  validation gate (`variant-named-default.json` reject fixture — already proven green).
+- **Rejected alternative:** rewriting to `"pattern": "^(?!default$).*$"` — would mutate the canonical
+  schema, pull `regress` + `LazyLock` into generated Rust, and emit a divergent key-newtype, all to
+  encode a rule the validation layer already enforces. Not worth it.
+- **Exact Rust codegen invocation (T025):**
+  `jq 'del(.properties.variants.propertyNames)' <schema> > <tmp>` →
+  `cargo typify --no-builder --output <dest>/prompt_definition.rs <tmp>` →
+  `rustfmt --edition 2021 <dest>/prompt_definition.rs`. Use `--no-builder` (754 vs 1165 lines).
+  Note: typify emits crate-level `#![allow(...)]` inner attrs → the generated file must be a module
+  file (not `include!`d mid-file); `name` becomes a `PromptDefinitionName` newtype.
+
 ## Tooling bug observed (not ours)
 
 - `.claude/hooks/hooks-bash-safety/scripts/rm-rf-guard.sh` uses `;;&` (bash 4+) but runs under

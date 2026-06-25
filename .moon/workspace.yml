@@ -8,3 +8,5 @@ projects:
   prompting-press-py: "crates/prompting-press-py"
   prompting-press-node: "crates/prompting-press-node"
   schemas: "schemas"
+  prompting-press-python: "packages/python"
+  prompting-press-typescript: "packages/typescript"

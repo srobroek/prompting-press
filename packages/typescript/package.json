@@ -29,11 +29,14 @@
   "scripts": {
     "build": "napi build --release --platform --esm --manifest-path ../../crates/prompting-press-node/Cargo.toml --output-dir .",
     "build:debug": "napi build --platform --esm --manifest-path ../../crates/prompting-press-node/Cargo.toml --output-dir .",
+    "codegen": "node ./scripts/codegen.mjs",
     "prepublishOnly": "napi prepublish -t npm"
   },
   "dependencies": {},
   "devDependencies": {
     "@napi-rs/cli": "3.7.2",
+    "json-schema-to-typescript": "15.0.4",
+    "prettier": "3.8.4",
     "typescript": "5.9.2"
   }
 }

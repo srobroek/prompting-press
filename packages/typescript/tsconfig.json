@@ -28,8 +28,11 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },
-  // No `src/` yet — spec 001 ships no runtime code. `include` is intentionally
-  // empty so `tsc` is a no-op until the wrapper source lands in a later spec.
-  "include": [],
+  // Spec 001 ships no hand-written runtime code, but it DOES commit the
+  // code-generated type shape under `src/generated/` (constitution C-07,
+  // FR-016). Type-checking that file under this strict config is the local
+  // proof the committed generated TS is valid (US4 freshness gate). The thin
+  // wrapper source lands in a later spec and will widen `include` then.
+  "include": ["src/generated/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

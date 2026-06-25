@@ -1,0 +1,22 @@
+# moon.yml for prompting-press-python
+# This is the packages/python project. Language is 'python'; the global
+# all.yml tasks (cargo build/test) are excluded — they are Rust-only and
+# would fail here.
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+language: 'python'
+
+workspace:
+  inheritedTasks:
+    exclude: ['build', 'test']
+
+tasks:
+  codegen:
+    description: 'T026 — Regenerate Python Pydantic types from JSON Schema (FR-016).'
+    command: 'bash packages/python/scripts/codegen.sh'
+    inputs:
+      - '/schemas/jsonschema/prompt-definition.schema.json'
+    outputs:
+      - '/packages/python/python/prompting_press/generated/prompt_definition.py'
+    options:
+      runFromWorkspaceRoot: true
