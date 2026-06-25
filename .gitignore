@@ -300,3 +300,6 @@ apm_modules/
 !.serena/project.yml
 .serena/project.local.yml
 .serena/memories/
+
+# memory-md: generated SQLite cache (regenerable; not committed)
+.spec-kit-memory/
