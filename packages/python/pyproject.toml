@@ -10,8 +10,10 @@
 # maturin is the PyO3 packaging standard (research D1). The `>=1.14,<2.0`
 # bound is the conventional, recommended form for build-system requires and is
 # acceptable under the no-floating-versions rule (SEC-003), which targets the
-# `^`/`~`/`"latest"`/`"*"` shorthands — not explicit bounded ranges. The exact
-# build-time maturin is pinned to 1.14.1 in `mise.toml` (single source of truth).
+# `^`/`~`/`"latest"`/`"*"` shorthands — not explicit bounded ranges. maturin is
+# intentionally NOT pinned in mise.toml (removed per security finding H-2); it is
+# resolved by uv / the build backend from this bound when the wheel is built
+# (spec 004/007). No maturin build runs in spec 001.
 requires = ["maturin>=1.14,<2.0"]
 build-backend = "maturin"
 

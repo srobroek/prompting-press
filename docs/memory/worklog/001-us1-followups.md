@@ -87,6 +87,29 @@ deferred items routed to their owning spec, recorded so they survive across sess
 - **verify-tasks subagents (Step 10) failed twice** on an environment tool-channel glitch (0 tool uses,
   no output). Ran the phantom sweep on the main thread instead: 35/35 VERIFIED, 0 phantoms.
 
+## Phase 3 fix-findings — resolved, CI green (2026-06-26)
+
+- Two fresh-context reviews (code-review + security) found, between them, **0 critical, 4 HIGH, 6 medium**.
+  All triaged with the user and fixed in commit 109b56e. Key fixes:
+  - **H-1 (sec) hermetic CI** — THE important one: `ci.yml` gates job had NO dep-install step, so on a
+    clean checkout the TS codegen (imports from gitignored node_modules) failed → the freshness gate
+    would have been red on every real CI run. Added `pnpm --frozen-lockfile` + `uv sync --frozen`.
+  - **H-2 (sec) tool integrity** — cargo-typify now `--locked`; datamodel-code-generator + maturin moved
+    off pipx onto uv (hash-locked uv.lock); pipx pins removed from mise.toml. (maturin: resolved by uv at
+    wheel-build time in spec 004/007 — flagged.)
+  - **CR-H1** validate_fixtures.py fake-passed on empty fixture dirs (0/0 ALL PASS) → now errors.
+  - **CR-H2** codegen-check.sh: hardened with existence + `git ls-files --deleted` check. IMPORTANT
+    nuance discovered during integration-verify: via the MOON path, `:codegen` (a dep) regenerates a
+    deleted file before the check runs, so a deleted-then-identically-regenerated file passing is
+    CORRECT (no real drift), not a hole. The protection that matters is the direct/standalone path
+    (codegen broken/absent → file stays missing → fail), which works. Don't "fix" the moon-path pass.
+  - M-1 permissions:contents:read; M-2 cargo --locked; M-3 lint scope documented; +cosmetics.
+- **CI RESULT (commit 109b56e):** all 4 jobs GREEN — Build ubuntu/macos/**windows** + Gates(ubuntu).
+  Windows pyo3 abi3 link confirmed working via actions/setup-python (no build.rs Windows branch needed).
+- Lesson reinforced: the review GATE matters — agent B self-reported CR-H2 fixed, but integration
+  testing through the moon path showed the nuance its isolated test missed. Trust diffs + live runs,
+  not self-reports.
+
 ## Tooling bug observed (APM-upstream, logged not fixed)
 
 - `.claude/hooks/hooks-bash-safety/scripts/rm-rf-guard.sh` uses `;;&` (bash 4+ fall-through) on line 24

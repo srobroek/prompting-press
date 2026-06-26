@@ -50,12 +50,14 @@ re-running yields zero diff. Editing one schema field then regenerating changes 
 
 ```
 # FFI-isolation (FR-018): introduce a forbidden dep in a scratch branch
-cargo add pyo3 -p prompting-press-core    # then:
-moon run :check-ffi-isolation             # EXPECT: fail, cites Principle II / C-02
+cargo add pyo3 -p prompting-press-core         # then:
+mise exec -- moon run ci:check-ffi             # EXPECT: fail, cites Principle II / C-02
 
 # codegen-freshness (FR-019): hand-edit a generated file or edit schema without regen
-moon run :check-codegen-fresh             # EXPECT: fail (datamodel --check / git diff --exit-code)
+mise exec -- moon run schemas:codegen-check    # EXPECT: fail (git diff --exit-code over the 3 shapes)
 ```
+(As-implemented task names. The clean tree also passes `mise exec -- moon run ci:check-floating-versions`
+— the SEC-003 floating-version lint, and `schemas:check-schema` / `schemas:validate-fixtures` for US2.)
 Expected: clean tree passes both gates; each violation fails with a message naming the invariant and
 location (SC-004, SC-005). Revert the scratch change → green.
 

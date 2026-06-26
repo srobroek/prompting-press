@@ -4,7 +4,7 @@
 
 **Created**: 2026-06-25
 
-**Status**: Draft
+**Status**: Implemented (2026-06-26 — all 35 tasks shipped, Phase-3 QA complete, CI green)
 
 **Input**: Roadmap ledger entry 001 (`.specify/memory/roadmap.md`); constitution v1.0.0
 (`.specify/memory/constitution.md`); resolved scope (`docs/research/feature-scope.md`).

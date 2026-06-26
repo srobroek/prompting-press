@@ -14,10 +14,17 @@ packaged with [maturin](https://www.maturin.rs/).
 ```
 packages/python/
 ├── pyproject.toml                  # maturin build backend; points at the binding crate
+├── uv.lock                         # hash-locked codegen toolchain (dependency-group)
 ├── README.md
+├── scripts/
+│   └── codegen.sh                  # regenerates the Pydantic shape from the JSON Schema
 └── python/
     └── prompting_press/
-        └── __init__.py             # package marker (logic-free)
+        ├── __init__.py             # package marker (logic-free)
+        └── generated/              # codegen output — DO NOT EDIT (freshness-gated)
+            ├── __init__.py
+            ├── README.md
+            └── prompt_definition.py  # generated Pydantic v2 model
 ```
 
 The PyO3 binding crate lives outside this directory at
