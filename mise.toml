@@ -12,7 +12,10 @@ uv = "0.11.8"
 # (sets RUSTUP_TOOLCHAIN), so this pin must exist in-repo: RUSTUP_TOOLCHAIN overrides
 # rust-toolchain.toml in rustup precedence, so omitting it lets the global mise rust
 # version silently shadow the rust-toolchain.toml that T002 creates. Keep the two in lockstep.
-rust = "1.95.0"
+# `components` MUST be listed here: mise does NOT honor rust-toolchain.toml's components,
+# so without this a clean CI runner installs a bare toolchain and `:codegen`'s rustfmt
+# step fails ("rustfmt is not installed for 1.95.0"). Lockstep with rust-toolchain.toml.
+rust = { version = "1.95.0", components = "rustfmt,clippy" }
 
 # --- Package managers / orchestration ---
 "npm:@moonrepo/cli" = "2.2.3"   # moon
