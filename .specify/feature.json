@@ -1,1 +1,3 @@
-{"feature_directory":"specs/001-foundations"}
+{
+  "feature_directory": "specs/002-engine-kernel"
+}
