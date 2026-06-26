@@ -49,7 +49,7 @@ mise exec -- moon run :build
 |---|---|---|---|
 | V3.1 | `check(reg)` over a registry of well-formed prompts | pass (empty findings) | FR-016 |
 | V3.2 | a prompt whose template references a var not in `def.variables` | `Finding::UndeclaredVariable{prompt,variant,name}` | FR-016/017, **SC-004** |
-| V3.3 | an `untrusted`/`external` field used outside a declared guard position | `Finding::UntrustedOutsideGuard{prompt,field}` | FR-018, **SC-005** |
+| V3.3 | a prompt declaring an `untrusted`/`external` field with no guard configured (no `meta.guard`) | `Finding::UntrustedWithoutGuard{prompt,field}` | FR-018 (reframed F1), **SC-005** |
 | V3.4 | inspect inputs after `check` | registry/defs/inputs unchanged; nothing rendered | FR-019, SC-004 |
 | V3.5 | a multi-variant prompt | each variant's template analyzed against declared vars | FR-016 |
 
