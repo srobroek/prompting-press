@@ -110,6 +110,27 @@ deferred items routed to their owning spec, recorded so they survive across sess
   testing through the moon path showed the nuance its isolated test missed. Trust diffs + live runs,
   not self-reports.
 
+## Phase 3 close-out — second + third CI failures, both fixed (2026-06-26)
+
+- **Close-out commit (ffb5b48) failed CI on T029 codegen-freshness:** `rustfmt is not installed for
+  toolchain 1.95.0` on the Linux runner. ROOT CAUSE: mise's rust backend does NOT honor
+  `rust-toolchain.toml`'s `components` — a clean runner gets a bare toolchain, and the Rust `:codegen`
+  step (cargo-typify → rustfmt) fails. The EARLIER "green" run (109b56e) masked this because the Rust
+  `:codegen` task was a moon cache-hit (rustfmt never ran). The CR-M1 fix (adding scripts+mise.toml to
+  `:codegen` inputs) correctly invalidated the cache → codegen actually ran on CI → exposed the latent
+  bug. Good: the bug surfaced now, not silently later.
+- **FIX (9192cce):** `rust = { version = "1.95.0", components = "rustfmt,clippy" }` in mise.toml
+  (table form; verified via mise docs that this is the supported mechanism). Lockstep with
+  rust-toolchain.toml components. **CI then GREEN on all 4 jobs** (build ubuntu/macos/windows + gates).
+- LESSON: "green CI" must be read per-job AND with awareness that moon cache hits can hide a step that
+  never executed. A gate that's cache-hit isn't a gate that passed. The CR-M1 input-completeness fix
+  was load-bearing for catching this.
+
+## FINAL STATE (2026-06-26)
+- Spec 001: 35/35 tasks, all Phase-3 QA steps complete, **CI green (commit 9192cce)**, working tree clean.
+- Branch 001-foundations: 27 commits ahead of main, pushed. NOT yet merged to main / no PR opened.
+- Roadmap: 001 = implemented (v1.1.1). All 35 GitHub issues closed.
+
 ## Tooling bug observed (APM-upstream, logged not fixed)
 
 - `.claude/hooks/hooks-bash-safety/scripts/rm-rf-guard.sh` uses `;;&` (bash 4+ fall-through) on line 24
