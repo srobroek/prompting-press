@@ -23,6 +23,16 @@ pub mod generated;
 pub use generated::prompt_definition;
 pub use generated::prompt_definition::PromptDefinition;
 
+/// Structured kernel error type (`KernelError`); the consumer normalizes it to the
+/// common `[{field, code, message}]` shape (constitution C-06 / Principle VI).
+pub mod error;
+
+/// Engine construction: the canonical strict-undefined MiniJinja environment that
+/// every kernel operation renders and analyses against (research D1/D3, FR-001a/FR-002).
+pub mod engine;
+
+pub use error::KernelError;
+
 /// Returns the kernel's package version, sourced from Cargo at compile time.
 ///
 /// A trivial placeholder so the crate exposes a public symbol the consumer and

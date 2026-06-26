@@ -1,0 +1,9 @@
+{
+  "description": "Plain interpolation regression case (FR-001). Template body and the double-brace markers live HERE, in a JSON data file, NOT in a .rs source file, so a CI grep scanning Rust sources for forbidden template features or interpolation markers never matches the fixture corpus's own templates.",
+  "template": "Hello {{ name }}, today is {{ date }}.",
+  "values": {
+    "name": "Ada",
+    "date": "2026-06-26"
+  },
+  "expected": "Hello Ada, today is 2026-06-26."
+}

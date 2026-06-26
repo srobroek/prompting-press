@@ -1,0 +1,8 @@
+{
+  "description": "Conditional + loop regression case (FR-001). v1 template features are interpolation, conditionals, and loops only. Template source is data here, never inlined in Rust.",
+  "template": "{% if items %}Items:{% for item in items %}\n- {{ item }}{% endfor %}{% else %}No items.{% endif %}",
+  "values": {
+    "items": ["alpha", "beta", "gamma"]
+  },
+  "expected": "Items:\n- alpha\n- beta\n- gamma"
+}
