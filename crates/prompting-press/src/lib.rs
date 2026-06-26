@@ -8,9 +8,10 @@
 //! (constitution Principle II / C-02).
 //!
 //! Spec-003 build-out is in progress: the dependency edge onto the kernel is real, and the
-//! normalized error surface ([`error`]), prompt [`registry`], and the validate-then-render
-//! [`render`] path are now in place. The `check` / `compose` modules arrive in later phases
-//! (their module declarations are added as each file is created).
+//! normalized error surface ([`error`]), prompt [`registry`], the validate-then-render
+//! [`render`] path, and the agreement + provenance [`check`] lint are now in place. The
+//! `compose` module arrives in a later phase (its module declaration is added when the file
+//! is created).
 
 /// Re-export of the kernel, so consumers can reach core types through one entry point.
 pub use prompting_press_core as core;
@@ -38,12 +39,20 @@ pub mod registry;
 /// Validate-then-render + `get_source` wrappers over the kernel (FR-001..003a, FR-009/010).
 pub mod render;
 
+/// The agreement + provenance lint: a pure CI pass over the [`Registry`] that catches
+/// undeclared-variable references and untrusted-input-without-guard prompts (FR-016..020).
+pub mod check;
+
 pub use error::{ConsumerError, FieldError};
 pub use registry::Registry;
 
 /// Re-export the validate-then-render entry points at the crate root so applications reach
 /// them as `prompting_press::render` / `prompting_press::get_source`.
 pub use render::{get_source, render};
+
+/// Re-export the lint entry point + its report types at the crate root so applications reach
+/// them as `prompting_press::check` / `prompting_press::{CheckReport, Finding, FindingKind}`.
+pub use check::{check, CheckReport, Finding, FindingKind};
 
 /// Returns the underlying kernel version.
 ///

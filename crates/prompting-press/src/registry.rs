@@ -50,6 +50,17 @@ impl Registry {
         self.prompts.get(name)
     }
 
+    /// Iterate over `(name, definition)` pairs in **deterministic** (sorted-by-name) order.
+    ///
+    /// The registry is backed by a [`BTreeMap`], so iteration is sorted by prompt name. This
+    /// is the accessor [`check`](crate::check::check) walks to lint the whole collection
+    /// (FR-016): a stable iteration order is what makes the [`CheckReport`](crate::CheckReport)
+    /// findings order reproducible for a CI gate. It hands out only shared borrows, so a
+    /// caller cannot mutate the registry through it (supporting `check()`'s purity — FR-019).
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &PromptDefinition)> {
+        self.prompts.iter().map(|(name, def)| (name.as_str(), def))
+    }
+
     /// Load a prompt definition from an already-read **JSON** document (FR-005), insert it
     /// keyed by `name`, and return a reference to the inserted definition.
     ///
