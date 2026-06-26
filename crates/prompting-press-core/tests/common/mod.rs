@@ -17,7 +17,8 @@
 //! files this module reads at runtime. This module carries only loader logic and path
 //! strings; it contains no `{{ … }}` / `{% … %}` literals. See `tests/fixtures/README.md`.
 
-#![allow(dead_code)] // Harness API; individual helpers are exercised as later suites land.
+#![allow(dead_code)] // Shared harness: each tests/*.rs compiles as its own crate including this
+                     // module, so a helper used by only some suites reads as dead in the others.
 
 use std::path::PathBuf;
 
