@@ -18,6 +18,44 @@ RS="crates/prompting-press/src/generated/prompt_definition.rs"
 PY="packages/python/python/prompting_press/generated/prompt_definition.py"
 TS="packages/typescript/src/generated/prompt-definition.ts"
 
+# Assert every generated file EXISTS before checking for drift.
+#
+# Two distinct "missing" cases, both caught here:
+#  (a) Missing on disk RIGHT NOW. `git diff --exit-code` is blind to a
+#      deleted-but-still-indexed file (unstaged deletion → exit 0), so a plain
+#      diff would fake-pass. An explicit `[[ -f ]]` catches it.
+#  (b) Tracked-but-deleted vs HEAD even if :codegen later recreated it. NOTE:
+#      this script runs AFTER moon's `:codegen` dep, which regenerates the three
+#      files from the schema — so a file deleted before the run is normally
+#      back on disk by now, and case (a) alone would NOT fire. We therefore ALSO
+#      ask git whether any generated path is recorded as deleted relative to the
+#      index/HEAD (`git ls-files --deleted`), which is meaningful regardless of
+#      whether :codegen rematerialized identical bytes. Net: the gate fails on a
+#      genuinely-removed artifact, and passes only when all three are present
+#      (on disk and in git) AND byte-identical to commit.
+FAILED=()
+DELETED_TRACKED="$(git ls-files --deleted -- "${RS}" "${PY}" "${TS}" 2>/dev/null || true)"
+for f in "${RS}" "${PY}" "${TS}"; do
+  if [[ ! -f "${f}" ]]; then
+    FAILED+=("${f} (file missing on disk — not regenerated or accidentally deleted)")
+  elif printf '%s\n' "${DELETED_TRACKED}" | grep -qxF "${f}"; then
+    FAILED+=("${f} (tracked file recorded as deleted in git)")
+  fi
+done
+
+if [[ ${#FAILED[@]} -gt 0 ]]; then
+  echo ""
+  echo "ERROR: codegen-check FAILED — the following generated files are MISSING:"
+  for msg in "${FAILED[@]}"; do
+    echo "  - ${msg}"
+  done
+  echo ""
+  echo "Run: mise exec -- moon run :codegen"
+  echo "Then commit the updated generated files."
+  echo ""
+  exit 1
+fi
+
 # Register any newly-created (untracked) files so git diff can see them.
 git add -N "${RS}" "${PY}" "${TS}" 2>/dev/null || true
 

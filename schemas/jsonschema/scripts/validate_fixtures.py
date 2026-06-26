@@ -73,8 +73,11 @@ def validate_document(schema: dict, path: pathlib.Path) -> tuple[bool, str]:
 def check_dir(schema: dict, directory: pathlib.Path, expect_valid: bool) -> list[Result]:
     results: list[Result] = []
     files = sorted(directory.iterdir())
-    if not files:
-        print(f"  WARNING: no fixtures found in {directory}")
+    non_dir_files = [f for f in files if not f.is_dir()]
+    if not non_dir_files:
+        label = "valid" if expect_valid else "invalid"
+        print(f"  ERROR: no fixtures found in {directory} — at least one {label}/ fixture is required.")
+        sys.exit(1)
     for fixture in files:
         if fixture.is_dir():
             continue

@@ -1,7 +1,6 @@
 # Virtual workspace root for the shared Rust core + per-language binding crates.
 # No [package] here: this manifest defines only the workspace; member crates
-# (crates/*) are introduced in a later phase (US1) — empty members today is
-# intentional, so `cargo build` at the root will warn until crates exist.
+# live under crates/* and are active workspace members.
 
 [workspace]
 members = ["crates/*"]

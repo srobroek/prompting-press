@@ -18,11 +18,20 @@
 #   - Lockfiles (pnpm-lock.yaml, uv.lock) are intentionally EXCLUDED.
 #   - The check is for literal `^`, `~`, `"latest"`, and `"*"` as version values
 #     (e.g. `"^1.0.0"`, `~1`, `= "latest"`, version = "*").
+#   - Cargo crate dependencies use semver ranges (e.g. serde = "1" means ^1);
+#     they are pinned by Cargo.lock (the authoritative lock), NOT by this lint.
+#     This script does NOT enforce Cargo crate pinning — it only catches the
+#     explicit shorthand floats (^/~/latest/*) in npm/pipx/mise manifests.
 #
 # COMMENT STRIPPING (prevents false positives):
 #   TOML files (.toml) carry explanatory comments that legitimately reference the
 #   forbidden patterns (e.g. "# no floating "latest"/"^"/"~"/"*" per SEC-003").
-#   These comments are stripped before scanning. JSON has no comment syntax.
+#   Only FULL-LINE comments are stripped (lines whose first non-whitespace char
+#   is '#'). Inline / trailing comments are NOT stripped to avoid truncating
+#   legitimate values that contain ' #' (e.g. URLs with fragment anchors, git
+#   egg references). The SEC-003 explanatory comments that triggered the original
+#   false-positive are all full-line comments, so full-line stripping is both
+#   necessary and sufficient. JSON has no comment syntax.
 #
 # PORTABILITY NOTE:
 #   Uses grep -E (ERE), not grep -P (PCRE). -P is unreliable on BSD/ugrep
@@ -62,18 +71,19 @@ FAILED=()
 for manifest in "${MANIFESTS[@]}"; do
   [[ -f "${manifest}" ]] || continue
 
-  # Strip comments before scanning to avoid false positives from inline
-  # documentation that references the forbidden patterns (SEC-003 explanations,
-  # etc.). TOML comment syntax: '#' to end-of-line. JSON has no comments.
+  # Strip FULL-LINE comments before scanning to avoid false positives from
+  # documentation that references the forbidden patterns (SEC-003 explanations).
+  # TOML comment syntax: '#' to end-of-line. JSON has no comments.
   #
-  # The sed expression removes:
-  #   - Full-line comments      (^#...)
-  #   - Trailing inline comments (value  # comment)
-  # It is safe here because no version value in any in-scope manifest contains
-  # a literal '#' character.
+  # Only full-line comments (lines whose first non-whitespace char is '#') are
+  # removed. Inline/trailing comments are NOT stripped — removing whitespace-
+  # preceded '#' could truncate legitimate values that contain ' #' (e.g. a
+  # future `pkg @ git+https://host/repo.git#egg=x` or a URL fragment anchor).
+  # The SEC-003 explanatory comments that caused the original false-positive are
+  # all full-line comments, so this is both necessary and sufficient.
   case "${manifest}" in
     *.toml)
-      scan_content="$(sed -E 's/(^|[[:space:]])#.*$//' "${manifest}")"
+      scan_content="$(sed -E '/^[[:space:]]*#/d' "${manifest}")"
       ;;
     *)
       scan_content="$(cat "${manifest}")"
@@ -91,7 +101,10 @@ for manifest in "${MANIFESTS[@]}"; do
   trap "rm -f '${tmp_scan}'" EXIT
   printf '%s\n' "${scan_content}" > "${tmp_scan}"
 
-  # --- Pattern checks (grep -E, portable ERE) ---
+  # --- Pattern checks (grep -Eq, portable ERE, quiet — no stdout leak) ---
+  #
+  # grep -Eq returns exit status only; matching lines are NOT printed. The script
+  # builds its own FAILED[] summary, so we need only the boolean result.
   #
   # Patterns to detect:
   #   "^..."     — npm caret range in JSON
@@ -106,22 +119,22 @@ for manifest in "${MANIFESTS[@]}"; do
   #   >=x,<y     — bounded range (acceptable per SEC-003; maturin in pyproject.toml)
   #   ">=..."    — floor bound only (also acceptable)
 
-  if grep -En '"[\^~][^"]*"' "${tmp_scan}" 2>/dev/null; then
+  if grep -Eq '"[\^~][^"]*"' "${tmp_scan}" 2>/dev/null; then
     FAILED+=("${manifest}: caret or tilde range in JSON/TOML string")
   fi
-  if grep -En '"latest"' "${tmp_scan}" 2>/dev/null; then
+  if grep -Eq '"latest"' "${tmp_scan}" 2>/dev/null; then
     FAILED+=("${manifest}: literal 'latest' version")
   fi
-  if grep -En '"[*]"' "${tmp_scan}" 2>/dev/null; then
+  if grep -Eq '"[*]"' "${tmp_scan}" 2>/dev/null; then
     FAILED+=("${manifest}: wildcard '*' version in JSON")
   fi
   # TOML: version = "*"
-  if grep -En '=\s*"[*]"' "${tmp_scan}" 2>/dev/null; then
+  if grep -Eq '=\s*"[*]"' "${tmp_scan}" 2>/dev/null; then
     FAILED+=("${manifest}: wildcard '*' version in TOML")
   fi
   # TOML: version = "^x" or version = "~x"
   # (also caught by the first pattern for JSON, but explicit for TOML context)
-  if grep -En '=\s*"[\^~][^"]*"' "${tmp_scan}" 2>/dev/null; then
+  if grep -Eq '=\s*"[\^~][^"]*"' "${tmp_scan}" 2>/dev/null; then
     FAILED+=("${manifest}: caret or tilde range in TOML assignment")
   fi
 

@@ -2,7 +2,7 @@
 #
 # This module is code-generated from the single source of truth:
 #   schemas/jsonschema/prompt-definition.schema.json
-# by datamodel-code-generator (pinned via mise / packages/python uv.lock).
+# by datamodel-code-generator (pinned via packages/python/uv.lock, group codegen).
 #
 # Regenerate with: packages/python/scripts/codegen.sh  (re-run on schema change).
 # Hand edits are overwritten and will fail the US4 freshness gate. Edit the schema.

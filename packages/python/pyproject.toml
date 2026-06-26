@@ -39,9 +39,9 @@ Repository = "https://github.com/srobroek/prompting-press"
 # Build-time-only codegen toolchain (NOT a wheel runtime dep — runtime
 # `dependencies` above stays empty). PEP 735 dependency-group; locked with
 # integrity hashes in uv.lock, which is the SEC-001/002 supply-chain pin.
-# The version MUST match the mise.toml dev source of truth
-# ("pipx:datamodel-code-generator"); bump both together, then re-run `uv lock`.
-# CI install: `mise exec -- uv sync --group codegen --no-install-project`
+# This is the single source of truth for datamodel-code-generator version.
+# To upgrade: edit the specifier here, then run `uv lock --project packages/python`.
+# CI install: `uv sync --project packages/python --group codegen --no-install-project --frozen`
 # (then run packages/python/scripts/codegen.sh).
 codegen = ["datamodel-code-generator==0.65.1"]
 

@@ -16,6 +16,8 @@ tasks:
     command: 'bash packages/python/scripts/codegen.sh'
     inputs:
       - '/schemas/jsonschema/prompt-definition.schema.json'
+      - '/packages/python/scripts/codegen.sh'
+      - '/mise.toml'
     outputs:
       - '/packages/python/python/prompting_press/generated/prompt_definition.py'
     options:

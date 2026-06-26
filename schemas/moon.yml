@@ -15,14 +15,14 @@ workspace:
 tasks:
   check-schema:
     description: 'T016 — Assert prompt-definition.schema.json is a valid Draft 2020-12 document (FR-008).'
-    command: 'uv run --with jsonschema python3 jsonschema/scripts/meta_validate.py'
+    command: "uv run --with 'jsonschema==4.26.0' python3 jsonschema/scripts/meta_validate.py"
     inputs:
       - 'jsonschema/prompt-definition.schema.json'
       - 'jsonschema/scripts/meta_validate.py'
 
   validate-fixtures:
     description: 'T019 — Validate all fixtures/valid/ accept and fixtures/invalid/ reject (FR-013 / US2 gate).'
-    command: 'uv run --with jsonschema python3 jsonschema/scripts/validate_fixtures.py'
+    command: "uv run --with 'jsonschema==4.26.0' python3 jsonschema/scripts/validate_fixtures.py"
     deps:
       - 'check-schema'
     inputs:

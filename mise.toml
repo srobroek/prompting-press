@@ -20,8 +20,10 @@ rust = "1.95.0"
 jq = "1.8.1"
 
 # --- Codegen toolchain (research D1) ---
-"cargo:cargo-typify" = "0.7.0"                  # Rust JSON-Schema -> serde structs (T022/T025)
-"pipx:datamodel-code-generator" = "0.65.1"      # Python JSON-Schema -> Pydantic v2 (T020/T023)
-"pipx:maturin" = "1.14.1"                        # PyO3 cdylib -> Python wheel (T009 + Python build)
+"cargo:cargo-typify" = { version = "0.7.0", locked = true }  # Rust JSON-Schema -> serde structs (T022/T025); --locked pins transitive deps to cargo-typify's shipped Cargo.lock
+# datamodel-code-generator is managed via uv (packages/python/uv.lock, dependency-group codegen) — not pipx.
+# maturin is declared as a build-system requires in packages/python/pyproject.toml (>=1.14,<2.0);
+# the wheel build (spec 004/007) will resolve it via uv/build-system at that time.
+# Neither tool needs a pipx pin here; removing both eliminates the H-2 redundant/unverified mechanism.
 
 [tasks]

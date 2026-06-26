@@ -16,6 +16,8 @@ tasks:
     command: 'pnpm -C packages/typescript codegen'
     inputs:
       - '/schemas/jsonschema/prompt-definition.schema.json'
+      - '/packages/typescript/scripts/codegen.mjs'
+      - '/mise.toml'
     outputs:
       - '/packages/typescript/src/generated/prompt-definition.ts'
     options:

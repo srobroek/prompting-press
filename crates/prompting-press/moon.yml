@@ -9,6 +9,8 @@ tasks:
     command: 'bash crates/prompting-press/scripts/codegen.sh'
     inputs:
       - '/schemas/jsonschema/prompt-definition.schema.json'
+      - '/crates/prompting-press/scripts/codegen.sh'
+      - '/mise.toml'
     outputs:
       - '/crates/prompting-press/src/generated/prompt_definition.rs'
     options:

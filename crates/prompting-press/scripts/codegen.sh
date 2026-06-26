@@ -56,8 +56,22 @@ HEADER='// GENERATED FILE — DO NOT EDIT.
 
 # Scratch copy of the schema with ONLY the typify-incompatible validation key
 # removed. The on-disk schema is the source of truth and is left untouched.
-TMP_SCHEMA="$(mktemp -t pp-typify-schema.XXXXXX.json)"
-trap 'rm -f "${TMP_SCHEMA}"' EXIT
+#
+# mktemp portability note (L2): BSD/macOS mktemp does not substitute the
+# template suffix when an extension is appended after the X's (it appends it
+# literally). Use a plain XXXXXX template and rename the result with the
+# required extension to keep both uniqueness and the .json suffix for jq.
+TMP_SCHEMA_BASE="$(mktemp "${TMPDIR:-/tmp}/pp-typify.XXXXXX")"
+TMP_SCHEMA="${TMP_SCHEMA_BASE}.json"
+mv "${TMP_SCHEMA_BASE}" "${TMP_SCHEMA}"
+
+# Declare TMP_OUT here (before any EXIT trap is set) so the single trap below
+# covers both temporaries from the start, eliminating the one-line leak window
+# that existed when TMP_OUT was declared after the first trap (L3).
+TMP_OUT="${TMPDIR:-/tmp}/pp-typify-out.$$.rs"
+
+# Single cleanup trap covering all temporaries.
+trap 'rm -f "${TMP_SCHEMA}" "${TMP_OUT}"' EXIT
 
 mise exec -- jq 'del(.properties.variants.propertyNames)' "${SCHEMA}" > "${TMP_SCHEMA}"
 
@@ -80,8 +94,6 @@ mise exec -- rustfmt --edition 2021 "${OUT}"
 # Prepend the static header. typify's output begins with the `#![allow(...)]`
 # inner attributes; `//` line comments are legal before them, so the header goes
 # at the very top of the file.
-TMP_OUT="$(mktemp -t pp-typify-out.XXXXXX.rs)"
-trap 'rm -f "${TMP_SCHEMA}" "${TMP_OUT}"' EXIT
 {
   printf '%s\n\n' "${HEADER}"
   cat "${OUT}"

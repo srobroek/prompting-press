@@ -2,8 +2,10 @@
 # Global tasks inherited by every project in the workspace.
 # No inheritedBy condition → inherited by all projects unconditionally.
 #
-# NOTE: :codegen is NOT defined here yet (US3 will add it).
-# This file is the natural place to add it when the time comes.
+# NOTE: :codegen is defined per-project (crates/prompting-press/moon.yml,
+# packages/python/moon.yml, packages/typescript/moon.yml) because each crate/
+# package has a different codegen script and output path. It is intentionally
+# NOT a global inherited task.
 
 $schema: 'https://moonrepo.dev/schemas/tasks.json'
 

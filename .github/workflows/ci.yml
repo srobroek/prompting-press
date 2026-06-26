@@ -22,6 +22,11 @@ on:
   push:
   pull_request:
 
+# Least-privilege token: read-only repository access is sufficient for all gates
+# and build steps. No deployment or package publish occurs in this workflow.
+permissions:
+  contents: read
+
 jobs:
   # ---------------------------------------------------------------------------
   # gates — OS-independent structural-invariant checks (single runner)
@@ -38,6 +43,17 @@ jobs:
         uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac  # v2
         with:
           experimental: true
+
+      # Install TypeScript workspace deps so json-schema-to-typescript is present
+      # when schemas:codegen-check regenerates the TS shape. On a cold checkout
+      # node_modules is absent (gitignored); pnpm --frozen-lockfile is hermetic.
+      - name: 'Install TS deps (pnpm)'
+        run: mise exec -- pnpm -C packages/typescript install --frozen-lockfile
+
+      # Sync Python codegen toolchain from hash-pinned uv.lock (SEC-001/002).
+      # uv is available via mise (installed above). --frozen enforces lockfile integrity.
+      - name: 'Install Python codegen deps (uv)'
+        run: mise exec -- uv sync --project packages/python --group codegen --no-install-project --frozen
 
       # T030a — Floating-version lint (SEC-003)
       - name: 'T030a: Floating-version lint'
@@ -94,6 +110,6 @@ jobs:
           experimental: true
 
       - name: Build workspace
-        run: mise exec -- cargo build --workspace
+        run: mise exec -- cargo build --workspace --locked
         env:
           CARGO_TERM_COLOR: always
