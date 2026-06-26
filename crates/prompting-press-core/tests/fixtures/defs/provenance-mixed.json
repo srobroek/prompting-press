@@ -1,0 +1,22 @@
+{
+  "name": "provenance-mixed",
+  "role": "user",
+  "body": "Question: {{ q }}\nContext: {{ ctx }}\nSystem note: {{ sys }}",
+  "variables": {
+    "q": {
+      "type": "string",
+      "provenance": "untrusted",
+      "description": "The user's untrusted question."
+    },
+    "ctx": {
+      "type": "string",
+      "provenance": "external",
+      "description": "Externally-sourced context."
+    },
+    "sys": {
+      "type": "string",
+      "provenance": "trusted",
+      "description": "Trusted system-supplied note."
+    }
+  }
+}

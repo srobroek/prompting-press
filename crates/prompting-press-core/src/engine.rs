@@ -29,6 +29,7 @@
 use crate::error::KernelError;
 use crate::generated::prompt_definition::PromptDefinition;
 use crate::hashing::sha256_hex;
+use crate::provenance::{build_guard_text, provenance_view, GuardConfig};
 
 /// The reserved variant name that always resolves to the prompt's root `body`
 /// (FR-007/FR-010/FR-011). The generated shape does not encode this rule, so the kernel
@@ -106,20 +107,6 @@ pub fn get_source<'a>(
     Ok(resolve_variant(def, variant)?.source)
 }
 
-/// Per-render guard-expansion option (data-model §GuardConfig; FR-022..FR-025).
-///
-/// US1 always passes a disabled config (`enabled: false`), which produces no guard field
-/// and a body byte-identical to a plain render. The opt-in guard-text logic (naming the
-/// untrusted/external fields, default-vs-override template) is owned by US3; this minimal
-/// shape is the carrier US3 extends.
-#[derive(Debug, Clone)]
-pub struct GuardConfig {
-    /// When `false`, no guard field is produced and the render is a plain render.
-    pub enabled: bool,
-    /// Caller override of the guard instruction text; `None` ⇒ kernel default (US3).
-    pub template: Option<String>,
-}
-
 /// Render result + content-addressed provenance (data-model §RenderResult; FR-015).
 ///
 /// Plain data returned to the caller — no telemetry sink, no tracing coupling. There is
@@ -149,8 +136,12 @@ pub struct RenderResult {
 /// `(def, variant, values)` yields byte-identical `text` and equal hashes (FR-003,
 /// SC-001). The kernel is validation-blind and performs no I/O (FR-004/FR-005).
 ///
-/// The guard field is `None` for now: US1 only ever passes a disabled [`GuardConfig`],
-/// and the guard-text logic is owned by US3.
+/// Guard expansion is opt-in (US3, FR-022..FR-025): when `guard.enabled`, the result's
+/// [`RenderResult::guard`] carries an instruction *naming* the prompt's untrusted/external
+/// fields (computed by [`build_guard_text`] over [`provenance_view`]). It is a **separate**
+/// field — never concatenated into `text` — and is purely additive: enabling it does not
+/// change `text`, the template, or the values (FR-023, SC-005), and it never inspects or
+/// sanitizes a value (FR-025). When `!guard.enabled`, `guard` is `None`.
 ///
 /// # Errors
 /// - [`KernelError::UnknownVariant`] — `variant` names a non-existent arm (FR-009).
@@ -164,7 +155,7 @@ pub fn render(
     def: &PromptDefinition,
     variant: Option<&str>,
     values: minijinja::Value,
-    _guard: &GuardConfig,
+    guard: &GuardConfig,
 ) -> Result<RenderResult, KernelError> {
     let resolved = resolve_variant(def, variant)?;
 
@@ -181,14 +172,18 @@ pub fn render(
     let template_hash = sha256_hex(resolved.source);
     let render_hash = sha256_hex(&text);
 
+    // Opt-in, additive guard text — a SEPARATE field, computed from the declared
+    // provenance tags. `build_guard_text` returns `None` unless `guard.enabled` (and the
+    // untrusted∪external union is non-empty), and never touches `text`/values (FR-022..25).
+    let guard = build_guard_text(&provenance_view(def), guard);
+
     Ok(RenderResult {
         text,
         name: def.name.to_string(),
         variant: resolved.name,
         template_hash,
         render_hash,
-        // US1: guard expansion is never opted in; US3 wires real guard text here.
-        guard: None,
+        guard,
     })
 }
 

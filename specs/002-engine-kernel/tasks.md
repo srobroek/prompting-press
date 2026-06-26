@@ -131,14 +131,14 @@ pass-through unchanged.
 
 ### Tests for User Story 3 ⚠️ (write first, expect fail)
 
-- [ ] T027 [P] [US3] Provenance + guard tests in `crates/prompting-press-core/tests/provenance.rs`: V3.1 (`untrusted={q}`,`external={ctx}`), V3.2 (opt-out → `guard=None`, body == plain render), V3.3 (opt-in default → `guard=Some(...)` naming q,ctx; body byte-identical to plain render — SC-005), V3.4 (override template used), V3.5 (untrusted value unchanged — FR-025).
+- [X] T027 [P] [US3] Provenance + guard tests in `crates/prompting-press-core/tests/provenance.rs`: V3.1 (`untrusted={q}`,`external={ctx}`), V3.2 (opt-out → `guard=None`, body == plain render), V3.3 (opt-in default → `guard=Some(...)` naming q,ctx; body byte-identical to plain render — SC-005), V3.4 (override template used), V3.5 (untrusted value unchanged — FR-025).
 
 ### Implementation for User Story 3
 
-- [ ] T028 [P] [US3] Create `crates/prompting-press-core/src/provenance.rs`: `ProvenanceView { untrusted: BTreeSet<String>, external: BTreeSet<String> }` and `provenance_view(def) -> ProvenanceView` derived from `def.variables[*].provenance` (FR-021). Pure.
-- [ ] T029 [P] [US3] In `provenance.rs`, add `GuardConfig { enabled: bool, template: Option<String> }` + a kernel default guard template constant (FR-024) and a `build_guard_text(view, &GuardConfig) -> Option<String>` that names the union of untrusted+external fields (sorted → deterministic). Additive only; no value access (FR-023/025). DEFINE the override-template contract (analysis F5): a single `{fields}` placeholder is substituted with the comma-joined sorted field names (e.g. `q, ctx`); the substitution is plain string replacement (NOT MiniJinja rendering — the guard template is not a prompt template and must not re-enter the engine); if the override omits `{fields}`, the text is used verbatim (no error). Document this on `GuardConfig`/the default constant.
-- [ ] T030 [US3] Wire guard into `engine::render` (T019): when `guard.enabled`, set `RenderResult.guard = build_guard_text(provenance_view(def), guard)`; else `None`. Assert the rendered `text` is unaffected either way (separate field — FR-022, SC-005).
-- [ ] T031 [US3] Run `mise exec -- cargo test -p prompting-press-core --test provenance`; confirm T027 passes.
+- [X] T028 [P] [US3] Create `crates/prompting-press-core/src/provenance.rs`: `ProvenanceView { untrusted: BTreeSet<String>, external: BTreeSet<String> }` and `provenance_view(def) -> ProvenanceView` derived from `def.variables[*].provenance` (FR-021). Pure.
+- [X] T029 [P] [US3] In `provenance.rs`, add `GuardConfig { enabled: bool, template: Option<String> }` + a kernel default guard template constant (FR-024) and a `build_guard_text(view, &GuardConfig) -> Option<String>` that names the union of untrusted+external fields (sorted → deterministic). Additive only; no value access (FR-023/025). DEFINE the override-template contract (analysis F5): a single `{fields}` placeholder is substituted with the comma-joined sorted field names (e.g. `q, ctx`); the substitution is plain string replacement (NOT MiniJinja rendering — the guard template is not a prompt template and must not re-enter the engine); if the override omits `{fields}`, the text is used verbatim (no error). Document this on `GuardConfig`/the default constant.
+- [X] T030 [US3] Wire guard into `engine::render` (T019): when `guard.enabled`, set `RenderResult.guard = build_guard_text(provenance_view(def), guard)`; else `None`. Assert the rendered `text` is unaffected either way (separate field — FR-022, SC-005).
+- [X] T031 [US3] Run `mise exec -- cargo test -p prompting-press-core --test provenance`; confirm T027 passes.
 
 **Checkpoint**: All three stories independently functional.
 

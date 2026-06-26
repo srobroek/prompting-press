@@ -42,9 +42,17 @@ mod hashing;
 /// minus an env-derived globals allowlist (research D2, FR-016..FR-020).
 pub mod agreement;
 
+/// Provenance exposure + the opt-in, additive guard expansion (`provenance_view`,
+/// `ProvenanceView`, `GuardConfig`): surfaces the `untrusted`/`external` field tags and,
+/// when opted in per render, names them in a separate guard instruction (constitution
+/// Principle IV / C-09; research F5, FR-021..FR-025). Pure analysis; never mutates the
+/// template, values, or rendered body, and never inspects or sanitizes a value.
+pub mod provenance;
+
 pub use agreement::{required_roots, Agreement};
-pub use engine::{get_source, render, GuardConfig, RenderResult};
+pub use engine::{get_source, render, RenderResult};
 pub use error::KernelError;
+pub use provenance::{provenance_view, GuardConfig, ProvenanceView};
 
 /// Returns the kernel's package version, sourced from Cargo at compile time.
 ///

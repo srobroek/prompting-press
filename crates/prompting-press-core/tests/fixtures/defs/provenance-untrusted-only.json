@@ -1,0 +1,12 @@
+{
+  "name": "provenance-untrusted-only",
+  "role": "user",
+  "body": "{{ q }}",
+  "variables": {
+    "q": {
+      "type": "string",
+      "provenance": "untrusted",
+      "description": "A single untrusted input interpolated verbatim into the body."
+    }
+  }
+}
