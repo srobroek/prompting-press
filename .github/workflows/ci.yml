@@ -44,6 +44,18 @@ jobs:
         with:
           experimental: true
 
+      # Ensure the rust toolchain's components (rustfmt/clippy) are present.
+      # mise-action caches ~/.local/share/mise but NOT ~/.rustup, where rustup
+      # stores the toolchain + components. On a cache hit, `mise install`
+      # short-circuits ("all tools installed") and ~/.rustup is not restored, so
+      # rustfmt can be absent even though mise reports rust installed — which
+      # breaks the Rust :codegen step (rustfmt) that schemas:codegen-check runs.
+      # `rustup component add` is idempotent and targets the mise-active toolchain
+      # (RUSTUP_TOOLCHAIN=1.95.0). This is the robust fix for the cache-hit path;
+      # the mise.toml `components` pin covers the cache-miss / fresh-install path.
+      - name: 'Ensure rust components (rustfmt/clippy)'
+        run: mise exec -- rustup component add rustfmt clippy
+
       # Install TypeScript workspace deps so json-schema-to-typescript is present
       # when schemas:codegen-check regenerates the TS shape. On a cold checkout
       # node_modules is absent (gitignored); pnpm --frozen-lockfile is hermetic.
