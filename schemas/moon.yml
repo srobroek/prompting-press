@@ -1,0 +1,47 @@
+# schemas/moon.yml
+# Moon project for the JSON Schema artefacts and their validation tasks.
+# This is NOT a Rust crate — language is set to 'unknown' so moon does not
+# attempt Cargo integration. The tasks use ephemeral uv deps (no committed venv).
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+language: 'unknown'
+
+# Exclude the global all.yml tasks (build/test run `cargo …`, which is wrong for
+# this non-crate project and breaks the `:build`/`:test` fan-out — F-001).
+workspace:
+  inheritedTasks:
+    exclude: ['build', 'test']
+
+tasks:
+  check-schema:
+    description: 'T016 — Assert prompt-definition.schema.json is a valid Draft 2020-12 document (FR-008).'
+    command: "uv run --with 'jsonschema==4.26.0' python3 jsonschema/scripts/meta_validate.py"
+    inputs:
+      - 'jsonschema/prompt-definition.schema.json'
+      - 'jsonschema/scripts/meta_validate.py'
+
+  validate-fixtures:
+    description: 'T019 — Validate all fixtures/valid/ accept and fixtures/invalid/ reject (FR-013 / US2 gate).'
+    command: "uv run --with 'jsonschema==4.26.0' python3 jsonschema/scripts/validate_fixtures.py"
+    deps:
+      - 'check-schema'
+    inputs:
+      - 'jsonschema/prompt-definition.schema.json'
+      - 'jsonschema/scripts/validate_fixtures.py'
+      - 'jsonschema/fixtures/**/*'
+
+  codegen-check:
+    description: 'T027 — Determinism gate (SC-003): regenerate all three artifacts and assert git diff is clean.'
+    command: 'bash schemas/scripts/codegen-check.sh'
+    deps:
+      - 'prompting-press:codegen'
+      - 'prompting-press-python:codegen'
+      - 'prompting-press-typescript:codegen'
+    inputs:
+      - 'jsonschema/prompt-definition.schema.json'
+      - '/crates/prompting-press/src/generated/prompt_definition.rs'
+      - '/packages/python/python/prompting_press/generated/prompt_definition.py'
+      - '/packages/typescript/src/generated/prompt-definition.ts'
+    options:
+      runFromWorkspaceRoot: true
+      cache: false

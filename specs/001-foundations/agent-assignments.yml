@@ -1,0 +1,131 @@
+# Agent Assignments
+# Feature: 001-foundations — Layout, Schema, Codegen, CI Guardrails
+# Generated: 2026-06-25T13:23:17Z
+# Command: /speckit.agent-assign.assign
+
+agents_scanned:
+  - name: "rust-pro"
+    source: "project"
+    description: "Rust 1.75+ specialist — workspaces, crates, async, systems programming"
+  - name: "python-pro"
+    source: "project"
+    description: "Python 3.12+ specialist — uv, ruff, pydantic, packaging"
+  - name: "typescript-pro"
+    source: "project"
+    description: "TypeScript specialist — advanced types, tooling, packaging"
+  - name: "golang-pro"
+    source: "project"
+    description: "Go 1.21+ specialist (not used — Go is reserved-only in spec 001)"
+  - name: "backend-architect"
+    source: "project"
+    description: "API/contract/schema design specialist"
+  - name: "coder"
+    source: "user"
+    description: "General implementation subagent for bounded changes, build glue, CI"
+
+assignments:
+  T001:
+    agent: "rust-pro"
+    reason: "Root Cargo virtual workspace manifest (resolver=2, workspace.package/dependencies)"
+  T002:
+    agent: "rust-pro"
+    reason: "rust-toolchain.toml pinning explicit stable channel for codegen determinism"
+  T003:
+    agent: "default"
+    reason: "General housekeeping — .gitignore for the new polyglot layout"
+  T004:
+    agent: "default"
+    reason: "Remove bootstrap flat skeleton; auditable reorg, no specialist logic"
+  T005:
+    agent: "rust-pro"
+    reason: "prompting-press-core kernel crate stub (FFI-free library)"
+  T006:
+    agent: "rust-pro"
+    reason: "prompting-press consumer crate stub depending on core"
+  T007:
+    agent: "rust-pro"
+    reason: "prompting-press-py cdylib binding crate (pyo3) — Rust crate authoring"
+  T008:
+    agent: "rust-pro"
+    reason: "prompting-press-node cdylib binding crate (napi) — Rust crate authoring"
+  T009:
+    agent: "python-pro"
+    reason: "packages/python skeleton — pyproject.toml + maturin config; verify maturin"
+  T010:
+    agent: "typescript-pro"
+    reason: "packages/typescript skeleton — package.json + napi-rs CLI config; verify CLI"
+  T011:
+    agent: "default"
+    reason: "packages/go reserved marker README only; no toolchain"
+  T012:
+    agent: "rust-pro"
+    reason: "Add 4 crates to workspace members; confirm packages/go excluded"
+  T013:
+    agent: "coder"
+    reason: "moon project/task wiring (:build, :test); replace bootstrap workspace.yml globs"
+  T014:
+    agent: "rust-pro"
+    reason: "Layout verification via moon build + cargo tree FFI-absence confirmation"
+  T015:
+    agent: "backend-architect"
+    reason: "Authoritative prompt-definition JSON Schema — the single source of truth / data contract"
+  T016:
+    agent: "coder"
+    reason: "Schema meta-validation check as a moon task"
+  T017:
+    agent: "coder"
+    reason: "Well-formed (accept) schema fixtures"
+  T018:
+    agent: "coder"
+    reason: "Malformed (reject) schema fixtures"
+  T019:
+    agent: "coder"
+    reason: "Fixtures-validation moon task (US2 acceptance gate)"
+  T020:
+    agent: "python-pro"
+    reason: "Pin datamodel-code-generator with determinism flags + hash-pin (Python tooling)"
+  T021:
+    agent: "typescript-pro"
+    reason: "Pin json-schema-to-typescript + Prettier; commit lockfile (TS tooling)"
+  T022:
+    agent: "rust-pro"
+    reason: "Pin cargo-typify --locked, CLI mode; verify serde/enum output (Rust tooling)"
+  T023:
+    agent: "python-pro"
+    reason: "Generate Python Pydantic v2 shape into marked-generated path"
+  T024:
+    agent: "typescript-pro"
+    reason: "Generate TS type shape into marked-generated path"
+  T025:
+    agent: "rust-pro"
+    reason: "Generate Rust serde struct into generated module re-exported by lib.rs"
+  T026:
+    agent: "coder"
+    reason: "moon :codegen orchestration; wire :codegen before :build; commit artifacts"
+  T027:
+    agent: "coder"
+    reason: "Determinism verification (re-run no-diff; field-change propagation)"
+  T028:
+    agent: "rust-pro"
+    reason: "FFI-isolation CI gate via cargo tree -i pyo3/napi over explicit crate list"
+  T029:
+    agent: "coder"
+    reason: "Codegen-freshness CI gate (datamodel-codegen --check + git diff across 3 shapes)"
+  T030:
+    agent: "coder"
+    reason: "Add schema + fixtures checks to CI workflow"
+  T030a:
+    agent: "coder"
+    reason: "Floating-version lint in CI; pin mise.toml jq"
+  T031:
+    agent: "coder"
+    reason: "Gate-behavior verification in scratch branch (FFI + freshness fail/recover)"
+  T032:
+    agent: "default"
+    reason: "Per-package README skeletons noting generated dirs"
+  T033:
+    agent: "coder"
+    reason: "End-to-end quickstart validation + auditable negative-scope checklist (SC-001..007)"
+  T034:
+    agent: "default"
+    reason: "Update roadmap ledger (in-progress -> implemented) after T033"

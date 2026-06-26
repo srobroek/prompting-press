@@ -1,0 +1,24 @@
+# moon.yml for prompting-press-typescript
+# This is the packages/typescript project. Language is 'typescript'; the global
+# all.yml tasks (cargo build/test) are excluded — they are Rust-only and
+# would fail here.
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+language: 'typescript'
+
+workspace:
+  inheritedTasks:
+    exclude: ['build', 'test']
+
+tasks:
+  codegen:
+    description: 'T026 — Regenerate TypeScript types from JSON Schema (FR-016).'
+    command: 'pnpm -C packages/typescript codegen'
+    inputs:
+      - '/schemas/jsonschema/prompt-definition.schema.json'
+      - '/packages/typescript/scripts/codegen.mjs'
+      - '/mise.toml'
+    outputs:
+      - '/packages/typescript/src/generated/prompt-definition.ts'
+    options:
+      runFromWorkspaceRoot: true

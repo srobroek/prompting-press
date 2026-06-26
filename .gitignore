@@ -300,3 +300,47 @@ apm_modules/
 !.serena/project.yml
 .serena/project.local.yml
 .serena/memories/
+
+# memory-md: generated SQLite cache (regenerable; not committed)
+.spec-kit-memory/
+
+###--------------------------------------------###
+###  Prompting Press: polyglot build artifacts  ###
+###--------------------------------------------###
+# NOTE: committed *generated code shapes* (codegen output under packages/*/**/generated/
+# and crates/*/src/generated/) are TRACKED on purpose — they are freshness-gated in CI,
+# not ignored. Only build/compile/dependency output is ignored below.
+
+# Rust / Cargo
+/target/
+crates/*/target/
+**/*.rs.bk
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+packages/python/.venv/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node / TypeScript
+node_modules/
+packages/*/node_modules/
+*.tsbuildinfo
+.npm/
+
+# maturin / napi-rs native build output (compiled artifacts, not the wrappers)
+*.so
+*.dylib
+*.pyd
+*.node
+
+# moon: local task cache (regenerable; never committed). Config under .moon/*.yml
+# and .moon/tasks/ IS tracked — only the cache dir is ignored.
+.moon/cache/
+.moon/docker/

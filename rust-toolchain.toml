@@ -1,0 +1,10 @@
+# Explicit (non-floating) toolchain pin. Codegen determinism: cargo-typify +
+# rustfmt output must be byte-stable across machines, so the rustfmt version is
+# fixed by pinning the whole toolchain — a floating "stable" channel would drift
+# rustfmt formatting and break the codegen-freshness CI gate (research D1/D4).
+# MUST stay in lockstep with mise.toml (rust = "1.95.0") and Cargo.toml rust-version.
+
+[toolchain]
+channel = "1.95.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

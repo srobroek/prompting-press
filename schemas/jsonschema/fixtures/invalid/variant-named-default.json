@@ -1,0 +1,10 @@
+{
+  "name": "variant-named-default-example",
+  "role": "system",
+  "body": "You are a helpful assistant.",
+  "variants": {
+    "default": {
+      "body": "A variants entry named 'default' MUST be rejected (FR-011b): it collides with the structural default arm."
+    }
+  }
+}

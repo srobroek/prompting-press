@@ -1,0 +1,20 @@
+# prompting-press-core — the FFI-free engine kernel (constitution Principle II / C-02).
+# This crate MUST NOT depend on pyo3 or napi, directly or transitively. A CI gate
+# (`cargo tree -i pyo3` / `-i napi`) enforces that isolation.
+
+[package]
+name = "prompting-press-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "FFI-free engine kernel for Prompting Press: typed, versioned, variant-aware prompt templates."
+
+# Default library crate-type (rlib): linked into the Rust consumer and binding crates.
+[lib]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

@@ -1,0 +1,21 @@
+# moon.yml for prompting-press
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+language: 'rust'
+
+tasks:
+  codegen:
+    description: 'T026 — Regenerate Rust types from JSON Schema (FR-016).'
+    command: 'bash crates/prompting-press/scripts/codegen.sh'
+    inputs:
+      - '/schemas/jsonschema/prompt-definition.schema.json'
+      - '/crates/prompting-press/scripts/codegen.sh'
+      - '/mise.toml'
+    outputs:
+      - '/crates/prompting-press/src/generated/prompt_definition.rs'
+    options:
+      runFromWorkspaceRoot: true
+
+  build:
+    deps:
+      - 'codegen'

@@ -1,0 +1,38 @@
+{
+  // Minimal strict TS config for the Prompting Press Node wrapper skeleton.
+  // Logic-free in spec 001: this exists so `tsc` can later type-check the thin
+  // wrapper and emit `.d.ts` declarations alongside the napi-generated binding.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+
+    // Type safety: strict everything.
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // Declaration emit (the wrapper publishes `.d.ts` types for consumers).
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+
+    // Interop / module hygiene.
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true
+  },
+  // Spec 001 ships no hand-written runtime code, but it DOES commit the
+  // code-generated type shape under `src/generated/` (constitution C-07,
+  // FR-016). Type-checking that file under this strict config is the local
+  // proof the committed generated TS is valid (US4 freshness gate). The thin
+  // wrapper source lands in a later spec and will widen `include` then.
+  "include": ["src/generated/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

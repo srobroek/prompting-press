@@ -1,8 +1,13 @@
+# .moon/workspace.yml
+# Explicit project map — no globs, so no stray directories are swept in.
+# packages/go is intentionally absent: it is a reserved placeholder (FR-005)
+# and has no toolchain or build artifacts.
 projects:
-  - "apps/*"
-  - "services/*"
-  - "functions/*/*"
-  - "workers/*/*"
-  - "libs/*"
-  - "packages/*"
-  - "tools/*"
+  prompting-press-core: "crates/prompting-press-core"
+  prompting-press: "crates/prompting-press"
+  prompting-press-py: "crates/prompting-press-py"
+  prompting-press-node: "crates/prompting-press-node"
+  schemas: "schemas"
+  prompting-press-python: "packages/python"
+  prompting-press-typescript: "packages/typescript"
+  ci: "ci"                         # US4 CI gate tasks (T028, T030a)

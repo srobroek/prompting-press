@@ -1,0 +1,42 @@
+{
+  "name": "prompting-press",
+  "version": "0.0.0",
+  "description": "Node.js distribution of Prompting Press — a thin wrapper around the Rust napi-rs binding crate (crates/prompting-press-node). Skeleton only: no runtime code ships in spec 001.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "author": "Sjors Robroek",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/srobroek/prompting-press.git",
+    "directory": "packages/typescript"
+  },
+  "private": true,
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "*.node"
+  ],
+  "napi": {
+    "binaryName": "prompting-press",
+    "packageName": "prompting-press"
+  },
+  "scripts": {
+    "build": "napi build --release --platform --esm --manifest-path ../../crates/prompting-press-node/Cargo.toml --output-dir .",
+    "build:debug": "napi build --platform --esm --manifest-path ../../crates/prompting-press-node/Cargo.toml --output-dir .",
+    "codegen": "node ./scripts/codegen.mjs",
+    "prepublishOnly": "napi prepublish -t npm"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@napi-rs/cli": "3.7.2",
+    "json-schema-to-typescript": "15.0.4",
+    "prettier": "3.8.4",
+    "typescript": "5.9.2"
+  }
+}

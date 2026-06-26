@@ -1,0 +1,5 @@
+# moon.yml for prompting-press-core
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+language: 'rust'
+

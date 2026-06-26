@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prompting-press.dev/schemas/prompt-definition.schema.json",
+  "title": "PromptDefinition",
+  "description": "Design contract for spec 001. The single source of truth for a prompt's shape; per-language shapes (Pydantic v2 / TS types / Rust serde structs) are code-generated from this. Spec 001 authors and generates this; it does NOT consume it (no rendering/validation/resolution — specs 002+). The implementation copy lives at schemas/jsonschema/.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "role", "body"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Logical prompt name; the caller's reference key."
+    },
+    "role": {
+      "type": "string",
+      "enum": ["system", "user", "assistant"],
+      "description": "Conversational role; first-class metadata the caller reads. Shared across all variants."
+    },
+    "body": {
+      "type": "string",
+      "description": "The DEFAULT variant's template source. The root body IS the default arm (FR-011); surfaced under reserved name 'default' with is_default=true."
+    },
+    "variables": {
+      "type": "object",
+      "description": "Declared input variables, shared across all variants. Rich enough to generate-then-extend a typed Vars model in a later spec.",
+      "additionalProperties": { "$ref": "#/$defs/VariableDecl" },
+      "default": {}
+    },
+    "variants": {
+      "type": "object",
+      "description": "Named alternative arms. Absent => the prompt has only the default (root body) arm. Each arm differs ONLY in body (+ optional opaque meta).",
+      "additionalProperties": { "$ref": "#/$defs/Variant" },
+      "propertyNames": {
+        "not": { "const": "default" },
+        "description": "A variants entry named 'default' is rejected (FR-011b): it collides with the structural default arm (the root body)."
+      }
+    },
+    "output_model": {
+      "type": "string",
+      "description": "Optional OPAQUE reference to the caller's output model (e.g. 'NodeOutput'). Stored and echoed; never resolved, loaded, or parsed (Principle III). Shared across variants."
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Arbitrary prompt-level metadata; library-OPAQUE (may include uninterpreted model/param hints). Never interpreted by the library.",
+      "additionalProperties": true
+    },
+    "meta": {
+      "type": "object",
+      "description": "The default (root) arm's selection metadata; library-opaque (weight, group, tags, ...). Symmetric with Variant.meta.",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "VariableDecl": {
+      "type": "object",
+      "description": "A declared input variable: type + provenance + optional JSON-Schema validation constraints (carried for generate-then-extend).",
+      "required": ["type", "provenance"],
+      "properties": {
+        "type": {
+          "oneOf": [
+            { "type": "string", "enum": ["string", "integer", "number", "boolean", "array", "object"] },
+            { "type": "array", "items": { "type": "string", "enum": ["string", "integer", "number", "boolean", "array", "object", "null"] } }
+          ],
+          "description": "JSON-Schema type keyword(s) for the variable."
+        },
+        "provenance": {
+          "type": "string",
+          "enum": ["trusted", "untrusted", "external"],
+          "description": "Per-field provenance tag (FR-010a). DECLARATIVE METADATA ONLY — there is NO runtime enforcement of this tag in the current library version; it is not a security guard by itself. Untrusted-input guarding (the opt-in, additive guard expansion + lint) is introduced in a later spec per roadmap decision C-09 (deriving from constitution Principle IV). Do not assume the library protects `untrusted`/`external` fields until that version."
+        },
+        "format": { "type": "string" },
+        "pattern": { "type": "string" },
+        "enum": { "type": "array" },
+        "minimum": { "type": "number" },
+        "maximum": { "type": "number" },
+        "minLength": { "type": "integer", "minimum": 0 },
+        "maxLength": { "type": "integer", "minimum": 0 },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "Variant": {
+      "type": "object",
+      "description": "A named alternative arm. May carry ONLY body and meta; redefining role/variables/output_model is rejected (FR-011a).",
+      "required": ["body"],
+      "properties": {
+        "body": {
+          "type": "string",
+          "description": "The variant's template source — the only field that differs per variant."
+        },
+        "meta": {
+          "type": "object",
+          "description": "Library-OPAQUE selection metadata (weight, group, tags, ...). Stored + exposed; never interpreted by the library (caller selects). No schema-enforced selection semantics (FR-011c).",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,29 @@
+# prompting-press-py — the PyO3 binding (FR-003).
+# One of exactly two crates allowed to depend on an FFI toolkit. `pyo3` lives here
+# and MUST NOT leak into the kernel or the Rust consumer (constitution Principle II /
+# C-02), which is why those crates are entered through their own path deps below.
+
+[package]
+name = "prompting-press-py"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Python binding (PyO3) for Prompting Press."
+
+# cdylib: the artifact loaded by the Python interpreter as a native extension module.
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+prompting-press-core = { path = "../prompting-press-core" }
+prompting-press = { path = "../prompting-press" }
+
+# `extension-module` keeps the build from linking libpython, so `cargo check`/`build`
+# succeed without a Python development environment. `abi3-py39` targets the stable
+# ABI (one wheel across CPython >= 3.9), which is the intended distribution shape.
+[dependencies.pyo3]
+version = "0.29"
+features = ["extension-module", "abi3-py39"]

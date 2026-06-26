@@ -1,0 +1,32 @@
+# moon.yml for the `ci` project — workspace-level CI gate tasks.
+#
+# These tasks enforce structural invariants from the constitution and are
+# intentionally language-agnostic (no Rust/Python/Node toolchain needed for the
+# checks themselves). They are the authoritative locally-runnable gates that the
+# GitHub Actions workflow calls via `mise exec -- moon run ...`.
+#
+# Do not inherit the global all.yml tasks (cargo build/test are wrong here).
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+language: 'unknown'
+
+# Exclude the global all.yml tasks (cargo build/test are Rust-only and break the
+# `:build`/`:test` fan-out on this non-crate project — F-001).
+workspace:
+  inheritedTasks:
+    exclude: ['build', 'test']
+
+tasks:
+  check-ffi:
+    description: 'T028 — Assert pyo3/napi are absent from FFI-free crates (FR-018, FR-020; Principle II / C-02).'
+    command: 'bash scripts/ci/check-ffi-isolation.sh'
+    options:
+      runFromWorkspaceRoot: true
+      cache: false
+
+  check-floating-versions:
+    description: 'T030a — Lint manifests for floating version specifiers (^, ~, latest, *) per SEC-003.'
+    command: 'bash scripts/ci/check-floating-versions.sh'
+    options:
+      runFromWorkspaceRoot: true
+      cache: false

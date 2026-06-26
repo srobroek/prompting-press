@@ -1,0 +1,63 @@
+# Published Python package: a thin wrapper around the PyO3 binding crate
+# `crates/prompting-press-py/` (a cdylib). Built with maturin.
+#
+# SKELETON ONLY (spec 001 / FR-004): this wires the build backend and points it
+# at the binding crate. No runtime logic ships here — the importable module is
+# the compiled Rust extension, materialized once the crate (US1) and codegen
+# (US3) land. Until then there is nothing to publish (version 0.0.0).
+
+[build-system]
+# maturin is the PyO3 packaging standard (research D1). The `>=1.14,<2.0`
+# bound is the conventional, recommended form for build-system requires and is
+# acceptable under the no-floating-versions rule (SEC-003), which targets the
+# `^`/`~`/`"latest"`/`"*"` shorthands — not explicit bounded ranges. maturin is
+# intentionally NOT pinned in mise.toml (removed per security finding H-2); it is
+# resolved by uv / the build backend from this bound when the wheel is built
+# (spec 004/007). No maturin build runs in spec 001.
+requires = ["maturin>=1.14,<2.0"]
+build-backend = "maturin"
+
+[project]
+# `prompting-press` is the PyPI distribution name. The importable module is
+# `prompting_press` (see [tool.maturin].module-name).
+name = "prompting-press"
+version = "0.0.0" # pre-release: nothing is published in spec 001
+description = "Python distribution of Prompting Press — a thin wrapper around the Rust core via PyO3."
+readme = "README.md"
+# Pydantic v2 target floor (US3 generates Pydantic v2 models). Decoupled from the
+# repo's pinned dev runtime (mise.toml python = 3.14.4) on purpose: the published
+# wheel must support the broader supported-Python range, not just the dev pin.
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Sjors Robroek" }]
+# Intentionally empty: no runtime logic yet. Pydantic and friends arrive with the
+# generated models in US3.
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/srobroek/prompting-press"
+
+[dependency-groups]
+# Build-time-only codegen toolchain (NOT a wheel runtime dep — runtime
+# `dependencies` above stays empty). PEP 735 dependency-group; locked with
+# integrity hashes in uv.lock, which is the SEC-001/002 supply-chain pin.
+# This is the single source of truth for datamodel-code-generator version.
+# To upgrade: edit the specifier here, then run `uv lock --project packages/python`.
+# CI install: `uv sync --project packages/python --group codegen --no-install-project --frozen`
+# (then run packages/python/scripts/codegen.sh).
+codegen = ["datamodel-code-generator==0.65.1"]
+
+[tool.maturin]
+# The binding crate lives OUTSIDE this package dir, at the repo's
+# `crates/prompting-press-py/` (workspace member). Reference it explicitly.
+# NOTE: this path is materialized by US1 (crate stubs, tasks T005–T008); this
+# skeleton task (T009) is [P] and intentionally lands before the crate exists.
+manifest-path = "../../crates/prompting-press-py/Cargo.toml"
+# The importable Python module name (distinct from the PyPI dist name above).
+module-name = "prompting_press"
+# Build as a CPython extension module (the PyO3 standard for embeddable wheels).
+features = ["pyo3/extension-module"]
+# Mixed Rust/Python layout: Python-side sources live under `python/`, so the
+# compiled extension and any future generated Python (US3 Pydantic models) share
+# one importable package. See `python/prompting_press/__init__.py`.
+python-source = "python"

@@ -16,6 +16,9 @@
         ],
         "zed": [
           "speckit.agent-context.update"
+        ],
+        "claude": [
+          "speckit.agent-context.update"
         ]
       },
       "registered_skills": [],
@@ -35,6 +38,9 @@
           "speckit.archive.run"
         ],
         "zed": [
+          "speckit.archive.run"
+        ],
+        "claude": [
           "speckit.archive.run"
         ]
       },
@@ -65,6 +71,12 @@
           "speckit.brownfield.bootstrap",
           "speckit.brownfield.validate",
           "speckit.brownfield.migrate"
+        ],
+        "claude": [
+          "speckit.brownfield.scan",
+          "speckit.brownfield.bootstrap",
+          "speckit.brownfield.validate",
+          "speckit.brownfield.migrate"
         ]
       },
       "registered_skills": [],
@@ -91,6 +103,11 @@
           "speckit.bugfix.report",
           "speckit.bugfix.patch",
           "speckit.bugfix.verify"
+        ],
+        "claude": [
+          "speckit.bugfix.report",
+          "speckit.bugfix.patch",
+          "speckit.bugfix.verify"
         ]
       },
       "registered_skills": [],
@@ -110,6 +127,9 @@
           "speckit.checkpoint.commit"
         ],
         "zed": [
+          "speckit.checkpoint.commit"
+        ],
+        "claude": [
           "speckit.checkpoint.commit"
         ]
       },
@@ -134,6 +154,10 @@
         "zed": [
           "speckit.cleanup.run",
           "speckit.cleanup"
+        ],
+        "claude": [
+          "speckit.cleanup.run",
+          "speckit.cleanup"
         ]
       },
       "registered_skills": [],
@@ -154,6 +178,9 @@
         ],
         "zed": [
           "speckit.conduct.run"
+        ],
+        "claude": [
+          "speckit.conduct.run"
         ]
       },
       "registered_skills": [],
@@ -173,6 +200,9 @@
           "speckit.critique.run"
         ],
         "zed": [
+          "speckit.critique.run"
+        ],
+        "claude": [
           "speckit.critique.run"
         ]
       },
@@ -200,6 +230,11 @@
           "speckit.diagram.workflow",
           "speckit.diagram.status",
           "speckit.diagram.dependencies"
+        ],
+        "claude": [
+          "speckit.diagram.workflow",
+          "speckit.diagram.status",
+          "speckit.diagram.dependencies"
         ]
       },
       "registered_skills": [],
@@ -221,6 +256,10 @@
           "speckit.doctor"
         ],
         "zed": [
+          "speckit.doctor.check",
+          "speckit.doctor"
+        ],
+        "claude": [
           "speckit.doctor.check",
           "speckit.doctor"
         ]
@@ -246,6 +285,10 @@
         "zed": [
           "speckit.fix-findings.run",
           "speckit.fix-findings"
+        ],
+        "claude": [
+          "speckit.fix-findings.run",
+          "speckit.fix-findings"
         ]
       },
       "registered_skills": [],
@@ -267,6 +310,10 @@
           "speckit.fleet.review"
         ],
         "zed": [
+          "speckit.fleet.run",
+          "speckit.fleet.review"
+        ],
+        "claude": [
           "speckit.fleet.run",
           "speckit.fleet.review"
         ]
@@ -295,6 +342,11 @@
           "speckit.github-issues.import",
           "speckit.github-issues.sync",
           "speckit.github-issues.link"
+        ],
+        "claude": [
+          "speckit.github-issues.import",
+          "speckit.github-issues.sync",
+          "speckit.github-issues.link"
         ]
       },
       "registered_skills": [],
@@ -316,6 +368,10 @@
           "speckit.iterate.apply"
         ],
         "zed": [
+          "speckit.iterate.define",
+          "speckit.iterate.apply"
+        ],
+        "claude": [
           "speckit.iterate.define",
           "speckit.iterate.apply"
         ]
@@ -356,6 +412,15 @@
           "speckit.onboard.badge",
           "speckit.onboard.mentor",
           "speckit.onboard.team"
+        ],
+        "claude": [
+          "speckit.onboard.start",
+          "speckit.onboard.explain",
+          "speckit.onboard.trail",
+          "speckit.onboard.quiz",
+          "speckit.onboard.badge",
+          "speckit.onboard.mentor",
+          "speckit.onboard.team"
         ]
       },
       "registered_skills": [],
@@ -382,6 +447,11 @@
           "speckit.optimize.run",
           "speckit.optimize.tokens",
           "speckit.optimize.learn"
+        ],
+        "claude": [
+          "speckit.optimize.run",
+          "speckit.optimize.tokens",
+          "speckit.optimize.learn"
         ]
       },
       "registered_skills": [],
@@ -402,6 +472,9 @@
         ],
         "zed": [
           "speckit.qa.run"
+        ],
+        "claude": [
+          "speckit.qa.run"
         ]
       },
       "registered_skills": [],
@@ -421,6 +494,9 @@
           "speckit.reconcile.run"
         ],
         "zed": [
+          "speckit.reconcile.run"
+        ],
+        "claude": [
           "speckit.reconcile.run"
         ]
       },
@@ -451,6 +527,12 @@
           "speckit.refine.propagate",
           "speckit.refine.diff",
           "speckit.refine.status"
+        ],
+        "claude": [
+          "speckit.refine.update",
+          "speckit.refine.propagate",
+          "speckit.refine.diff",
+          "speckit.refine.status"
         ]
       },
       "registered_skills": [],
@@ -470,6 +552,9 @@
           "speckit.retro.run"
         ],
         "zed": [
+          "speckit.retro.run"
+        ],
+        "claude": [
           "speckit.retro.run"
         ]
       },
@@ -502,6 +587,15 @@
           "speckit.review.simplify"
         ],
         "zed": [
+          "speckit.review.run",
+          "speckit.review.code",
+          "speckit.review.comments",
+          "speckit.review.tests",
+          "speckit.review.errors",
+          "speckit.review.types",
+          "speckit.review.simplify"
+        ],
+        "claude": [
           "speckit.review.run",
           "speckit.review.code",
           "speckit.review.comments",
@@ -553,6 +647,17 @@
           "speckit.security-review.apply",
           "speckit.security-review.export",
           "speckit.security-review.init"
+        ],
+        "claude": [
+          "speckit.security-review.audit",
+          "speckit.security-review.staged",
+          "speckit.security-review.branch",
+          "speckit.security-review.plan",
+          "speckit.security-review.tasks",
+          "speckit.security-review.followup",
+          "speckit.security-review.apply",
+          "speckit.security-review.export",
+          "speckit.security-review.init"
         ]
       },
       "registered_skills": [],
@@ -574,6 +679,10 @@
           "speckit.status"
         ],
         "zed": [
+          "speckit.status.show",
+          "speckit.status"
+        ],
+        "claude": [
           "speckit.status.show",
           "speckit.status"
         ]
@@ -602,6 +711,11 @@
           "speckit.tinyspec.tinyspec",
           "speckit.tinyspec.implement",
           "speckit.tinyspec.classify"
+        ],
+        "claude": [
+          "speckit.tinyspec.tinyspec",
+          "speckit.tinyspec.implement",
+          "speckit.tinyspec.classify"
         ]
       },
       "registered_skills": [],
@@ -621,6 +735,9 @@
           "speckit.verify.run"
         ],
         "zed": [
+          "speckit.verify.run"
+        ],
+        "claude": [
           "speckit.verify.run"
         ]
       },
@@ -643,6 +760,10 @@
           "speckit.verify-tasks"
         ],
         "zed": [
+          "speckit.verify-tasks.run",
+          "speckit.verify-tasks"
+        ],
+        "claude": [
           "speckit.verify-tasks.run",
           "speckit.verify-tasks"
         ]
@@ -668,6 +789,11 @@
           "speckit.worktree.clean"
         ],
         "zed": [
+          "speckit.worktree.create",
+          "speckit.worktree.list",
+          "speckit.worktree.clean"
+        ],
+        "claude": [
           "speckit.worktree.create",
           "speckit.worktree.list",
           "speckit.worktree.clean"
@@ -710,6 +836,112 @@
       },
       "registered_skills": [],
       "installed_at": "2026-06-25T09:24:36.211549+00:00"
+    },
+    "memory-md": {
+      "version": "0.9.7",
+      "source": "local",
+      "manifest_hash": "sha256:1a109acdbaf20e1e0967bc37fb1fc904558a223713800fa8137c924c0ccad007",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "agy": [
+          "speckit.memory-md.init",
+          "speckit.memory-md.specify",
+          "speckit.memory-md.plan-with-memory",
+          "speckit.memory-md.capture",
+          "speckit.memory-md.capture-from-diff",
+          "speckit.memory-md.audit",
+          "speckit.memory-md.repair-index",
+          "speckit.memory-md.log-finding",
+          "speckit.memory-md.token-report",
+          "speckit.memory-md.prepare-context",
+          "speckit.memory-md.index-docs",
+          "speckit.memory-md.init-project",
+          "speckit.memory-md.share-lesson",
+          "speckit.memory-md.sync-shared"
+        ],
+        "claude": [
+          "speckit.memory-md.init",
+          "speckit.memory-md.specify",
+          "speckit.memory-md.plan-with-memory",
+          "speckit.memory-md.capture",
+          "speckit.memory-md.capture-from-diff",
+          "speckit.memory-md.audit",
+          "speckit.memory-md.repair-index",
+          "speckit.memory-md.log-finding",
+          "speckit.memory-md.token-report",
+          "speckit.memory-md.prepare-context",
+          "speckit.memory-md.index-docs",
+          "speckit.memory-md.init-project",
+          "speckit.memory-md.share-lesson",
+          "speckit.memory-md.sync-shared"
+        ],
+        "codex": [
+          "speckit.memory-md.init",
+          "speckit.memory-md.specify",
+          "speckit.memory-md.plan-with-memory",
+          "speckit.memory-md.capture",
+          "speckit.memory-md.capture-from-diff",
+          "speckit.memory-md.audit",
+          "speckit.memory-md.repair-index",
+          "speckit.memory-md.log-finding",
+          "speckit.memory-md.token-report",
+          "speckit.memory-md.prepare-context",
+          "speckit.memory-md.index-docs",
+          "speckit.memory-md.init-project",
+          "speckit.memory-md.share-lesson",
+          "speckit.memory-md.sync-shared"
+        ],
+        "zed": [
+          "speckit.memory-md.init",
+          "speckit.memory-md.specify",
+          "speckit.memory-md.plan-with-memory",
+          "speckit.memory-md.capture",
+          "speckit.memory-md.capture-from-diff",
+          "speckit.memory-md.audit",
+          "speckit.memory-md.repair-index",
+          "speckit.memory-md.log-finding",
+          "speckit.memory-md.token-report",
+          "speckit.memory-md.prepare-context",
+          "speckit.memory-md.index-docs",
+          "speckit.memory-md.init-project",
+          "speckit.memory-md.share-lesson",
+          "speckit.memory-md.sync-shared"
+        ]
+      },
+      "registered_skills": [],
+      "installed_at": "2026-06-25T10:19:37.099106+00:00"
+    },
+    "agent-assign": {
+      "version": "1.0.0",
+      "source": "local",
+      "manifest_hash": "sha256:5e5c8ca8e58d032fa4485c4c06f270623911fd12f1e8a7e0dec971531d7a8802",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "agy": [
+          "speckit.agent-assign.assign",
+          "speckit.agent-assign.validate",
+          "speckit.agent-assign.execute"
+        ],
+        "claude": [
+          "speckit.agent-assign.assign",
+          "speckit.agent-assign.validate",
+          "speckit.agent-assign.execute"
+        ],
+        "codex": [
+          "speckit.agent-assign.assign",
+          "speckit.agent-assign.validate",
+          "speckit.agent-assign.execute"
+        ],
+        "zed": [
+          "speckit.agent-assign.assign",
+          "speckit.agent-assign.validate",
+          "speckit.agent-assign.execute"
+        ]
+      },
+      "registered_skills": [],
+      "installed_at": "2026-06-25T13:20:43.171483+00:00"
     }
   }
 }

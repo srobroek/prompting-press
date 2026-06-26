@@ -1,4 +1,32 @@
 [tools]
-jq = "latest"
+# All tools pinned to concrete versions — no floating ("latest"/"^"/"~"/"*") per SEC-003 (T030a).
+# Versions reflect the toolchain resolved on 2026-06-25; bump deliberately, never float.
+# mise is the single source of truth for tool versions in this repo.
+
+# --- Runtimes ---
+node = "25.3.0"
+python = "3.14.4"
+go = "1.26.2"          # reserved for spec 006 (Go binding); packages/go stays toolchain-free in 001 (FR-005)
+uv = "0.11.8"
+# rustc/cargo/rustfmt are components of ONE rustup toolchain. mise drives rustup
+# (sets RUSTUP_TOOLCHAIN), so this pin must exist in-repo: RUSTUP_TOOLCHAIN overrides
+# rust-toolchain.toml in rustup precedence, so omitting it lets the global mise rust
+# version silently shadow the rust-toolchain.toml that T002 creates. Keep the two in lockstep.
+# `components` MUST be listed here: mise does NOT honor rust-toolchain.toml's components,
+# so without this a clean CI runner installs a bare toolchain and `:codegen`'s rustfmt
+# step fails ("rustfmt is not installed for 1.95.0"). Lockstep with rust-toolchain.toml.
+rust = { version = "1.95.0", components = "rustfmt,clippy" }
+
+# --- Package managers / orchestration ---
+"npm:@moonrepo/cli" = "2.2.3"   # moon
+"npm:pnpm" = "10.33.2"          # pnpm (TS workspace); install with `mise exec` / `corepack` off
+jq = "1.8.1"
+
+# --- Codegen toolchain (research D1) ---
+"cargo:cargo-typify" = { version = "0.7.0", locked = true }  # Rust JSON-Schema -> serde structs (T022/T025); --locked pins transitive deps to cargo-typify's shipped Cargo.lock
+# datamodel-code-generator is managed via uv (packages/python/uv.lock, dependency-group codegen) — not pipx.
+# maturin is declared as a build-system requires in packages/python/pyproject.toml (>=1.14,<2.0);
+# the wheel build (spec 004/007) will resolve it via uv/build-system at that time.
+# Neither tool needs a pipx pin here; removing both eliminates the H-2 redundant/unverified mechanism.
 
 [tasks]

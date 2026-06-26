@@ -1,0 +1,23 @@
+# prompting-press — the public Rust consumer surface (FR-002).
+# Idiomatic Rust API layered directly on the kernel. Like the kernel, this crate
+# MUST stay FFI-free: no pyo3, no napi (constitution Principle II / C-02).
+
+[package]
+name = "prompting-press"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Public Rust consumer surface for Prompting Press, layered on the FFI-free kernel."
+
+[lib]
+
+[dependencies]
+prompting-press-core = { path = "../prompting-press-core" }
+# Required by the code-generated shape module (src/generated/prompt_definition.rs),
+# emitted from the JSON Schema by cargo-typify. serde derives + serde_json open-object
+# maps (meta/metadata). FFI-free, so this stays within the no-pyo3/no-napi rule (C-02).
+serde = { workspace = true }
+serde_json = { workspace = true }
