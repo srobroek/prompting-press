@@ -38,6 +38,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          # moon's affected-project detection resolves the base branch (`main`) to
+          # scope/hash tasks. The default shallow `fetch-depth: 1` has no base ref:
+          # fine on `push` (the branch itself resolves) but on `pull_request` the
+          # checkout is a detached merge ref with no local `main` → moon's
+          # `git … main` fails with exit 128. Full history makes the base resolvable.
+          fetch-depth: 0
 
       - name: Install mise toolchain
         uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac  # v2
@@ -110,6 +117,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0  # let moon resolve the base branch on pull_request events
 
       # Python is required before `cargo build` on Windows because pyo3's
       # abi3-py39 build script must locate a CPython installation to resolve the
