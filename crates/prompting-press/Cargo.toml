@@ -16,8 +16,20 @@ description = "Public Rust consumer surface for Prompting Press, layered on the 
 
 [dependencies]
 prompting-press-core = { path = "../prompting-press-core" }
-# Required by the code-generated shape module (src/generated/prompt_definition.rs),
-# emitted from the JSON Schema by cargo-typify. serde derives + serde_json open-object
-# maps (meta/metadata). FFI-free, so this stays within the no-pyo3/no-napi rule (C-02).
+# serde/serde_json: dual-input loader (JSON arm) + the serialize bridge
+# (Value::from_serialize at the validated-struct → kernel-value boundary).
+# PromptDefinition shape is re-exported from prompting-press-core (relocated in spec 002).
+# FFI-free; stays within the no-pyo3/no-napi rule (C-02).
 serde = { workspace = true }
 serde_json = { workspace = true }
+# minijinja: consumer crate names minijinja::Value explicitly at the render boundary
+# (validated-struct → kernel-value bridge via Value::from_serialize).
+# The kernel already depends on minijinja; we reference the same workspace pin here
+# so the consumer can name Value without re-declaring a separate version.
+minijinja = { workspace = true }
+# garde: native Rust validation framework for typed Vars (constitution Principle VI).
+# features = ["derive", "serde"] — derive macros + serde integration; no extra validators.
+garde = { version = "0.23", features = ["derive", "serde"] }
+# serde_yaml_ng: YAML arm of the dual-input loader (Principle VII).
+# serde_yaml is archived; serde_yaml_ng is the maintained successor.
+serde_yaml_ng = "0.10"

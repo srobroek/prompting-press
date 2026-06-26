@@ -35,8 +35,8 @@ agreement+provenance lint (P2) → US4 composition (P3) — after Setup + a Foun
 
 **Purpose**: Add the consumer's deps and confirm the FFI gate tolerates them before code.
 
-- [ ] T001 Add deps to `crates/prompting-press/Cargo.toml`: `garde = { version = "0.23", features = ["derive", "serde"] }` and `serde_yaml_ng = "0.10"` (pin exact current patch). `serde`/`serde_json`/`prompting-press-core` already present. Add `minijinja = { workspace = true }` if `Value` isn't reachable via the kernel re-export. Fix the STALE comment in Cargo.toml that claims the generated shape lives in `src/generated/` (it moved to the kernel in spec 002).
-- [ ] T002 Run `mise exec -- cargo build -p prompting-press`, `mise exec -- moon run ci:check-ffi`, and `cargo tree -p prompting-press -i pyo3` / `-i napi` (expect absent). Confirm garde + serde_yaml_ng pull no pyo3/napi (SC-007). Pin patch confirmed via `cargo update -p` if needed; `ci:check-floating-versions` stays green.
+- [X] T001 Add deps to `crates/prompting-press/Cargo.toml`: `garde = { version = "0.23", features = ["derive", "serde"] }` and `serde_yaml_ng = "0.10"` (pin exact current patch). `serde`/`serde_json`/`prompting-press-core` already present. Add `minijinja = { workspace = true }` if `Value` isn't reachable via the kernel re-export. Fix the STALE comment in Cargo.toml that claims the generated shape lives in `src/generated/` (it moved to the kernel in spec 002).
+- [X] T002 Run `mise exec -- cargo build -p prompting-press`, `mise exec -- moon run ci:check-ffi`, and `cargo tree -p prompting-press -i pyo3` / `-i napi` (expect absent). Confirm garde + serde_yaml_ng pull no pyo3/napi (SC-007). Pin patch confirmed via `cargo update -p` if needed; `ci:check-floating-versions` stays green.
 
 ---
 
