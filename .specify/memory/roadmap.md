@@ -1,12 +1,25 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.1.0 → 1.1.1
-Bump rationale: PATCH — status transition only: spec 001 planned → implemented
-  (T034, after its end-to-end validation gate T033 passed all SC-001..SC-007).
-  No scope/decision change.
+Version change: 1.1.1 → 1.1.2
+Bump rationale: PATCH — spec 002 status transition (planned → implemented) plus a
+  stale-wording refresh of the 002 entry from its post-implementation debrief
+  (specs/002-engine-kernel/roadmap-reviews/debrief-2026-06-26.md, verdict ✅ PROCEED,
+  0 Must-Address). No scope/decision change to any other entry; C-01..C-10 untouched.
 
-Changes this revision (1.1.1, 2026-06-25):
+Changes this revision (1.1.2, 2026-06-26):
+  - Spec 002 status: planned → implemented (code complete + SC-verified; full Phase-3
+    QA — verify-tasks/verify/review/qa/code-review/security-review/cleanup/sync — all
+    passed clean; 50 tests + 7/7 CI gates green).
+  - Spec 002 Scope (in): "implicit/explicit default" → "root body is always the default
+    arm; caller-named selection; unknown-variant the only resolution error" (debrief D1,
+    roadmap-stale — the explicit-default path was structurally unreachable under the 001
+    schema and removed via the FR-010 refine; implementation is correct).
+  - Spec 002 Notes: recorded the implemented MiniJinja pin (2.21, default-features=false,
+    macros/multi_template off, adjacent_loop_items kept), env-derived allowlist, and the
+    separate-field guard (debrief D2; roadmap Q3 re-confirmed against the 2.21.0 tag).
+
+Prior revision (1.1.1, 2026-06-25):
   - Spec 001 status: planned → implemented (code complete + SC-verified; moves to
     'verified' after the Phase-3 QA gates run).
 
@@ -146,7 +159,7 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   datamodel-code-generator / json-schema-to-typescript / typify) is an open thread
   — **verify current tooling at spec time, do not assume** (see Open Questions).
 
-### 002 — Engine kernel (`prompting-press-core`)  [status: planned]
+### 002 — Engine kernel (`prompting-press-core`)  [status: implemented]
 
 - **Description:** The binding-agnostic, validation-blind Rust engine: MiniJinja
   render path, sound agreement analysis, variant resolution, hashing, and
@@ -157,7 +170,8 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   with no FFI and no typed-Vars knowledge.
 - **Scope (in):** MiniJinja integration restricted to interpolation/conditionals/
   loops; render path; `undeclared_variables(nested=false)` + globals allowlist;
-  variant resolution (implicit/explicit default per C-05); `template_hash` +
+  variant resolution (root body is always the default arm; caller-named selection;
+  unknown-variant the only resolution error — per C-05); `template_hash` +
   `render_hash`; 3-way provenance plumbing + configurable additive guard
   expansion; small engine-regression render fixtures.
 - **Scope (out):** `{% include %}`/`{% import %}`/`{% extends %}`, macros,
@@ -166,7 +180,13 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 - **Governed by:** C-01, C-03, C-04, C-05, C-09.
 - **Notes:** Soundness verified against MiniJinja 2.21 source — the stable API is
   strictly more sound than `jinja2.meta`. Excluding includes is what keeps the
-  check airtight with zero `unstable_machinery` dependency.
+  check airtight with zero `unstable_machinery` dependency. _Implemented (2026-06-26):_
+  MiniJinja pinned at `2.21` with `default-features=false` — `macros`/`multi_template`
+  OFF is the parse-time exclusion mechanism (excluded tags fail at `add_template`),
+  `adjacent_loop_items` kept; re-confirmed against the 2.21.0 source tag (roadmap Q3
+  satisfied). Globals allowlist derived dynamically from the kernel's own
+  `Environment` (drift-proof). Provenance guard is a separate result field via plain
+  `{fields}` substitution (never re-rendered).
 
 ### 003 — Rust consumer crate (`prompting-press`)  [status: planned]
 
@@ -320,4 +340,4 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 
 ---
 
-**Version**: 1.1.1 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-25
+**Version**: 1.1.2 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-26
