@@ -45,7 +45,8 @@
 //! resolves the prompt by name against the [`Registry`] (absent ⇒ [`ConsumerError::UnknownPrompt`],
 //! never a panic) and delegates rendering to the kernel via [`prompting_press_core::render`]
 //! with the entry's pre-validated value — reusing the same kernel call path the single-render
-//! [`crate::render`] uses (no rendering logic is duplicated here — FR-011 / C-01). Each
+//! [`crate::render`](crate::render()) uses (no rendering logic is duplicated here — FR-011 /
+//! C-01). Each
 //! result maps to `Message { role: <def.role stringified>, text: result.text }`. One entry's
 //! failure (unknown prompt, unknown variant, a strict-undefined reference) propagates as the
 //! normalized [`ConsumerError`]; the partial result is **not** returned as success (US4
@@ -127,7 +128,7 @@ impl Composition {
     /// [`ConsumerError::UnknownPrompt`].
     ///
     /// `V::Context: Default` so the whole-struct [`Validate::validate`] convenience applies
-    /// (one validation pass over the entry's entire input set, mirroring [`crate::render`]).
+    /// (one validation pass over the entry's entire input set, mirroring [`crate::render`](crate::render())).
     ///
     /// # Errors
     /// [`ConsumerError::Validation`] — garde rejected `vars`. The entry is not appended.

@@ -1,6 +1,6 @@
 //! The agreement + provenance lint (spec 003, US3; T017–T019; FR-016..020).
 //!
-//! [`check`] is the library's **headline differentiator** (constitution Principle IV /
+//! [`check`](check()) is the library's **headline differentiator** (constitution Principle IV /
 //! C-04/C-09): a single, pure pass over a [`Registry`] that catches — *before render, in CI*
 //! — two classes of prompt bug:
 //!
@@ -18,15 +18,17 @@
 //!
 //! ## Purity (FR-019)
 //!
-//! [`check`] takes `&Registry` (a shared borrow — mutation is impossible through the type
+//! [`check`](check()) takes `&Registry` (a shared borrow — mutation is impossible through the type
 //! system), never renders, and has no side effects. Its only output is the [`CheckReport`].
 //!
 //! ## Determinism
 //!
-//! Findings are emitted in a stable order: the registry iterates by name ([`BTreeMap`]); each
-//! prompt's variants are visited in sorted order (default arm first, then named variants
-//! sorted via a [`BTreeSet`]); within a variant, undeclared roots are already sorted (the
-//! kernel returns a [`BTreeSet`]); provenance findings follow, fields sorted (the kernel's
+//! Findings are emitted in a stable order: the registry iterates by name
+//! ([`BTreeMap`](std::collections::BTreeMap)); each prompt's variants are visited in sorted
+//! order (default arm first, then named variants sorted via a
+//! [`BTreeSet`](std::collections::BTreeSet)); within a variant, undeclared roots are already
+//! sorted (the kernel returns a [`BTreeSet`](std::collections::BTreeSet)); provenance
+//! findings follow, fields sorted (the kernel's
 //! [`ProvenanceView`](prompting_press_core::ProvenanceView) sets are sorted). So the report is
 //! reproducible for a CI gate.
 //!
@@ -99,7 +101,7 @@ pub struct Finding {
 /// `UndeclaredVariable` and `UntrustedWithoutGuard` are the two C-04/C-09 lint classes
 /// (FR-016/018). `AnalysisError` is the third, distinct kind used when the kernel cannot
 /// analyze a variant's template (see module docs, "Handling a `required_roots` error") — it
-/// keeps [`check`] infallible while still failing the gate on an un-analyzable template.
+/// keeps [`check`](check()) infallible while still failing the gate on an un-analyzable template.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FindingKind {
     /// A template references `name`, but `name` is not in the prompt's declared `variables`
@@ -115,7 +117,7 @@ pub enum FindingKind {
         field: String,
     },
     /// The kernel could not analyze a variant's template (a parse failure or an excluded
-    /// feature). Recorded as a finding so [`check`] stays infallible (F7) while still failing
+    /// feature). Recorded as a finding so [`check`](check()) stays infallible (F7) while still failing
     /// the gate. The `detail` carries a scrubbed description (no bound-value content).
     AnalysisError {
         /// A stable, scrubbed reason code (e.g. `"parse"`, `"excluded_feature"`,
@@ -124,7 +126,7 @@ pub enum FindingKind {
     },
 }
 
-/// The output of [`check`]: an ordered list of [`Finding`]s. Empty ⇒ the lint passes.
+/// The output of [`check`](check()): an ordered list of [`Finding`]s. Empty ⇒ the lint passes.
 ///
 /// Carries **only** findings — no rendered text, no mutated state (FR-019). The findings are
 /// in a deterministic order (see module docs, "Determinism").

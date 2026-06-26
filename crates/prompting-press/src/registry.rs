@@ -1,7 +1,8 @@
 //! The prompt [`Registry`] — a library-owned map of prompt name → loaded
 //! [`PromptDefinition`] (FR-008a, clarify Q2).
 //!
-//! Backed by a [`BTreeMap`] so iteration order is **deterministic** — `check()` (a later
+//! Backed by a [`BTreeMap`](std::collections::BTreeMap) so iteration order is
+//! **deterministic** — `check()` (a later
 //! phase) walks the registry and must produce stable, reproducible findings ordering for a
 //! CI gate.
 //!

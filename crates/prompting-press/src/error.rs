@@ -9,12 +9,13 @@
 //! ## Closed code vocabulary (critique E2)
 //!
 //! Every [`FieldError::code`] is drawn from the stable, closed set documented on the
-//! [`code`] module constants. Consumers may match on these strings; they are part of the
-//! crate's compatibility surface and will not silently change meaning.
+//! [`code`](crate::error::code) module constants. Consumers may match on these strings; they are part
+//! of the crate's compatibility surface and will not silently change meaning.
 //!
 //! ## SEC-004 / FR-015 — detail scrubbing
 //!
-//! The kernel's [`KernelError::Parse`] / [`KernelError::Render`] `detail` strings may embed
+//! The kernel's [`prompting_press_core::KernelError::Parse`] /
+//! [`prompting_press_core::KernelError::Render`] `detail` strings may embed
 //! **bound-value content** (untrusted input / PII / secrets). The normalizer in
 //! [`From<KernelError>`](ConsumerError) MUST NOT copy that raw `detail` into a
 //! [`FieldError::message`]. Instead it emits a fixed, templated message plus a stable
