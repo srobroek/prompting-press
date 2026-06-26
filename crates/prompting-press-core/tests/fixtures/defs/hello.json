@@ -1,0 +1,12 @@
+{
+  "name": "hello",
+  "role": "user",
+  "body": "Hello {{ name }}",
+  "variables": {
+    "name": {
+      "type": "string",
+      "provenance": "trusted",
+      "description": "The name to greet."
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "conditional-loop",
+  "role": "user",
+  "body": "{% if items %}Items:{% for item in items %}\n- {{ item }}{% endfor %}{% else %}No items.{% endif %}",
+  "variables": {
+    "items": {
+      "type": "array",
+      "provenance": "trusted",
+      "description": "List of items to render."
+    }
+  }
+}

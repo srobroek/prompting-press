@@ -27,10 +27,16 @@ pub use generated::prompt_definition::PromptDefinition;
 /// common `[{field, code, message}]` shape (constitution C-06 / Principle VI).
 pub mod error;
 
-/// Engine construction: the canonical strict-undefined MiniJinja environment that
-/// every kernel operation renders and analyses against (research D1/D3, FR-001a/FR-002).
+/// Engine construction + the render path and variant resolution: the canonical
+/// strict-undefined MiniJinja environment, `render`, and `get_source`
+/// (research D1/D3, FR-001a/FR-002/FR-006..FR-013).
 pub mod engine;
 
+/// Content-addressed hashing helpers (`template_hash` / `render_hash`); pure-Rust
+/// SHA-256 over the UTF-8 string content (research D8, FR-012/FR-013). No `vars_hash`.
+mod hashing;
+
+pub use engine::{get_source, render, GuardConfig, RenderResult};
 pub use error::KernelError;
 
 /// Returns the kernel's package version, sourced from Cargo at compile time.

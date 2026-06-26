@@ -95,3 +95,32 @@ pub fn load_prompt_definition(name: &str) -> PromptDefinition {
         )
     })
 }
+
+/// Load a kernel-local `PromptDefinition` fixture by file stem from
+/// `tests/fixtures/defs/<name>.json`.
+///
+/// These are kernel-test-owned prompt definitions (distinct from the spec-001 schema
+/// fixtures loaded by [`load_prompt_definition`]) used where a render suite needs a
+/// specific template body that the spec-001 corpus does not provide. Like the render
+/// regression cases, their template bodies live **only** in JSON data files — never
+/// inlined in a `.rs` source — so the forbidden-pattern grep over `**/*.rs` never sees
+/// them (see `tests/fixtures/README.md`).
+///
+/// # Panics
+/// Panics (a test-only contract) if the fixture is missing or does not deserialize
+/// into a `PromptDefinition`.
+pub fn load_def_fixture(name: &str) -> PromptDefinition {
+    let path = crate_root()
+        .join("tests")
+        .join("fixtures")
+        .join("defs")
+        .join(format!("{name}.json"));
+    let raw = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("read def fixture {}: {e}", path.display()));
+    serde_json::from_str(&raw).unwrap_or_else(|e| {
+        panic!(
+            "deserialize def fixture {} as PromptDefinition: {e}",
+            path.display()
+        )
+    })
+}

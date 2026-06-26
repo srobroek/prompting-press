@@ -26,6 +26,15 @@
 //!    re-enable `macros` / `multi_template`; doing so would silently reopen the
 //!    excluded features and break FR-002.
 
+use crate::error::KernelError;
+use crate::generated::prompt_definition::PromptDefinition;
+use crate::hashing::sha256_hex;
+
+/// The reserved variant name that always resolves to the prompt's root `body`
+/// (FR-007/FR-010/FR-011). The generated shape does not encode this rule, so the kernel
+/// enforces it here in its own resolution logic.
+const DEFAULT_VARIANT: &str = "default";
+
 /// Build the kernel's canonical MiniJinja environment.
 ///
 /// Configured with [`minijinja::UndefinedBehavior::Strict`] (FR-001a). The excluded
@@ -34,13 +43,202 @@
 /// logic of its own.
 ///
 /// Returns an environment with the `'static` lifetime: it owns no borrowed template
-/// source, so templates are added per-operation against borrowed definition bytes by
-/// later tasks.
-#[allow(dead_code)] // wired into render / analysis in later spec-002 tasks (T013+).
+/// source, so templates are added per-operation against borrowed definition bytes.
 pub(crate) fn build_environment() -> minijinja::Environment<'static> {
     let mut env = minijinja::Environment::new();
     env.set_undefined_behavior(minijinja::UndefinedBehavior::Strict);
     env
+}
+
+/// The variant selected for a render — the reserved `default` (root body) or an
+/// explicitly named arm (data-model §ResolvedVariant). It borrows the definition, so
+/// `source` is the exact unrendered bytes `template_hash` is computed over (FR-012).
+#[derive(Debug)]
+pub(crate) struct ResolvedVariant<'a> {
+    /// The reserved `"default"`, or the explicit variant key.
+    pub name: String,
+    /// The template source string of the resolved arm (borrow of the definition).
+    pub source: &'a str,
+}
+
+/// Resolve the arm a render/analysis should run against (spec 002, T016; FR-007..FR-011).
+///
+/// Resolution rule (data-model §ResolvedVariant):
+/// - `None` or `Some("default")` → name `"default"`, source = `def.body` (the root body
+///   is ALWAYS the default; there is no "missing default" error path).
+/// - `Some(k)` where `k` is a declared variant → name `k`, source = `variants[k].body`.
+/// - `Some(k)` where `k` is neither `"default"` nor a declared variant →
+///   [`KernelError::UnknownVariant`] naming `k` (FR-009 — the only variant-resolution error).
+pub(crate) fn resolve_variant<'a>(
+    def: &'a PromptDefinition,
+    variant: Option<&str>,
+) -> Result<ResolvedVariant<'a>, KernelError> {
+    match variant {
+        None | Some(DEFAULT_VARIANT) => Ok(ResolvedVariant {
+            name: DEFAULT_VARIANT.to_string(),
+            source: &def.body,
+        }),
+        Some(name) => match def.variants.get(name) {
+            Some(arm) => Ok(ResolvedVariant {
+                name: name.to_string(),
+                source: &arm.body,
+            }),
+            None => Err(KernelError::UnknownVariant {
+                requested: name.to_string(),
+            }),
+        },
+    }
+}
+
+/// Return the unrendered source of the resolved variant (spec 002, T017; FR-006).
+///
+/// Same resolution and [`KernelError::UnknownVariant`] rule as [`render`]. The returned
+/// `&str` is the exact byte string `template_hash` is computed over (FR-012), so a caller
+/// can hash it independently and cross-check a render's `template_hash`.
+///
+/// # Errors
+/// Returns [`KernelError::UnknownVariant`] if `variant` names an arm that does not exist
+/// (and is not the reserved `"default"`).
+pub fn get_source<'a>(
+    def: &'a PromptDefinition,
+    variant: Option<&str>,
+) -> Result<&'a str, KernelError> {
+    Ok(resolve_variant(def, variant)?.source)
+}
+
+/// Per-render guard-expansion option (data-model §GuardConfig; FR-022..FR-025).
+///
+/// US1 always passes a disabled config (`enabled: false`), which produces no guard field
+/// and a body byte-identical to a plain render. The opt-in guard-text logic (naming the
+/// untrusted/external fields, default-vs-override template) is owned by US3; this minimal
+/// shape is the carrier US3 extends.
+#[derive(Debug, Clone)]
+pub struct GuardConfig {
+    /// When `false`, no guard field is produced and the render is a plain render.
+    pub enabled: bool,
+    /// Caller override of the guard instruction text; `None` ⇒ kernel default (US3).
+    pub template: Option<String>,
+}
+
+/// Render result + content-addressed provenance (data-model §RenderResult; FR-015).
+///
+/// Plain data returned to the caller — no telemetry sink, no tracing coupling. There is
+/// deliberately **no** `vars_hash` field (FR-014).
+#[derive(Debug, Clone)]
+pub struct RenderResult {
+    /// The rendered body text (FR-001). The guard text is NEVER concatenated here.
+    pub text: String,
+    /// The prompt name (`def.name`). [FR-015]
+    pub name: String,
+    /// The resolved variant name (the reserved `default`, or the named arm). [FR-015]
+    pub variant: String,
+    /// Lowercase-hex `SHA256(resolved variant source)`. [FR-012]
+    pub template_hash: String,
+    /// Lowercase-hex `SHA256(rendered text)`. [FR-013]
+    pub render_hash: String,
+    /// The guard instruction text, present only when guard expansion was opted in
+    /// (US3); `None` for US1's disabled config. Never concatenated into `text`. [FR-022]
+    pub guard: Option<String>,
+}
+
+/// Render a prompt's resolved variant to text and stamp provenance (spec 002, T019).
+///
+/// Resolves the variant (FR-007..FR-011), renders the resolved source against `values`
+/// using the kernel's strict-undefined environment ([`build_environment`]), and computes
+/// `template_hash`/`render_hash` (FR-012/FR-013). Rendering is deterministic: identical
+/// `(def, variant, values)` yields byte-identical `text` and equal hashes (FR-003,
+/// SC-001). The kernel is validation-blind and performs no I/O (FR-004/FR-005).
+///
+/// The guard field is `None` for now: US1 only ever passes a disabled [`GuardConfig`],
+/// and the guard-text logic is owned by US3.
+///
+/// # Errors
+/// - [`KernelError::UnknownVariant`] — `variant` names a non-existent arm (FR-009).
+/// - [`KernelError::ExcludedFeature`] / [`KernelError::Parse`] — the resolved source uses
+///   an excluded feature (unrecognised tag under the disabled `macros`/`multi_template`
+///   features) or otherwise fails to parse (FR-002, FR-028).
+/// - [`KernelError::UndefinedVariable`] — a strict-undefined reference was hit at render
+///   (FR-001a): a referenced variable was absent from `values`.
+/// - [`KernelError::Render`] — any other render-time failure (FR-028).
+pub fn render(
+    def: &PromptDefinition,
+    variant: Option<&str>,
+    values: minijinja::Value,
+    _guard: &GuardConfig,
+) -> Result<RenderResult, KernelError> {
+    let resolved = resolve_variant(def, variant)?;
+
+    // Per-render environment + a single anonymous template against the resolved source.
+    // With `macros`/`multi_template` disabled, an excluded-feature tag fails right here
+    // at parse time (research D1/D4); `add_template_owned` parses eagerly.
+    let mut env = build_environment();
+    env.add_template_owned("kernel".to_string(), resolved.source.to_string())
+        .map_err(map_minijinja_error)?;
+    let template = env.get_template("kernel").map_err(map_minijinja_error)?;
+
+    let text = template.render(values).map_err(map_minijinja_error)?;
+
+    let template_hash = sha256_hex(resolved.source);
+    let render_hash = sha256_hex(&text);
+
+    Ok(RenderResult {
+        text,
+        name: def.name.to_string(),
+        variant: resolved.name,
+        template_hash,
+        render_hash,
+        // US1: guard expansion is never opted in; US3 wires real guard text here.
+        guard: None,
+    })
+}
+
+/// Map a MiniJinja [`minijinja::Error`] to the kernel's structured [`KernelError`]
+/// (FR-028). The discriminator is the error's [`minijinja::ErrorKind`]:
+///
+/// - `SyntaxError` → [`KernelError::ExcludedFeature`] when the message names an excluded
+///   construct (unrecognised tag under disabled `macros`/`multi_template`), else
+///   [`KernelError::Parse`] (research D4: the kernel labels precisely when it can, and
+///   falls back to a loud, generic parse error otherwise).
+/// - `UndefinedError` → [`KernelError::UndefinedVariable`] (strict undefined, FR-001a).
+///   MiniJinja raises this with no variable-name payload, so `name` is best-effort: the
+///   error `detail` if present, else the error's `Display` (still informative).
+/// - anything else → [`KernelError::Render`].
+fn map_minijinja_error(err: minijinja::Error) -> KernelError {
+    match err.kind() {
+        minijinja::ErrorKind::SyntaxError => {
+            let detail = err.to_string();
+            if looks_like_excluded_feature(&detail) {
+                KernelError::ExcludedFeature { detail }
+            } else {
+                KernelError::Parse { detail }
+            }
+        }
+        minijinja::ErrorKind::UndefinedError => {
+            // Strict undefined carries no variable name (verified in 2.21.0 source:
+            // `Error::from(ErrorKind::UndefinedError)`), so this is best-effort.
+            let name = err
+                .detail()
+                .map(str::to_string)
+                .unwrap_or_else(|| err.to_string());
+            KernelError::UndefinedVariable { name }
+        }
+        _ => KernelError::Render {
+            detail: err.to_string(),
+        },
+    }
+}
+
+/// Best-effort heuristic distinguishing an excluded-feature parse failure from an
+/// ordinary syntax error (research D4). With `macros`/`multi_template` disabled, the
+/// excluded tags surface as unknown statements; MiniJinja's message names the offending
+/// keyword. This only refines the error *label* — both branches are loud parse-time
+/// errors, so a miss is benign (it falls back to `Parse`).
+fn looks_like_excluded_feature(detail: &str) -> bool {
+    const EXCLUDED_KEYWORDS: [&str; 6] = ["include", "import", "from", "extends", "macro", "block"];
+    let lowered = detail.to_ascii_lowercase();
+    EXCLUDED_KEYWORDS
+        .iter()
+        .any(|kw| lowered.contains(&format!("'{kw}'")) || lowered.contains(&format!("`{kw}`")))
 }
 
 #[cfg(test)]
