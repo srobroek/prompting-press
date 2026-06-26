@@ -2,6 +2,15 @@
 # Explicit project map — no globs, so no stray directories are swept in.
 # packages/go is intentionally absent: it is a reserved placeholder (FR-005)
 # and has no toolchain or build artifacts.
+
+# VCS: this repo's default branch is `main`. moon's built-in default base is
+# `master`; without this, moon's affected-detection probes a non-existent
+# `master` ref and fails with `git exit 128 (ambiguous argument 'master')` in CI
+# (notably on push events, where it can't fall back to the checked-out branch).
+vcs:
+  client: 'git'
+  defaultBranch: 'main'
+
 projects:
   prompting-press-core: "crates/prompting-press-core"
   prompting-press: "crates/prompting-press"
