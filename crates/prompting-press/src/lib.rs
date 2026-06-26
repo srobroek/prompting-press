@@ -8,9 +8,9 @@
 //! (constitution Principle II / C-02).
 //!
 //! Spec-003 build-out is in progress: the dependency edge onto the kernel is real, and the
-//! normalized error surface ([`error`]) and prompt [`registry`] are now in place. The
-//! `render` / `check` / `compose` modules arrive in later phases (their module declarations
-//! are added as each file is created).
+//! normalized error surface ([`error`]), prompt [`registry`], and the validate-then-render
+//! [`render`] path are now in place. The `check` / `compose` modules arrive in later phases
+//! (their module declarations are added as each file is created).
 
 /// Re-export of the kernel, so consumers can reach core types through one entry point.
 pub use prompting_press_core as core;
@@ -35,8 +35,15 @@ pub mod error;
 /// deterministic `check()` ordering (FR-008a).
 pub mod registry;
 
+/// Validate-then-render + `get_source` wrappers over the kernel (FR-001..003a, FR-009/010).
+pub mod render;
+
 pub use error::{ConsumerError, FieldError};
 pub use registry::Registry;
+
+/// Re-export the validate-then-render entry points at the crate root so applications reach
+/// them as `prompting_press::render` / `prompting_press::get_source`.
+pub use render::{get_source, render};
 
 /// Returns the underlying kernel version.
 ///
