@@ -14,7 +14,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "${REPO_ROOT}"
 
-RS="crates/prompting-press/src/generated/prompt_definition.rs"
+RS="crates/prompting-press-core/src/generated/prompt_definition.rs"
 PY="packages/python/python/prompting_press/generated/prompt_definition.py"
 TS="packages/typescript/src/generated/prompt-definition.ts"
 

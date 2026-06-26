@@ -4,7 +4,7 @@
 //   schemas/jsonschema/prompt-definition.schema.json
 // by cargo-typify (pinned via mise: "cargo:cargo-typify" = "0.7.0").
 //
-// Regenerate with: crates/prompting-press/scripts/codegen.sh  (re-run on schema change).
+// Regenerate with: crates/prompting-press-core/scripts/codegen.sh  (re-run on schema change).
 // Hand edits are overwritten and will fail the US4 freshness gate. Edit the schema.
 //
 // NOTE: the schema's `variants.propertyNames` (reserved-"default" rejection,

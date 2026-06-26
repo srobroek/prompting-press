@@ -7,6 +7,8 @@ all language bindings sit on top of (constitution Principle I / C-01).
 `pyo3` or `napi`, directly or transitively. CI enforces it
 (`moon run ci:check-ffi`).
 
-Spec 001 ships this as a **stub** (it compiles and pins the dependency shape; no
-engine logic yet). The render path, agreement check, variant resolution, and
-hashing arrive in spec 002.
+Spec 002 moves the code-generated `PromptDefinition` input-contract shape (FR-027)
+into this crate (`src/generated/`, schema-derived — regenerate via
+`bash crates/prompting-press-core/scripts/codegen.sh` or
+`moon run prompting-press-core:codegen`; do not hand-edit). The render path,
+agreement check, variant resolution, and hashing also arrive in spec 002.

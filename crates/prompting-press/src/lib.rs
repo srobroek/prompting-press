@@ -13,17 +13,12 @@
 /// Re-export of the kernel, so consumers can reach core types through one entry point.
 pub use prompting_press_core as core;
 
-/// Code-generated shape modules, emitted from the JSON Schema single source of truth
-/// by `cargo-typify` (FR-016 / constitution C-07). Marked-generated, segregated, and
-/// freshness-gated in CI (US4); never hand-edited. Regenerate via
-/// `crates/prompting-press/scripts/codegen.sh`.
-pub mod generated;
-
-/// Re-export the generated `PromptDefinition` shape and its supporting types so consumers
-/// reach them through this crate's public surface rather than the generated module path.
-/// This crate re-exports but NEVER hand-edits the generated module.
-pub use generated::prompt_definition;
-pub use generated::prompt_definition::PromptDefinition;
+/// Re-export the generated `PromptDefinition` shape and its supporting types from the
+/// kernel, so consumers reach them through this crate's public surface rather than
+/// depending on the kernel directly. This crate re-exports but NEVER hand-edits the
+/// generated module (which lives in `prompting-press-core`).
+pub use prompting_press_core::generated::prompt_definition;
+pub use prompting_press_core::generated::prompt_definition::PromptDefinition;
 
 /// Returns the underlying kernel version.
 ///

@@ -26,13 +26,13 @@
 # typify; the on-disk schema is never modified.
 set -euo pipefail
 
-# Resolve repo root from this script's location (crates/prompting-press/scripts/).
+# Resolve repo root from this script's location (crates/prompting-press-core/scripts/).
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 cd "${REPO_ROOT}"
 
 SCHEMA="schemas/jsonschema/prompt-definition.schema.json"
-OUT="crates/prompting-press/src/generated/prompt_definition.rs"
+OUT="crates/prompting-press-core/src/generated/prompt_definition.rs"
 
 # Static do-not-edit header. cargo-typify emits crate-level `#![allow(clippy::...)]`
 # INNER attributes that MUST be the first non-comment items in the file, so the
@@ -46,7 +46,7 @@ HEADER='// GENERATED FILE — DO NOT EDIT.
 //   schemas/jsonschema/prompt-definition.schema.json
 // by cargo-typify (pinned via mise: "cargo:cargo-typify" = "0.7.0").
 //
-// Regenerate with: crates/prompting-press/scripts/codegen.sh  (re-run on schema change).
+// Regenerate with: crates/prompting-press-core/scripts/codegen.sh  (re-run on schema change).
 // Hand edits are overwritten and will fail the US4 freshness gate. Edit the schema.
 //
 // NOTE: the schema'\''s `variants.propertyNames` (reserved-"default" rejection,
