@@ -220,7 +220,7 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 - **Notes:** Validation lives here (consumer layer), never in the kernel. garde
   `Report` is wrapped, never leaked.
 
-### 004 — Python binding (`prompting-press-py` → `packages/python`)  [status: planned]
+### 004 — Python binding (`prompting-press-py` → `packages/python`)  [status: implemented]
 
 - **Description:** PyO3 + Pydantic binding — consumer #1's language
   (Bellwether/`claudebroker`).
@@ -320,6 +320,15 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   paths only for trivial chains.
 - **Langfuse delivery backend** — `[status: deferred]` push-to-SaaS as *delivery*
   only; repo stays canonical, SaaS never source of truth.
+- **Python binding DX follow-ups (from spec 004 review/debrief)** — `[status: deferred]`
+  three non-blocking items surfaced in the 004 Phase-3 reviews, none in any 004 FR/SC:
+  (a) **TD001** — bound or document `depythonize` recursion depth on the `insert(dict)`
+  path (`crates/prompting-press-py`; render/compose are already pydantic-depth-bounded);
+  (b) **value-equality** (`__eq__`/`__hash__`) on `RenderResult`/`Finding` — they are
+  content-addressed (carry hashes) but currently compare by identity; (c) **`.pyi` type
+  stubs** for downstream `mypy`/IDE typing of the compiled extension. Trigger: a real
+  consumer need (e.g. Bellwether) or the spec-005 TS binding wanting parity. Apply the
+  same pattern to spec 005 (napi) if adopted.
 - **Any new pluggable interface** — `[status: deferred]` introduced only when a
   second concrete implementation actually exists to exercise it (C-08).
 - **Variable-context render modes (WISHLIST — user-raised 2026-06-27, during spec 004)** —
