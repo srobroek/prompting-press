@@ -4,8 +4,10 @@ A typed, versioned, variant-aware **prompt-template library** with one shared en
 languages. One prompt definition renders byte-identically in Python, TypeScript, and Rust — by
 construction (a single compiled Rust core), not by per-language reimplementation.
 
-> **Status:** Foundations (spec 001) implemented. This is the structural spine — no prompt renders
-> yet, by design. The engine, typed-input validation, and bindings land in specs 002–007.
+> **Status:** Specs 001–004 implemented — Foundations (001), the engine kernel (002), the Rust
+> consumer API (003), and the **Python binding** (004, `prompting-press-py` via PyO3 + Pydantic).
+> Prompts render with typed-input validation, the agreement/provenance lint, and composition from
+> Rust **and** Python today. The TypeScript binding (005) and the remaining specs (006–009) follow.
 
 ## What it is (and isn't)
 
@@ -46,6 +48,9 @@ Toolchain is pinned via [`mise`](https://mise.jdx.dev) (`mise install`) and orch
 | `schemas:codegen-check` | codegen-freshness gate (regenerate → no diff) |
 | `ci:check-ffi` | FFI-isolation gate (no pyo3/napi in kernel/consumer) |
 | `ci:check-floating-versions` | reject floating dependency versions (SEC-003) |
+| `ci:check-advisories` | scan Rust deps for known CVEs (cargo-deny + RustSec) |
+| `ci:check-advisories-py` | scan Python deps for known CVEs (pip-audit + OSV) |
+| `ci:test-python` | build the `prompting-press-py` extension + run pytest & its cargo tests |
 
 Generated files under `**/generated/` are **never hand-edited** — regenerate and commit.
 
