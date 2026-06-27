@@ -1,0 +1,121 @@
+# Agent Assignments
+# Feature: 005 — TypeScript binding (prompting-press-node -> packages/typescript)
+# Generated: 2026-06-27
+# Command: /speckit.agent-assign.assign
+#
+# Mirrors the 004 assignment pattern: rust-pro for the napi binding crate (Rust),
+# typescript-pro for the TS-side facade + tests (the 005 analogue of 004's python-pro),
+# coder for setup / build-gate / docs / CI-wiring tasks.
+
+agents_scanned:
+  - name: "rust-pro"
+    source: "project"
+    description: "Rust 1.95 systems programming — the napi binding crate work"
+  - name: "typescript-pro"
+    source: "project"
+    description: "TypeScript — the Zod facade, the Error hierarchy, the TS test suites"
+  - name: "coder"
+    source: "project"
+    description: "Bounded config / build / CI / docs edits"
+
+assignments:
+  # Phase 1 — Setup
+  T001:
+    agent: "coder"
+    reason: "Cargo.toml edit — pin napi/napi-derive exact (config, no logic)"
+  T002:
+    agent: "coder"
+    reason: "package.json edit — add pinned zod + test runner, refresh lockfile"
+  T003:
+    agent: "coder"
+    reason: "Baseline build + FFI/codegen gate run (tooling, no code)"
+  # Phase 2 — Foundational
+  T004:
+    agent: "rust-pro"
+    reason: "napi #[pymodule]-equiv module wiring in lib.rs (Rust)"
+  T005:
+    agent: "rust-pro"
+    reason: "marshal.rs — the JS<->kernel serde value bridge (Rust, FR-003a/Q6)"
+  T006:
+    agent: "rust-pro"
+    reason: "error.rs — ConsumerError translation + SEC-004 scrub routing (Rust)"
+  T007:
+    agent: "rust-pro"
+    reason: "registry.rs — #[napi] Registry over the consumer registry (Rust)"
+  T008:
+    agent: "typescript-pro"
+    reason: "TS facade scaffold src/index.ts — Error hierarchy + payload mapper (TS)"
+  # Phase 3 — US1 validate+render
+  T009:
+    agent: "rust-pro"
+    reason: "Rust-side #[cfg(test)] marshaling + scrub unit tests"
+  T010:
+    agent: "typescript-pro"
+    reason: "TS-side render tests against the built addon (Zod, error assertions)"
+  T011:
+    agent: "rust-pro"
+    reason: "render.rs — #[napi] render delegating to the kernel (Rust)"
+  T012:
+    agent: "rust-pro"
+    reason: "getSource in render.rs delegating to the consumer (Rust)"
+  T013:
+    agent: "typescript-pro"
+    reason: "TS facade render wrapper — safeParse-at-boundary + subclass throw (TS)"
+  T014:
+    agent: "coder"
+    reason: "build + test gate run; clippy/fmt + TS lint/typecheck"
+  # Phase 4 — US2 loader
+  T015:
+    agent: "typescript-pro"
+    reason: "TS-side loader parity/malformed/Norway tests"
+  T016:
+    agent: "rust-pro"
+    reason: "registry.rs loadYaml/loadJson/insert routing to the consumer loader (Rust)"
+  T017:
+    agent: "coder"
+    reason: "build + test gate run"
+  # Phase 5 — US3 check
+  T018:
+    agent: "typescript-pro"
+    reason: "TS-side check tests — finding kinds + purity"
+  T019:
+    agent: "rust-pro"
+    reason: "check.rs — #[napi] check + CheckReport/Finding delegating to consumer (Rust)"
+  T020:
+    agent: "coder"
+    reason: "build + test gate run"
+  # Phase 6 — US4 compose
+  T021:
+    agent: "typescript-pro"
+    reason: "TS-side composition tests — order/partial/empty/no-.chain()"
+  T022:
+    agent: "rust-pro"
+    reason: "compose.rs — #[napi] Composition + kernel-direct resolve loop (Rust)"
+  T023:
+    agent: "coder"
+    reason: "build + test gate run"
+  # Phase 7 — Polish & cross-cutting
+  T024:
+    agent: "typescript-pro"
+    reason: "TS package facade finalize — exports/__all__-equiv, ESM entry (TS)"
+  T025:
+    agent: "coder"
+    reason: "README quickstart docs (no code)"
+  T026:
+    agent: "coder"
+    reason: "Build distributable + fresh-env import (packaging/tooling)"
+  T027:
+    agent: "coder"
+    reason: "Full local gate suite run (tooling)"
+  T028:
+    agent: "coder"
+    reason: "Verify ci:check-ffi already covers napi (CI/script check, analyze F1)"
+  T029:
+    agent: "coder"
+    reason: "Node advisory gate script + moon task + CI wiring"
+  T030:
+    agent: "coder"
+    reason: "ci:test-node gate script + moon task + CI job (+ Linux link verify)"
+  T031:
+    agent: "coder"
+    reason: "Quickstart SC-001..SC-011 coverage walk (verification doc)"
