@@ -410,10 +410,12 @@ dependencies = [
 name = "prompting-press-py"
 version = "0.0.0"
 dependencies = [
+ "minijinja",
  "prompting-press",
  "prompting-press-core",
  "pyo3",
  "pythonize",
+ "serde_json",
 ]
 
 [[package]]
