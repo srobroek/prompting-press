@@ -38,6 +38,17 @@ PYTHON_PKG="${REPO_ROOT}/packages/python"
 echo "Python binding test gate (spec 004 / review I1)"
 echo ""
 
+# The `cargo test` binary links libpython (extension-module OFF), so it must find it at
+# runtime. build.rs embeds an rpath to the interpreter LIBDIR, but a mise-/pyenv-managed
+# interpreter can sit outside the system loader path — belt-and-suspenders, also export the
+# LIBDIR on the platform loader-path var so the test binary loads `libpythonX.Y.so`/`.dylib`.
+PY_LIBDIR="$(python3 -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR") or "")' 2>/dev/null || true)"
+if [ -n "${PY_LIBDIR}" ]; then
+  export LD_LIBRARY_PATH="${PY_LIBDIR}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+  export DYLD_FALLBACK_LIBRARY_PATH="${PY_LIBDIR}${DYLD_FALLBACK_LIBRARY_PATH:+:${DYLD_FALLBACK_LIBRARY_PATH}}"
+  echo "  libpython LIBDIR: ${PY_LIBDIR}"
+fi
+
 # Step 1 — Rust-side binding tests (marshaling + scrub; needs no wheel).
 echo "==> cargo test -p prompting-press-py"
 cargo test -p prompting-press-py

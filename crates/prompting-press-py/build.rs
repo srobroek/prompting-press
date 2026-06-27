@@ -23,19 +23,30 @@ fn main() {
     // Both arms are scoped via `cargo:rustc-link-arg` (not a repo-wide .cargo/config.toml) so
     // the flags attach ONLY to this crate's link phase and never enter the RUSTFLAGS
     // fingerprint — keeping the codegen-determinism gate and the `cargo tree` FFI-isolation
-    // gate unperturbed. Linux/Windows need neither flag for the dev path.
+    // gate unperturbed.
     let extension_module = std::env::var_os("CARGO_FEATURE_EXTENSION_MODULE").is_some();
 
-    if !cfg!(target_os = "macos") {
+    // Windows resolves the interpreter via an import library (PyO3's own build script handles
+    // it); no link-arg is needed here, and the dev `cargo test` binary finds the DLL via PATH.
+    if cfg!(target_os = "windows") {
         return;
     }
 
     if extension_module {
-        // Wheel build: defer CPython symbol resolution to load time.
-        println!("cargo:rustc-link-arg=-undefined");
-        println!("cargo:rustc-link-arg=dynamic_lookup");
+        // Wheel build: defer CPython symbol resolution to load time. Only macOS needs the flag —
+        // Linux ELF already permits undefined symbols in a shared object (resolved at load).
+        if cfg!(target_os = "macos") {
+            println!("cargo:rustc-link-arg=-undefined");
+            println!("cargo:rustc-link-arg=dynamic_lookup");
+        }
     } else if let Some(libdir) = python_libdir() {
-        // Dev / test build: let the test binary find libpython at runtime.
+        // Dev / test build (`extension-module` OFF): PyO3 links libpython, so the resulting
+        // `cargo test` binary must find it at runtime. Embed an rpath to the interpreter's
+        // LIBDIR. Needed on BOTH macOS (dyld) AND Linux (ld.so) when the interpreter lives
+        // outside the system loader path — e.g. a mise-/pyenv-managed Python, where the bare
+        // binary otherwise fails with `libpython3.x.so: cannot open shared object file`.
+        // `-Wl,-rpath,{dir}` is honored by both linkers (DT_RUNPATH covers the direct libpython
+        // dependency on Linux).
         println!("cargo:rustc-link-arg=-Wl,-rpath,{libdir}");
     }
 }
