@@ -323,18 +323,30 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   (a) a **placeholder-preserving render** (template skeleton with `{{ var }}` intact) plus
   a **variable legend** section explaining each variable; (b) a **typed filled-variable
   manifest** (name → declared `type` → `provenance` → value) surfaced for agent context;
-  (c) an option to **auto append/prepend the `guard` text to the prompt**. All three are
-  *rendering / request-assembly* behavior, so they are **kernel-level** (Principle I — must
-  preserve cross-language parity), NOT binding-level (C-02 forbids engine logic in a
-  binding). (a)/(b) likely brush the Minimal-Boundary line (Principle III: no request-body
-  assembly) and may need a constitution amendment; (c) specifically must **never concatenate
-  into `text`** (that would change `render_hash`, breaking provenance identity — FR-025/SC-005)
-  and the right placement (guard as a *system message*) is caller-structure-dependent.
+  (c) an option (a flag/helper) to return a **final composed output that includes the `guard`
+  text** (e.g. guard prepended to the body). All three are *rendering / output-composition*
+  behavior, so they are **kernel-level** (Principle I — must preserve cross-language parity),
+  NOT binding-level (C-02 forbids engine logic in a binding).
+  - **(c) — DECIDED 2026-06-27: NOT building a composed field.** Reasoning: the `guard` is
+    already a *separate* field and is semantically a **system-prompt addendum**, while `text` is
+    the user-level body. Gluing them (`guard + body`) is the *wrong* split for the common chat
+    case (it jams a system instruction into a user turn) and only helps a single-blob/completion
+    send. Since the caller routes `guard` → their system prompt and sends `text` as the user
+    message with zero library help needed, a `composed` field earns nothing and risks nudging the
+    wrong usage. Resolution: **docs-only** — document the guard-as-system-addendum doctrine (in the
+    kernel `guard` rustdoc + each binding's quickstart): *single render → route `guard` to the
+    system prompt, send `text`; multi-message → place `guard` as its own `system` message*. No
+    kernel change, no `composed`, no per-binding helper (a helper would be per-binding, against
+    parity). `render_hash = SHA256(text)` (body only, `engine.rs:173`) is noted for the record;
+    a future composed feature, if ever wanted, is provenance-safe but currently has no consumer
+    justifying it.
+  - (a)/(b) are heavier: they brush the Minimal-Boundary line (Principle III: no request-body
+    assembly) and may need a constitution amendment.
   **Today, all three are one-liners in the consuming app**: `get_source()` already returns the
   placeholder-intact template; `def.variables` already carries `type`/`provenance`; and
-  `result.guard` is a separate field the caller can place. Trigger: a concrete consumer
-  (e.g. Bellwether) finding the caller-side assembly repetitive enough to justify a kernel
-  spec + a constitution-boundary decision.
+  `result.guard` is a separate field the caller can compose (`f"{r.guard}\n\n{r.text}"`).
+  Trigger: a concrete consumer (e.g. Bellwether) finding the caller-side assembly repetitive
+  enough to justify a kernel spec.
 
 ## Never (boundary defense)
 
