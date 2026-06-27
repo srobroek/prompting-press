@@ -13,17 +13,56 @@ repository.workspace = true
 authors.workspace = true
 description = "Node.js binding (napi/Node-API) for Prompting Press."
 
-# cdylib: the .node native addon loaded by the Node.js runtime.
+# cdylib: the .node native addon loaded by the Node.js runtime. `rlib` is added so
+# `cargo test` can build a test-harness binary that links the crate and runs the
+# `#[cfg(test)]` unit tests (a pure cdylib cannot be linked into a test bin). The
+# `#[cfg(test)]` tests need NO live Node runtime — they build `serde_json::Value` /
+# `minijinja::Value` / `KernelError` / `PromptDefinition` directly and never call a
+# Node-API symbol — and napi's default `dyn-symbols` feature loads the N-API symbols
+# lazily, so the harness links cleanly without a Node host (mirrors the py crate's
+# cdylib+rlib split, but with no interpreter-init needed).
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 prompting-press-core = { path = "../prompting-press-core" }
 prompting-press = { path = "../prompting-press" }
+
+# `minijinja` supplies the kernel value type (`minijinja::Value`) that `marshal.rs`
+# produces and hands to `prompting_press_core::render`. Same workspace pin/features as
+# the kernel so the marshaled value shape is identical (render parity stays structural —
+# Principle I). A value-type dependency, NOT engine logic: no rendering happens here.
+minijinja = { workspace = true }
+
+# `serde_json` is the lossless serde intermediate for the marshaling bridge: a JS value
+# is read into a `serde_json::Value` (via napi's `serde-json` feature) and re-serialized
+# into a `minijinja::Value` via `from_serialize` — the same primitive the Rust consumer
+# uses, so render parity is structural. Also used to JSON-encode the scrubbed error rows
+# carried across the napi boundary (error.rs).
+serde_json = { workspace = true }
+
+# `serde` (with `derive`) supplies the `#[derive(Serialize)]` on the structured, scrubbed
+# error payload (error.rs) that is JSON-encoded into the `napi::Error` reason for the TS
+# facade to decode (research D4). napi's `serde-json` feature pulls `serde` transitively,
+# but the derive macro needs it as a direct dependency; same workspace pin as the kernel.
+serde = { workspace = true }
+
 # napi 3.x is the current Node-API binding line; `napi-derive` supplies the `#[napi]`
 # attribute macro. Pinned EXACT (not floating "3") so the ci:check-floating-versions
 # gate stays green. NOTE: the two crates version INDEPENDENTLY — crates.io latest 3.x
-# verified 2026-06-24: napi = 3.9.4, napi-derive = 3.5.7. Marshaling-bridge features
-# (e.g. serde-json) are added in T005 once verified against the napi 3.9.4 feature set.
-napi = "3.9.4"
-napi-derive = "3.5.7"
+# verified 2026-06-24: napi = 3.9.4, napi-derive = 3.5.7.
+#
+# Features (verified against the napi 3.9.4 crate `[features]` set — FR-003a / T005):
+#   - `serde-json` (pulls `serde` + `serde_json`): supplies `impl FromNapiValue for
+#     serde_json::Value`, the one auditable JS→serde hop the marshaling bridge needs.
+#   - `napi6`: enables the BigInt N-API surface, so `impl FromNapiValue for
+#     serde_json::Value` takes its lossless-`bigint` arm (`get_i64`/`get_u64`) instead
+#     of erroring — pins the Q6 bigint-losslessness rule. (napi's own default is
+#     `napi4`; `napi6` is a strict superset.) `dyn-symbols` (a default) is kept so the
+#     `cargo test` rlib harness links without a Node host.
+[dependencies.napi]
+version = "3.9.4"
+features = ["serde-json", "napi6"]
+
+[dependencies.napi-derive]
+version = "3.5.7"

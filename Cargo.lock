@@ -297,6 +297,8 @@ dependencies = [
  "napi-sys",
  "nohash-hasher",
  "rustc-hash",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -400,10 +402,13 @@ dependencies = [
 name = "prompting-press-node"
 version = "0.0.0"
 dependencies = [
+ "minijinja",
  "napi",
  "napi-derive",
  "prompting-press",
  "prompting-press-core",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
