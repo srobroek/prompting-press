@@ -96,12 +96,12 @@ representation, with identical downstream behavior — by REUSING the Rust consu
 
 ### Tests for US2 ⚠️ (write first, expect fail)
 
-- [ ] T013 [P] [US2] Python-side loader tests in `packages/python/tests/test_loader.py`: US2.parity (load the same logical prompt via `load_yaml(text)`, `load_json(text)`, and `insert(PromptDefinition.model_validate(obj))` → render each with identical inputs → identical text + provenance — **SC-003**); US2.malformed (invalid YAML/JSON or shape-violating data → `LoadError`, nothing partially loaded — confirm the registry has no entry afterward); US2.norway (YAML `no`/`off` → parsed as STRING not bool, inherited from the Rust loader's Norway-safe parser — research D2/spec-003). Reuse `schemas/jsonschema/fixtures/valid/*.json` as JSON inputs + equivalent YAML.
+- [X] T013 [P] [US2] Python-side loader tests in `packages/python/tests/test_loader.py`: US2.parity (load the same logical prompt via `load_yaml(text)`, `load_json(text)`, and `insert(PromptDefinition.model_validate(obj))` → render each with identical inputs → identical text + provenance — **SC-003**); US2.malformed (invalid YAML/JSON or shape-violating data → `LoadError`, nothing partially loaded — confirm the registry has no entry afterward); US2.norway (YAML `no`/`off` → parsed as STRING not bool, inherited from the Rust loader's Norway-safe parser — research D2/spec-003). Reuse `schemas/jsonschema/fixtures/valid/*.json` as JSON inputs + equivalent YAML.
 
 ### Implementation for US2
 
-- [ ] T014 [US2] In `registry.rs`, add `load_yaml(&mut self, text: str)` and `load_json(&mut self, text: str)` that marshal the TEXT to `prompting_press::Registry::load_yaml` / `load_json` (Q3 — the consumer owns parsing); map the consumer's `Load` error → `LoadError`; on error insert NOTHING (FR-007). Extend `insert(definition)` to take a generated-Pydantic `PromptDefinition`, `model_dump_json()` it, and route through the consumer's `load_json` (one loader, one representation — FR-005/006/008).
-- [ ] T015 [US2] Build + run: `mise exec -- maturin develop ...`; `mise exec -- pytest packages/python/tests/test_loader.py`; confirm T013 (esp. SC-003 parity + Norway-safe). Parity holds because the SAME Rust loader handles all three paths.
+- [X] T014 [US2] In `registry.rs`, add `load_yaml(&mut self, text: str)` and `load_json(&mut self, text: str)` that marshal the TEXT to `prompting_press::Registry::load_yaml` / `load_json` (Q3 — the consumer owns parsing); map the consumer's `Load` error → `LoadError`; on error insert NOTHING (FR-007). Extend `insert(definition)` to take a generated-Pydantic `PromptDefinition`, `model_dump_json()` it, and route through the consumer's `load_json` (one loader, one representation — FR-005/006/008).
+- [X] T015 [US2] Build + run: `mise exec -- maturin develop ...`; `mise exec -- pytest packages/python/tests/test_loader.py`; confirm T013 (esp. SC-003 parity + Norway-safe). Parity holds because the SAME Rust loader handles all three paths.
 
 **Checkpoint**: US1 + US2 — render + dual-input loading, parity structural.
 
