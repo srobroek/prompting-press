@@ -70,6 +70,22 @@ impl Registry {
     pub(crate) fn inner(&self) -> &prompting_press::Registry {
         &self.inner
     }
+
+    /// Build a `Registry` pre-populated with the given already-constructed
+    /// [`PromptDefinition`]s, for the sibling modules' `#[cfg(test)]` render/check/compose tests.
+    ///
+    /// Test-only: the public Python path populates a registry via `insert` / the US2 loaders;
+    /// this bypasses the PyO3 extraction so a Rust test can seed kernel `PromptDefinition`s
+    /// directly (the generated newtypes make a struct literal awkward, so tests build each def
+    /// from JSON and hand them here).
+    #[cfg(test)]
+    pub(crate) fn from_defs_for_test(defs: impl IntoIterator<Item = PromptDefinition>) -> Self {
+        let mut inner = prompting_press::Registry::new();
+        for def in defs {
+            inner.insert(def);
+        }
+        Self { inner }
+    }
 }
 
 /// Newtype wrapper letting `insert` accept a `PromptDefinition` extracted from Python.

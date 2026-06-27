@@ -317,6 +317,24 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   only; repo stays canonical, SaaS never source of truth.
 - **Any new pluggable interface** — `[status: deferred]` introduced only when a
   second concrete implementation actually exists to exercise it (C-08).
+- **Variable-context render modes (WISHLIST — user-raised 2026-06-27, during spec 004)** —
+  `[status: deferred — needs boundary review]` three related ideas for giving the
+  downstream agent more structured context about a prompt's variables:
+  (a) a **placeholder-preserving render** (template skeleton with `{{ var }}` intact) plus
+  a **variable legend** section explaining each variable; (b) a **typed filled-variable
+  manifest** (name → declared `type` → `provenance` → value) surfaced for agent context;
+  (c) an option to **auto append/prepend the `guard` text to the prompt**. All three are
+  *rendering / request-assembly* behavior, so they are **kernel-level** (Principle I — must
+  preserve cross-language parity), NOT binding-level (C-02 forbids engine logic in a
+  binding). (a)/(b) likely brush the Minimal-Boundary line (Principle III: no request-body
+  assembly) and may need a constitution amendment; (c) specifically must **never concatenate
+  into `text`** (that would change `render_hash`, breaking provenance identity — FR-025/SC-005)
+  and the right placement (guard as a *system message*) is caller-structure-dependent.
+  **Today, all three are one-liners in the consuming app**: `get_source()` already returns the
+  placeholder-intact template; `def.variables` already carries `type`/`provenance`; and
+  `result.guard` is a separate field the caller can place. Trigger: a concrete consumer
+  (e.g. Bellwether) finding the caller-side assembly repetitive enough to justify a kernel
+  spec + a constitution-boundary decision.
 
 ## Never (boundary defense)
 

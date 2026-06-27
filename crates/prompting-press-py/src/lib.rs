@@ -26,8 +26,8 @@ use pyo3::prelude::*;
 pub mod error;
 pub mod marshal;
 pub mod registry;
+pub mod render;
 
-// T0NN (US1): pub mod render;   — validate → marshal → kernel-direct render + get_source.
 // T0NN (US3): pub mod check;    — `check(registry)` + CheckReport / Finding pyclasses.
 // T0NN (US4): pub mod compose;  — Composition / Message; eager-validate append; resolve loop.
 
@@ -52,8 +52,13 @@ fn prompting_press_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // The exception hierarchy + the FieldError row class (T006).
     error::register(m)?;
 
-    // T0NN (US1): m.add_function(wrap_pyfunction!(render::render, m)?)?;
-    //             m.add_function(wrap_pyfunction!(render::get_source, m)?)?;
+    // The render path: render / get_source + the RenderResult and GuardConfig pyclasses
+    // (US1, T010/T011). GuardConfig is the opt-in guard plumbed through to the kernel (FR-009).
+    m.add_class::<render::RenderResult>()?;
+    m.add_class::<render::GuardConfig>()?;
+    m.add_function(wrap_pyfunction!(render::render, m)?)?;
+    m.add_function(wrap_pyfunction!(render::get_source, m)?)?;
+
     // T0NN (US3): m.add_function(wrap_pyfunction!(check::check, m)?)?;
     //             m.add_class::<check::CheckReport>()?; m.add_class::<check::Finding>()?;
     // T0NN (US4): m.add_class::<compose::Composition>()?; m.add_class::<compose::Message>()?;
