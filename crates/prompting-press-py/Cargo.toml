@@ -14,16 +14,53 @@ authors.workspace = true
 description = "Python binding (PyO3) for Prompting Press."
 
 # cdylib: the artifact loaded by the Python interpreter as a native extension module.
+# `rlib` is added so `cargo test` can build a test harness that links libpython and runs the
+# `#[cfg(test)]` `Python::attach` unit tests (a pure cdylib cannot be linked into a test bin).
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
+
+# `extension-module` is NOT enabled here by default. With it on, a bare `cargo test` links no
+# libpython and the `Python::attach` unit tests abort at load (`symbol not found
+# '_PyBaseObject_Type'`). The wheel build supplies it explicitly instead — maturin passes
+# `features = ["pyo3/extension-module"]` (see packages/python/pyproject.toml) — so the
+# published artifact is still a proper extension module, while `cargo build`/`cargo test`
+# (which T012/T025 run) link the dev libpython that mise provides and the tests execute.
+[features]
+extension-module = ["pyo3/extension-module"]
 
 [dependencies]
 prompting-press-core = { path = "../prompting-press-core" }
 prompting-press = { path = "../prompting-press" }
 
-# `extension-module` keeps the build from linking libpython, so `cargo check`/`build`
-# succeed without a Python development environment. `abi3-py39` targets the stable
-# ABI (one wheel across CPython >= 3.9), which is the intended distribution shape.
+# `minijinja` supplies the kernel value type (`minijinja::Value`) that `marshal.rs`
+# produces and hands to `prompting_press_core::render`. Same workspace pin/features as
+# the kernel so the marshaled value shape is identical (render parity stays structural —
+# Principle I). A value-type dependency, NOT engine logic: no rendering happens in this crate.
+minijinja = { workspace = true }
+
+# `serde_json` is the lossless serde intermediate for the marshaling bridge: a Python
+# object is `depythonize`d into a `serde_json::Value`, then re-serialized into a
+# `minijinja::Value` via `from_serialize` (the same primitive the Rust consumer uses).
+serde_json = { workspace = true }
+
+# `auto-initialize` is needed ONLY for the `#[cfg(test)]` `Python::attach` unit tests: it lets
+# them spin up a CPython interpreter (via `Py_Initialize`) without an embedding harness. It is
+# a dev-dependency feature so it is enabled for `cargo test` but NEVER for the wheel build (an
+# extension module must not auto-initialize — the host interpreter owns the runtime). Cargo's
+# feature unification turns it on for the test profile and leaves it off otherwise.
+[dev-dependencies.pyo3]
+version = "0.29"
+features = ["auto-initialize"]
+
+# `abi3-py310` targets the stable ABI (one wheel across CPython >= 3.10), which is the
+# intended distribution shape. `extension-module` is intentionally NOT listed here — it is the
+# opt-in `[features]` flag above, enabled only by the maturin wheel build, so `cargo test` can
+# link a dev libpython and run the `Python::attach` unit tests (T012/T025).
 [dependencies.pyo3]
 version = "0.29"
-features = ["extension-module", "abi3-py39"]
+features = ["abi3-py310"]
+
+# `pythonize` is the serde bridge for marshaling Python values (via PyO3) into the
+# kernel's serde `Value` type. Version-matched to pyo3 0.29.
+[dependencies.pythonize]
+version = "0.29"

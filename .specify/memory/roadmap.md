@@ -230,8 +230,12 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   composition, and normalized errors as Python exceptions.
 - **Scope (in):** PyO3 marshaling (marshaling + Pydantic facade only); Pydantic
   Vars + validators; agreement/lint wiring; dual-input loader; `from_messages`
-  composition; token hook; error normalization.
-- **Scope (out):** any rendering/hashing/analysis logic in the binding (C-02).
+  composition; error normalization; a Python dependency advisory gate
+  (`ci:check-advisories-py`, security review SEC-101).
+- **Scope (out):** any rendering/hashing/analysis logic in the binding (C-02);
+  ~~token hook~~ (struck — the token surface was dropped in spec 003, refinement
+  F4, and deferred to the "Token budgeting / truncation" Deferred entry; never
+  re-introduced at the binding layer).
 - **Depends on:** 002 (kernel); informed by 003 (consumer pattern).
 - **Governed by:** C-02, C-06.
 - **Notes:** Marshaling + facade only — zero engine logic (Principle II).
@@ -245,9 +249,10 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   validators, agreement/lint wired to Zod, array-literal composition, and
   normalized errors as JS errors.
 - **Scope (in):** napi-rs marshaling; Zod Vars + validators; agreement/lint
-  wiring; dual-input loader; array-literal / builder composition; token hook;
+  wiring; dual-input loader; array-literal / builder composition;
   error normalization.
-- **Scope (out):** any engine logic in the binding; a fluent `.chain()` API
+- **Scope (out):** any engine logic in the binding; ~~token hook~~ (struck — same
+  F4 reason as 004; the token surface is deferred, not a binding concern); a fluent `.chain()` API
   (cannot cross napi; collides with idiom).
 - **Depends on:** 002 (kernel); informed by 003/004.
 - **Governed by:** C-02, C-06.
@@ -317,6 +322,36 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   only; repo stays canonical, SaaS never source of truth.
 - **Any new pluggable interface** — `[status: deferred]` introduced only when a
   second concrete implementation actually exists to exercise it (C-08).
+- **Variable-context render modes (WISHLIST — user-raised 2026-06-27, during spec 004)** —
+  `[status: deferred — needs boundary review]` three related ideas for giving the
+  downstream agent more structured context about a prompt's variables:
+  (a) a **placeholder-preserving render** (template skeleton with `{{ var }}` intact) plus
+  a **variable legend** section explaining each variable; (b) a **typed filled-variable
+  manifest** (name → declared `type` → `provenance` → value) surfaced for agent context;
+  (c) an option (a flag/helper) to return a **final composed output that includes the `guard`
+  text** (e.g. guard prepended to the body). All three are *rendering / output-composition*
+  behavior, so they are **kernel-level** (Principle I — must preserve cross-language parity),
+  NOT binding-level (C-02 forbids engine logic in a binding).
+  - **(c) — DECIDED 2026-06-27: NOT building a composed field.** Reasoning: the `guard` is
+    already a *separate* field and is semantically a **system-prompt addendum**, while `text` is
+    the user-level body. Gluing them (`guard + body`) is the *wrong* split for the common chat
+    case (it jams a system instruction into a user turn) and only helps a single-blob/completion
+    send. Since the caller routes `guard` → their system prompt and sends `text` as the user
+    message with zero library help needed, a `composed` field earns nothing and risks nudging the
+    wrong usage. Resolution: **docs-only** — document the guard-as-system-addendum doctrine (in the
+    kernel `guard` rustdoc + each binding's quickstart): *single render → route `guard` to the
+    system prompt, send `text`; multi-message → place `guard` as its own `system` message*. No
+    kernel change, no `composed`, no per-binding helper (a helper would be per-binding, against
+    parity). `render_hash = SHA256(text)` (body only, `engine.rs:173`) is noted for the record;
+    a future composed feature, if ever wanted, is provenance-safe but currently has no consumer
+    justifying it.
+  - (a)/(b) are heavier: they brush the Minimal-Boundary line (Principle III: no request-body
+    assembly) and may need a constitution amendment.
+  **Today, all three are one-liners in the consuming app**: `get_source()` already returns the
+  placeholder-intact template; `def.variables` already carries `type`/`provenance`; and
+  `result.guard` is a separate field the caller can compose (`f"{r.guard}\n\n{r.text}"`).
+  Trigger: a concrete consumer (e.g. Bellwether) finding the caller-side assembly repetitive
+  enough to justify a kernel spec.
 
 ## Never (boundary defense)
 

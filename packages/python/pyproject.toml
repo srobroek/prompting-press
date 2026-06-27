@@ -30,9 +30,9 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Sjors Robroek" }]
-# Intentionally empty: no runtime logic yet. Pydantic and friends arrive with the
-# generated models in US3.
-dependencies = []
+# Pydantic v2 is the typed-Vars facade and the generated shape (US3). The bounded
+# range `>=2,<3` is explicit and acceptable under the no-floating-versions rule.
+dependencies = ["pydantic>=2,<3"]
 
 [project.urls]
 Repository = "https://github.com/srobroek/prompting-press"

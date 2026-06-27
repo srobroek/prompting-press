@@ -1,12 +1,70 @@
-"""Prompting Press — Python distribution.
+"""Prompting Press — a typed, variant-aware prompt-template library.
 
-Skeleton package marker (spec 001 / FR-004). This ships no runtime logic: the
-real public API is provided by the compiled Rust extension (PyO3 binding crate
-``crates/prompting-press-py``), built and merged into this package by maturin
-once US1 (crate stubs) and US3 (codegen) land.
+This package is the **Python binding** over the shared Rust core: prompts are parsed,
+validated, rendered, hashed, and lint-checked once in Rust (Principle I), and Python only
+marshals typed values across the FFI boundary — the binding contains no rendering, hashing,
+or analysis logic of its own (Principle II / roadmap decision C-02).
 
-``__version__`` is a placeholder mirroring the unpublished ``0.0.0`` in
-``pyproject.toml``; it will be sourced from package metadata once published.
+The public API is re-exported here from the compiled Rust extension (the PyO3 binding crate
+``crates/prompting-press-py``), built and merged into this package by maturin. In the mixed
+Rust/Python layout the extension lands as the submodule ``prompting_press.prompting_press``;
+this ``__init__`` re-exports its public names so callers use ``prompting_press.render`` etc.
+``PromptDefinition`` is the Pydantic prompt-definition shape, code-generated from the published
+JSON Schema (decision C-07).
+
+See ``packages/python/README.md`` for a runnable quickstart.
 """
 
-__version__ = "0.0.0"
+from __future__ import annotations
+
+from importlib.metadata import PackageNotFoundError, version
+
+from .prompting_press import (  # the compiled extension submodule
+    CheckReport,
+    Composition,
+    FieldError,
+    Finding,
+    GuardConfig,
+    LoadError,
+    Message,
+    PromptingPressError,
+    PromptRenderError,
+    PromptValidationError,
+    Registry,
+    RenderResult,
+    UnknownPromptError,
+    check,
+    core_version,
+    get_source,
+    render,
+)
+
+# The generated Pydantic prompt-definition shape (codegen'd from the JSON Schema — C-07).
+from .generated import PromptDefinition
+
+try:
+    # The PyPI distribution name is ``prompting-press`` (the import name is ``prompting_press``).
+    __version__ = version("prompting-press")
+except PackageNotFoundError:  # pragma: no cover — editable / unbuilt source tree
+    __version__ = "0.0.0"
+
+__all__ = [
+    "Registry",
+    "RenderResult",
+    "GuardConfig",
+    "FieldError",
+    "CheckReport",
+    "Finding",
+    "Composition",
+    "Message",
+    "render",
+    "get_source",
+    "check",
+    "core_version",
+    "PromptDefinition",
+    "PromptingPressError",
+    "PromptValidationError",
+    "PromptRenderError",
+    "UnknownPromptError",
+    "LoadError",
+]

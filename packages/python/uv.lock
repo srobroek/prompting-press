@@ -286,6 +286,9 @@ wheels = [
 name = "prompting-press"
 version = "0.0.0"
 source = { editable = "." }
+dependencies = [
+    { name = "pydantic" },
+]
 
 [package.dev-dependencies]
 codegen = [
@@ -293,6 +296,7 @@ codegen = [
 ]
 
 [package.metadata]
+requires-dist = [{ name = "pydantic", specifier = ">=2,<3" }]
 
 [package.metadata.requires-dev]
 codegen = [{ name = "datamodel-code-generator", specifier = "==0.65.1" }]

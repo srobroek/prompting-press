@@ -100,6 +100,43 @@ jobs:
       - name: 'T036: Advisory scan'
         run: mise exec -- moon run ci:check-advisories
 
+      # T028 — Python advisory scan: known CVEs in Python deps (FR-025, SC-011, SEC-101)
+      # pip-audit reads packages/python/uv.lock via uv export; does NOT require building the extension.
+      - name: 'T028: Python advisory scan'
+        run: mise exec -- moon run ci:check-advisories-py
+
+  # ---------------------------------------------------------------------------
+  # test-python — spec 004 (review I1): build the prompting-press-py extension
+  # and run BOTH binding test suites. The `build` matrix only `cargo build`s the
+  # workspace (catching link regressions) and never runs tests, so without this
+  # job the 56 pytest + 30 binding tests — the only coverage for the
+  # validate-in-Python path, the SEC-004-PY scrub, and loader parity — can rot
+  # green. One Linux leg: the suites are OS-independent (the FFI link itself is
+  # covered per-OS by the `build` matrix); a venv build on every OS would be
+  # costly for no extra coverage of the test logic.
+  # ---------------------------------------------------------------------------
+  test-python:
+    name: 'Python binding tests (ubuntu)'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0  # let moon resolve the base branch on pull_request events
+
+      - name: Install mise toolchain
+        uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac  # v2
+        with:
+          experimental: true
+
+      # rustfmt/clippy not needed here; the test gate compiles + runs the crate
+      # and builds the extension via uvx maturin into a hermetic uv venv.
+      - name: 'Spec 004 / I1: build extension + run pytest & cargo test'
+        run: mise exec -- moon run ci:test-python
+        env:
+          CARGO_TERM_COLOR: always
+
   # ---------------------------------------------------------------------------
   # build — OS-sensitive: exercises FFI link paths per platform
   # ---------------------------------------------------------------------------

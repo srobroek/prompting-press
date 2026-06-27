@@ -1,0 +1,122 @@
+# Agent Assignments
+# Feature: 004 — Python binding (prompting-press-py)
+# Generated: 2026-06-27
+# Command: /speckit.agent-assign.assign
+
+agents_scanned:
+  - name: "rust-pro"
+    source: "project"
+    description: "Master Rust — modern type system, production systems programming, latest ecosystem/crates. (PyO3 binding-crate logic: pyclasses, marshaling, exception types.)"
+  - name: "python-pro"
+    source: "project"
+    description: "Master Python 3.12+ — modern features, pydantic, packaging, pytest. (Python-side tests, package facade, docs.)"
+  - name: "coder"
+    source: "project"
+    description: "Implementation subagent for bounded code changes, deps, config, CI wiring, and command-running verification tasks."
+
+# Rationale: spec 004 is DUAL-language — a PyO3 Rust binding crate (crates/prompting-press-py/) plus a
+# Python package (packages/python/). Rust binding LOGIC (pyclasses, marshaling bridge, exception
+# hierarchy, render/check/compose pyfns) -> rust-pro. Python-side pytest + the package __init__ facade +
+# docs -> python-pro. Dep/config edits (Cargo.toml/pyproject.toml), CI gate wiring, and the
+# build+run/verification/quickstart-walk command tasks -> coder. No frontend/db/API-service tasks.
+# NOTE: agent summaries describe intent; the orchestrator reviews each emitted diff against the task +
+# the constitution (esp. C-02 pyo3-only, C-01 no-engine-logic, SEC-004 scrub) before accepting.
+
+assignments:
+  # Phase 1 — Setup
+  T001:
+    agent: "coder"
+    reason: "Edit crates/prompting-press-py/Cargo.toml (bump abi3-py39->abi3-py310, add pythonize, pin); dep/config plumbing."
+  T002:
+    agent: "coder"
+    reason: "Edit packages/python/pyproject.toml (add pydantic dep), uv lock refresh; dep/config plumbing."
+  T003:
+    agent: "coder"
+    reason: "Baseline build + maturin develop + import + ci:check-ffi/codegen-check; command-running verification task."
+
+  # Phase 2 — Foundational
+  T004:
+    agent: "rust-pro"
+    reason: "lib.rs #[pymodule] wiring: register classes/functions/exceptions; Rust/PyO3 module structure."
+  T005:
+    agent: "rust-pro"
+    reason: "marshal.rs FFI value bridge (pythonize depythonize -> minijinja::Value, lossless); core Rust marshaling logic."
+  T006:
+    agent: "rust-pro"
+    reason: "error.rs exception hierarchy (create_exception! + extends=PyException), ConsumerError/ValidationError translation, SEC-004 scrub; Rust/PyO3 type design + the security-critical scrub."
+  T007:
+    agent: "rust-pro"
+    reason: "registry.rs #[pyclass] over the consumer Registry (insert); Rust/PyO3 type + FFI wrapping."
+
+  # Phase 3 — US1 (validate + render) [MVP]
+  T008:
+    agent: "rust-pro"
+    reason: "Rust-side marshaling + SEC-004 scrub unit tests (#[cfg(test)], Python::attach); Rust test authoring + the secret-scrub assertion."
+  T009:
+    agent: "python-pro"
+    reason: "Python-side render pytest (Pydantic Vars model, validation-failure, no-native-type-leak, three-sets gap); Python test authoring."
+  T010:
+    agent: "rust-pro"
+    reason: "render.rs #[pyfn] render: validate(Q1) -> marshal -> kernel-direct render -> KernelError via consumer scrubber -> exceptions; core PyO3 binding logic."
+  T011:
+    agent: "rust-pro"
+    reason: "render.rs get_source #[pyfn] + RenderResult #[pyclass] getters; Rust/PyO3."
+  T012:
+    agent: "coder"
+    reason: "cargo test + maturin develop + pytest + clippy/fmt; build+run/verification command task."
+
+  # Phase 4 — US2 (dual-input loader)
+  T013:
+    agent: "python-pro"
+    reason: "Python-side loader pytest (YAML/JSON/object parity, malformed->LoadError, Norway-safe); Python test authoring."
+  T014:
+    agent: "rust-pro"
+    reason: "registry.rs load_yaml/load_json (marshal text -> consumer loader) + insert(pydantic obj)->JSON->load_json; Rust/PyO3 FFI wrapping."
+  T015:
+    agent: "coder"
+    reason: "maturin develop + pytest loader; build+run/verification command task."
+
+  # Phase 5 — US3 (agreement + provenance lint)
+  T016:
+    agent: "python-pro"
+    reason: "Python-side check pytest (all finding kinds, purity); Python test authoring."
+  T017:
+    agent: "rust-pro"
+    reason: "check.rs #[pyfn] check + CheckReport/Finding #[pyclass] over the consumer check, deterministic order; Rust/PyO3."
+  T018:
+    agent: "coder"
+    reason: "maturin develop + pytest check; build+run/verification command task."
+
+  # Phase 6 — US4 (composition)
+  T019:
+    agent: "python-pro"
+    reason: "Python-side composition pytest (order, no-partial, empty, no .chain()); Python test authoring."
+  T020:
+    agent: "rust-pro"
+    reason: "compose.rs #[pyclass] Composition (binding-owned entries) + from_messages/append/resolve loop (kernel-direct render); Rust/PyO3 binding logic."
+  T021:
+    agent: "coder"
+    reason: "maturin develop + pytest compose; build+run/verification command task."
+
+  # Phase 7 — Polish & Cross-Cutting
+  T022:
+    agent: "python-pro"
+    reason: "packages/python/__init__.py facade: re-export compiled symbols + exception hierarchy + generated shape, __all__/__version__; Python packaging."
+  T023:
+    agent: "python-pro"
+    reason: "Python README/module docstring quickstart (public API, C-06 boundary, three-sets invariant, no token surface); Python docs."
+  T024:
+    agent: "coder"
+    reason: "maturin build wheel + fresh-venv pip install + import; build/packaging verification command task."
+  T025:
+    agent: "coder"
+    reason: "Full local gate suite (moon :build, cargo test, pytest, ci:check-ffi/-py, codegen-check, clippy, fmt, token-grep); command-running verification."
+  T026:
+    agent: "coder"
+    reason: "Walk quickstart.md end-to-end, map SC-001..SC-011 to backing tests; verification task."
+  T027:
+    agent: "coder"
+    reason: "Amend .specify/memory/roadmap.md (drop stale 004/005 token-hook scope line); doc/governance edit."
+  T028:
+    agent: "coder"
+    reason: "Create scripts/ci/check-advisories-py.sh + register ci:check-advisories-py moon task + CI wiring; CI/config plumbing."
