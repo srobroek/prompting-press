@@ -37,12 +37,12 @@ logic in the binding** (Principle I); the only binding-side orchestration is the
 (`napi build --platform --esm`), shipped **ESM-only** (clarified Q8) with per-platform native binaries as
 `optionalDependencies` (clarified Q5). The TS `PromptDefinition` shape stays codegen'd from the JSON
 Schema via `json-schema-to-typescript 15.0.4` (Principle VII; already wired). No new Rust deps reach the
-kernel or Rust consumer → `ci:check-ffi` stays green (and is **extended to assert `napi`**, FR-022).
+kernel or Rust consumer → `ci:check-ffi` stays green (the gate **already asserts `napi`** — `FFI_CRATES=("pyo3" "napi")`, shipped spec 001; FR-022 is verify-not-extend — analyze F1).
 
 ## Technical Context
 
 **Language/Version**: Rust (workspace lockstep, pinned `1.95.0`) for the binding crate; TypeScript
-**5.9.2** (repo-pinned) targeting **Node 16+** (ESM) for the package. Native addon via Node-API (napi).
+**5.9.2** (repo-pinned) targeting **Node 20+** (ESM; matches the scaffold `engines.node: ">=20"`) for the package. Native addon via Node-API (napi).
 
 **Primary Dependencies** (all version-verified this cycle against crates.io / npm directly — see
 research.md):
@@ -71,7 +71,7 @@ scenarios — quickstart.md), run via moon. A `ci:test-node` gate builds the add
 spec-004 I1 lesson — the OS-matrix `cargo build` does not run binding tests).
 
 **Target Platform**: Native Node addon (per-platform `.node` binaries), across the existing 3-OS build
-matrix; ESM-only consumption on Node 16+.
+matrix; ESM-only consumption on Node 20+.
 
 **Project Type**: Library binding (napi crate `prompting-press-node` + the `packages/typescript`
 distribution within the existing workspace).
@@ -79,7 +79,7 @@ distribution within the existing workspace).
 **Performance Goals**: None specified/needed — synchronous in-process marshal + FFI call. SCs are
 correctness/parity/packaging, not perf.
 
-**Constraints**: `napi` ONLY here (C-02, CI-gated — gate extended to `napi`); no engine logic in the
+**Constraints**: `napi` ONLY here (C-02, CI-gated — the gate already asserts `napi`); no engine logic in the
 binding (C-01 — marshal to the core); no I/O / no LLM / no request-body / no output parsing / **no token
 counting** (C-03 / F4); native error types (`ZodError`, Rust errors) never cross FFI onto the public API
 (C-06); `check()` pure; generated TS shape codegen'd, never hand-edited (C-07); ESM-only;
@@ -88,7 +88,7 @@ counting** (C-03 / F4); native error types (`ZodError`, Rust errors) never cross
 **Scale/Scope**: One binding crate (build out the stub) + the TS package; ~5 marshaling areas (registry,
 render/getSource, check, compose, error) mirroring the consumer's 5 modules and the 004 binding's layout;
 the generated shape already present; pin napi exact + add Zod + a test runner; native build + ESM
-packaging wiring; extend `ci:check-ffi` to napi; add a `ci:check-advisories-node` + `ci:test-node` gate.
+packaging wiring; VERIFY `ci:check-ffi` covers napi (already does); add a `ci:check-advisories-node` + `ci:test-node` gate.
 No kernel or consumer changes; no relocation.
 
 **Unknowns**: none open. napi/napi-derive **3.9.4** (crates.io), Zod **4.4.3**, @napi-rs/cli **3.7.2**,
@@ -104,7 +104,7 @@ confirmations are napi 3.x API-shape details + the Zod v4 issue API + the JS↔s
 | Principle / Decision | Requirement | This plan | Status |
 |---|---|---|---|
 | **I — Shared core, no duplication** (C-01) | Render/agreement/variant/hash live once in the kernel | Render/compose MARSHAL to the kernel's `render` directly (the consumer's generic-`V` render needs a garde type the binding lacks); loader/registry/`check`/`getSource`/error-scrub reused from the consumer; zero render/agreement/variant/hash logic in the binding; render parity (+ hash parity vs Python/Rust) structural, not re-tested | ✅ PASS |
-| **II — FFI isolation** (C-02) | `napi` ONLY in `prompting-press-node`; kernel + Rust consumer FFI-free | `napi`/`napi-derive` live ONLY in the binding crate; path deps don't pull FFI into `-core`/`prompting-press`; `ci:check-ffi` **extended to assert napi** and stays green (SC-007) | ✅ PASS |
+| **II — FFI isolation** (C-02) | `napi` ONLY in `prompting-press-node`; kernel + Rust consumer FFI-free | `napi`/`napi-derive` live ONLY in the binding crate; path deps don't pull FFI into `-core`/`prompting-press`; `ci:check-ffi` **already asserts napi** (shipped spec 001) and stays green (SC-007) | ✅ PASS |
 | **III — Minimal boundary** (C-03) | No I/O, LLM, request-body, token-count, output-parse | NO token counter (F4); no I/O (caller pushes text/objects); `outputModel` metadata only, never parsed | ✅ PASS |
 | **VI — Per-language idiom** (C-06) | Native validation system; errors normalized; native types don't leak | Zod v4 is the native system; `ZodError` + Rust `ConsumerError` → `PromptingPressError` `[{field,code,message}]` JS `Error` subclasses; `fromMessages` array, NOT `.chain()` | ✅ PASS |
 | **VII — JSON Schema single source** (C-07) | Codegen'd shape; dual-input into one shape | TS `PromptDefinition` codegen'd from the JSON Schema (freshness-gated); dual-input reused from the consumer's one loader; no parallel hand-shape | ✅ PASS |

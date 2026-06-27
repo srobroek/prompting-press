@@ -91,8 +91,9 @@ Phase 0. Resolves the plan's open D-items. All version checks done by querying c
 ## D7 — CI gates
 
 - **Decision**: Three CI additions:
-  1. **Extend `ci:check-ffi`** (`scripts/ci/check-ffi-isolation.sh`) to assert `napi`/`napi-derive` are
-     absent from `prompting-press-core` + `prompting-press` (it currently checks only `pyo3`). FR-022.
+  1. **Verify `ci:check-ffi`** (`scripts/ci/check-ffi-isolation.sh`) asserts `napi` absent from
+     `prompting-press-core` + `prompting-press`. CORRECTION (analyze F1): the gate ALREADY does — it ships
+     `FFI_CRATES=("pyo3" "napi")` from spec 001. So this is a verification, not an extension. FR-022.
   2. **`ci:check-advisories-node`** — an npm advisory gate (e.g. `pnpm audit --audit-level=…` or
      `osv-scanner` over the pnpm lockfile), mirroring `ci:check-advisories` (Rust) + `ci:check-advisories-py`
      (Python). FR-025.

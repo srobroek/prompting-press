@@ -16,7 +16,7 @@ binding crate; this is the **validation** guide. Scenarios map to the spec's use
 pnpm -C packages/typescript build         # produces the platform .node + index.{js,d.ts} (ESM)
 node --input-type=module -e "import('prompting-press').then(m => console.log(typeof m.render))"  # "function"
 ```
-**Expected**: a per-platform `.node` binary + ESM entry; `import` succeeds on Node 16+; render/check/
+**Expected**: a per-platform `.node` binary + ESM entry; `import` succeeds on Node 20+; render/check/
 compose execute against the compiled core.
 
 ## US1 — validate typed inputs and render (P1; SC-001/002)

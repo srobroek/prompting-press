@@ -27,7 +27,9 @@ The defining constraint (constitution Principle II / roadmap decision C-02) is t
 **no engine logic**: rendering, the agreement analysis, variant resolution, and SHA-256 hashing all live
 **once, in Rust** (the kernel, reached through the spec-003 Rust consumer). `napi`/`napi-derive` appear
 **only** in `prompting-press-node`; the kernel and the Rust consumer stay FFI-free (the existing
-`ci:check-ffi` gate enforces this — it MUST be extended to assert `napi` absence too, alongside `pyo3`).
+`ci:check-ffi` gate enforces this — it ALREADY asserts both `pyo3` AND `napi` absence (the gate's
+`FFI_CRATES=("pyo3" "napi")` shipped in spec 001), so this spec VERIFIES the gate covers `napi`, it does
+not add the assertion).
 Cross-language render byte-identity is therefore a **structural property of the shared core**
 (constitution Principle I) — it is **not** re-tested here.
 
@@ -333,12 +335,13 @@ entry fails the whole resolution without emitting a partial result.
   (`napi build --platform`), importable from the `prompting-press` npm package, with the platform-specific
   native binaries distributed as per-platform `optionalDependencies` (clarified Q5). The package MUST
   ship **ESM-only** (clarified Q8), consistent with the scaffold's existing `napi build --esm` flag — no
-  CommonJS entry point; consumers are Node 16+ / bundler environments. (Actual publish is spec 007; this
+  CommonJS entry point; consumers are Node 20+ / bundler environments (matching the scaffold's `engines.node: ">=20"`). (Actual publish is spec 007; this
   spec produces a locally buildable, installable, importable package.)
 - **FR-022**: `napi`/`napi-derive` (and any FFI toolkit dependency) MUST appear **only** in
   `prompting-press-node`; the kernel and the Rust consumer MUST stay FFI-free. The `ci:check-ffi` gate
-  MUST be extended to assert `napi` (not just `pyo3`) is absent from `prompting-press-core` and
-  `prompting-press`, and MUST stay green.
+  ALREADY asserts `napi` (alongside `pyo3`) is absent from `prompting-press-core` and `prompting-press`
+  (`FFI_CRATES=("pyo3" "napi")`, shipped spec 001); this spec MUST keep that gate green (it does not need
+  to add the assertion).
 - **FR-023**: The binding MUST NOT perform I/O (no file/network/database/environment access), make model
   calls, assemble provider request bodies, parse model output, or count tokens. The `outputModel`
   reference is carried as metadata only. **No token-count hook or token counter ships** (consistent with
@@ -414,7 +417,8 @@ entry fails the whole resolution without emitting a partial result.
   (verify-at-spec-time discipline — subagent-reported versions have been wrong before; check npm /
   crates.io directly). The `ZodError`→`{field,code,message}` mapper reads Zod v4's issue/error shape
   only. Zod is **not** yet a `packages/typescript` dependency (current `dependencies: {}`); this spec
-  adds it (pinned, not caret-ranged, if the floating-version gate covers `package.json`).
+  adds it pinned exact (`4.4.3`), not caret-ranged — the floating-version gate scans the whole
+  `package.json` (analyze F4), so a caret range would fail it.
 - **The kernel (spec 002) and Rust consumer (spec 003) are the dependencies** and provide
   render/get_source/required_roots/provenance_view + the result/error/report types; this binding wraps
   them across napi and normalizes to the shared error contract. The `prompting-press-node` crate already
@@ -436,11 +440,11 @@ entry fails the whole resolution without emitting a partial result.
 - **Loader locus (resolved Q3)**: **reuse the Rust consumer's dual-input loader** (marshal YAML/JSON text
   across FFI; parse with the consumer's serde path). Makes parity/accept-reject structural (Principle I),
   avoids a JS YAML dependency, keeps "one loader, one representation" literally singular.
-- **napi version pin (to reconcile at plan time)**: the `prompting-press-node` crate declares `napi = "3"`
-  / `napi-derive = "3"` — a *floating* major-range spec the `ci:check-floating-versions` gate may flag.
-  Plan time decides whether to pin exact patch versions (consistent with the repo's no-floating-versions
-  discipline) or document an allow. Likewise the npm deps must be pinned, not caret-ranged, if the
-  floating-version gate covers `package.json`.
+- **napi version pin (resolved at plan time)**: the `prompting-press-node` crate declares `napi = "3"`
+  / `napi-derive = "3"` — a *floating* major-range the `ci:check-floating-versions` gate flags. Plan
+  RESOLVED: pin exact `3.9.4` (crates.io-verified), consistent with the repo's no-floating-versions
+  discipline (T001). The npm deps MUST likewise be pinned exact — the floating-version gate scans the
+  whole `package.json` (analyze F4), not just a subset.
 - **Marshaling edge values**: the napi boundary's JS↔Rust value mapping (`number` vs `bigint`, `null` vs
   `undefined`, nested objects, dates) is a first-class concern because spec 006 will test it across
   bindings; this spec pins correctness only for its own render/check/compose paths. The `null`/`undefined`
@@ -451,10 +455,11 @@ entry fails the whole resolution without emitting a partial result.
   lint), and Zod validates the value's *contents* — but the *Vars↔`variables`* field-name agreement is the
   caller's responsibility. A mismatch is not silent: it surfaces as a loud `undefined_variable`-class
   error from the kernel, documented and pinned by a test.
-- **Token surface — roadmap reconciliation**: the roadmap 005 entry's `Scope (in)` no longer lists a token
-  hook (it was struck during the spec-004 cycle, T027, consistent with spec-003 refinement F4). This spec
-  ships **no** token surface. (If any stale "token hook" reference remains in a 005-adjacent doc, it is
-  dropped here.)
+- **Token surface — roadmap reconciliation**: the GOVERNANCE ledger `.specify/memory/roadmap.md` 005 entry
+  no longer lists a token hook (struck during the spec-004 cycle, T027, consistent with spec-003 F4). The
+  older DESIGN doc `docs/research/roadmap.md` (lines 76 + 85) still listed "token hook" for both bindings;
+  analyze F1/F3 caught this and it is **struck in this spec's cycle** (both lines amended with the F4
+  rationale). This spec ships **no** token surface (FR-023, SC-010).
 - **No cross-language conformance work here**: the FFI conformance corpus (broad marshaling fidelity +
   schema round-trip across all bindings) is spec 006; render-byte-parity is structural (Principle I). This
   spec verifies marshaling only for its own render/check/compose paths — but it is the binding whose
