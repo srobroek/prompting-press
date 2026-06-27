@@ -1,0 +1,109 @@
+# Agent Assignments
+# Feature: 003 — Rust consumer crate (prompting-press)
+# Generated: 2026-06-26
+# Command: /speckit.agent-assign.assign
+
+agents_scanned:
+  - name: "rust-pro"
+    source: "project"
+    description: "Master Rust — modern type system, production systems programming, latest ecosystem/crates."
+  - name: "coder"
+    source: "project"
+    description: "Implementation subagent for bounded code changes, tests, refactors (file-mechanical, deps, cross-cutting plumbing)."
+
+# Rationale (mirrors spec 002): all-Rust consumer crate. Rust LOGIC authorship + tests + rustdoc →
+# rust-pro. Dep/config edits + command-running verification tasks → coder. No frontend/API/db tasks.
+# T024 (token hook) was dropped pre-assignment (analyze F4) — not listed.
+
+assignments:
+  # Phase 1 — Setup
+  T001:
+    agent: "coder"
+    reason: "Edit Cargo.toml (add garde + serde_yaml_ng, pin, fix stale comment); dep/config plumbing."
+  T002:
+    agent: "coder"
+    reason: "Run cargo build + ci:check-ffi + cargo tree; verification/command task."
+
+  # Phase 2 — Foundational
+  T003:
+    agent: "rust-pro"
+    reason: "lib.rs module wiring + re-exports; Rust module structure."
+  T004:
+    agent: "rust-pro"
+    reason: "ConsumerError + FieldError enum design + Display/Error impls; Rust type design."
+  T005:
+    agent: "rust-pro"
+    reason: "Error normalizers (garde Report iter() → FieldError; KernelError map; SEC-004 scrub; closed code vocab); core Rust logic."
+  T006:
+    agent: "rust-pro"
+    reason: "Registry type (BTreeMap) + insert/get; Rust type + logic."
+
+  # Phase 3 — US1 render + validation
+  T007:
+    agent: "rust-pro"
+    reason: "Rust render+validation tests (render.rs) incl. guard-plumb assertion."
+  T008:
+    agent: "rust-pro"
+    reason: "Rust validation-failure + three-sets-gap tests (render_validation.rs)."
+  T009:
+    agent: "rust-pro"
+    reason: "render<V: Serialize+Validate>() — validate → Value::from_serialize → kernel; central Rust logic."
+  T010:
+    agent: "rust-pro"
+    reason: "get_source wrapper; Rust logic."
+  T011:
+    agent: "coder"
+    reason: "Run cargo test for US1 suites + clippy/fmt; verification/command task."
+
+  # Phase 4 — US2 dual-input loader
+  T012:
+    agent: "rust-pro"
+    reason: "Rust loader tests (loader.rs) incl. SC-003 structural-equality + Norway-safe."
+  T013:
+    agent: "rust-pro"
+    reason: "load_yaml/load_json on Registry (serde_yaml_ng/serde_json → insert, error map); Rust logic."
+  T014:
+    agent: "coder"
+    reason: "Run cargo test for US2 loader suite; verification/command task."
+
+  # Phase 5 — US3 agreement + provenance lint
+  T015:
+    agent: "rust-pro"
+    reason: "Rust check tests (check.rs) — undeclared + UntrustedWithoutGuard + empty-registry."
+  T016:
+    agent: "rust-pro"
+    reason: "Rust check-purity test (check_purity.rs)."
+  T017:
+    agent: "rust-pro"
+    reason: "CheckReport/Finding/FindingKind types + check() entry; Rust type + logic."
+  T018:
+    agent: "rust-pro"
+    reason: "Agreement lint (required_roots ∖ def.variables); headline Rust logic."
+  T019:
+    agent: "rust-pro"
+    reason: "Provenance lint (reframed: declared untrusted + no guard configured); Rust logic."
+  T020:
+    agent: "coder"
+    reason: "Run cargo test for US3 suites; verification/command task."
+
+  # Phase 6 — US4 composition
+  T021:
+    agent: "rust-pro"
+    reason: "Rust composition tests (compose.rs) incl. empty→Ok(vec![])."
+  T022:
+    agent: "rust-pro"
+    reason: "Message + Composition (Vec + append_*, no .chain()) + resolve(); Rust logic."
+  T023:
+    agent: "coder"
+    reason: "Run cargo test for US4 compose suite; verification/command task."
+
+  # Phase 7 — Polish
+  T025:
+    agent: "rust-pro"
+    reason: "Crate-level rustdoc incl. three-sets invariant + check() CI example; in-crate Rust docs (doctest-valid)."
+  T026:
+    agent: "coder"
+    reason: "Full local gate suite (moon/cargo/clippy/fmt/advisories); verification/command task."
+  T027:
+    agent: "coder"
+    reason: "Quickstart walk + SC↔test reconciliation; verification/audit task."

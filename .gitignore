@@ -304,6 +304,10 @@ apm_modules/
 # memory-md: generated SQLite cache (regenerable; not committed)
 .spec-kit-memory/
 
+# Claude Code: shared config under .claude/ IS tracked (agents, skills, rules);
+# only the per-developer local override is ignored (local permission grants, MCP toggles).
+.claude/settings.local.json
+
 ###--------------------------------------------###
 ###  Prompting Press: polyglot build artifacts  ###
 ###--------------------------------------------###

@@ -1,13 +1,26 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.1.1 → 1.1.2
-Bump rationale: PATCH — spec 002 status transition (planned → implemented) plus a
-  stale-wording refresh of the 002 entry from its post-implementation debrief
-  (specs/002-engine-kernel/roadmap-reviews/debrief-2026-06-26.md, verdict ✅ PROCEED,
-  0 Must-Address). No scope/decision change to any other entry; C-01..C-10 untouched.
+Version change: 1.1.2 → 1.1.3
+Bump rationale: PATCH — spec 003 status transition (planned → implemented) plus a
+  scope refresh of the 003 entry from its post-implementation cycle: the token-count
+  hook was DROPPED at the analyze gate (refinement F4) and folded into the existing
+  "Token budgeting / truncation" Deferred entry. No new decision; C-01..C-10 untouched.
 
-Changes this revision (1.1.2, 2026-06-26):
+Changes this revision (1.1.3, 2026-06-27):
+  - Spec 003 status: planned → implemented (code complete + SC-verified; full Phase-3
+    QA — verify-tasks/verify/review/qa/code-review/security-review/cleanup/sync.analyze/
+    sync.conflicts — all passed clean; 44 consumer tests, 94 workspace, all CI gates green
+    incl. FFI-isolation). Debrief: specs/003-rust-consumer/retros/retro-2026-06-27.md.
+  - Spec 003 Outcome/Scope: struck the token-count hook (analyze-gate refinement F4 —
+    the bare seam added little; per Principle III token counting is deferred). Net 003
+    surface: 24 FR + 8 SC (was 26 FR + 9 SC); FR-021/022 + SC-009 + task T024 dropped.
+  - Spec 003 lint: the provenance half reframed to "declares untrusted/external + no
+    guard configured" (`UntrustedWithoutGuard`) — the kernel has no in-template
+    guard-position concept (refinement F1); the agreement half (FR-016/017) unchanged.
+  - Deferred "Token budgeting / truncation": noted the 003 hook drop as its origin.
+
+Changes in revision (1.1.2, 2026-06-26):
   - Spec 002 status: planned → implemented (code complete + SC-verified; full Phase-3
     QA — verify-tasks/verify/review/qa/code-review/security-review/cleanup/sync — all
     passed clean; 50 tests + 7/7 CI gates green).
@@ -188,19 +201,20 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   `Environment` (drift-proof). Provenance guard is a separate result field via plain
   `{fields}` substitution (never re-rendered).
 
-### 003 — Rust consumer crate (`prompting-press`)  [status: planned]
+### 003 — Rust consumer crate (`prompting-press`)  [status: implemented]
 
 - **Description:** The first full consumer layer over the kernel — proves the
   kernel/consumer split before any FFI.
 - **Outcome:** `cargo add prompting-press` gives a typed-Vars facade (garde),
-  dual-input loader, the agreement check + provenance lint as CI entry points,
-  ergonomic `render()`/`get_source()` + composition, and the token-count hook
-  interface — all over the kernel, no rendering logic duplicated.
+  dual-input loader, the agreement check + provenance lint as CI entry points, and
+  ergonomic `render()`/`get_source()` + composition — all over the kernel, no
+  rendering logic duplicated.
 - **Scope (in):** garde 0.23 Vars facade + custom validators; dual-input loader
   (YAML/JSON or constructed object); `check(registry)` agreement + provenance
-  lint; error normalization to the common shape; composition (`Vec` + `append_*`);
-  token-count hook interface.
-- **Scope (out):** any built-in token counter; `.chain()` composition.
+  lint; error normalization to the common shape; composition (`Vec` + `append`).
+- **Scope (out):** any built-in token counter; ~~token-count hook interface~~
+  (DROPPED at the analyze gate — refinement F4; folded into the Deferred "Token
+  budgeting / truncation" entry); `.chain()` composition.
 - **Depends on:** 002.
 - **Governed by:** C-03, C-06, C-07.
 - **Notes:** Validation lives here (consumer layer), never in the kernel. garde
@@ -292,7 +306,10 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   Additive, non-breaking. Trigger: static-boilerplate fan-out friction proven
   painful.
 - **Token budgeting / truncation** — `[status: deferred]` depends on a wired
-  `count_tokens` hook; per-vendor tokenizer parity is the hard part.
+  `count_tokens` hook; per-vendor tokenizer parity is the hard part. The hook itself
+  was scoped into spec 003 then DROPPED at its analyze gate (F4) — a bare seam with no
+  consumer added little; the whole token surface (hook + budgeting) waits for a later
+  spec where an accurate counter justifies it.
 - **`nested=true` strict agreement mode** — `[status: deferred]` verifies deep
   attribute paths; partially duplicates the type system; MiniJinja recovers full
   paths only for trivial chains.
@@ -340,4 +357,4 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 
 ---
 
-**Version**: 1.1.2 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-26
+**Version**: 1.1.3 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-27
