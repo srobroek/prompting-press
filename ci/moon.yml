@@ -37,3 +37,10 @@ tasks:
     options:
       runFromWorkspaceRoot: true
       cache: false
+
+  check-advisories-py:
+    description: 'T028 — Scan Python deps locked in packages/python/uv.lock for known CVEs via pip-audit + OSV advisory DB (FR-025, SC-011, SEC-101). Mirrors ci:check-advisories for the Python side.'
+    command: 'bash scripts/ci/check-advisories-py.sh'
+    options:
+      runFromWorkspaceRoot: true
+      cache: false

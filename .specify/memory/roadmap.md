@@ -230,8 +230,12 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   composition, and normalized errors as Python exceptions.
 - **Scope (in):** PyO3 marshaling (marshaling + Pydantic facade only); Pydantic
   Vars + validators; agreement/lint wiring; dual-input loader; `from_messages`
-  composition; token hook; error normalization.
-- **Scope (out):** any rendering/hashing/analysis logic in the binding (C-02).
+  composition; error normalization; a Python dependency advisory gate
+  (`ci:check-advisories-py`, security review SEC-101).
+- **Scope (out):** any rendering/hashing/analysis logic in the binding (C-02);
+  ~~token hook~~ (struck — the token surface was dropped in spec 003, refinement
+  F4, and deferred to the "Token budgeting / truncation" Deferred entry; never
+  re-introduced at the binding layer).
 - **Depends on:** 002 (kernel); informed by 003 (consumer pattern).
 - **Governed by:** C-02, C-06.
 - **Notes:** Marshaling + facade only — zero engine logic (Principle II).
@@ -245,9 +249,10 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   validators, agreement/lint wired to Zod, array-literal composition, and
   normalized errors as JS errors.
 - **Scope (in):** napi-rs marshaling; Zod Vars + validators; agreement/lint
-  wiring; dual-input loader; array-literal / builder composition; token hook;
+  wiring; dual-input loader; array-literal / builder composition;
   error normalization.
-- **Scope (out):** any engine logic in the binding; a fluent `.chain()` API
+- **Scope (out):** any engine logic in the binding; ~~token hook~~ (struck — same
+  F4 reason as 004; the token surface is deferred, not a binding concern); a fluent `.chain()` API
   (cannot cross napi; collides with idiom).
 - **Depends on:** 002 (kernel); informed by 003/004.
 - **Governed by:** C-02, C-06.

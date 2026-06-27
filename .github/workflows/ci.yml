@@ -100,6 +100,11 @@ jobs:
       - name: 'T036: Advisory scan'
         run: mise exec -- moon run ci:check-advisories
 
+      # T028 — Python advisory scan: known CVEs in Python deps (FR-025, SC-011, SEC-101)
+      # pip-audit reads packages/python/uv.lock via uv export; does NOT require building the extension.
+      - name: 'T028: Python advisory scan'
+        run: mise exec -- moon run ci:check-advisories-py
+
   # ---------------------------------------------------------------------------
   # build — OS-sensitive: exercises FFI link paths per platform
   # ---------------------------------------------------------------------------
