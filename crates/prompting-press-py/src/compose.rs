@@ -174,7 +174,7 @@ impl Composition {
     ///
     /// # Errors
     /// [`PromptValidationError`](crate::error) — Pydantic rejected `vars`. The entry is not stored.
-    #[pyo3(signature = (name, vars, variant=None))]
+    #[pyo3(signature = (name, vars, *, variant=None))]
     fn append(
         &mut self,
         py: Python<'_>,

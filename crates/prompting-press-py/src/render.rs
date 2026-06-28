@@ -80,7 +80,7 @@ impl GuardConfig {
     /// `GuardConfig(enabled=False, template=None)` — defaults match a disabled guard, so
     /// `GuardConfig()` is equivalent to passing no guard at all.
     #[new]
-    #[pyo3(signature = (enabled=false, template=None))]
+    #[pyo3(signature = (*, enabled=false, template=None))]
     fn new(enabled: bool, template: Option<String>) -> Self {
         Self { enabled, template }
     }
@@ -195,7 +195,7 @@ impl From<KernelRenderResult> for RenderResult {
 ///   (unknown variant, a strict-undefined reference, a parse / render failure). `parse` /
 ///   `render` / `excluded_feature` detail is scrubbed (SEC-004 / critique E2).
 #[pyfunction]
-#[pyo3(signature = (reg, name, vars, data=None, variant=None, guard=None))]
+#[pyo3(signature = (reg, name, vars, *, data=None, variant=None, guard=None))]
 pub fn render(
     py: Python<'_>,
     reg: &Registry,
@@ -246,7 +246,7 @@ pub fn render(
 /// - [`PromptRenderError`](crate::error::PromptRenderError) — the kernel rejected the lookup
 ///   (e.g. an unknown variant).
 #[pyfunction]
-#[pyo3(signature = (reg, name, variant=None))]
+#[pyo3(signature = (reg, name, *, variant=None))]
 pub fn get_source(
     py: Python<'_>,
     reg: &Registry,

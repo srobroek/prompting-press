@@ -42,14 +42,14 @@ variables:
   count: { type: integer, provenance: trusted }
 ''')
 
-r = render(reg, "greet", Greeting, {"name": "Ada", "count": 3})
+r = render(reg, "greet", Greeting, data={"name": "Ada", "count": 3})  # data/variant/guard keyword-only (C-11)
 assert r.text == "Hi Ada, you have 3 messages"
 assert r.variant == "default" and len(r.template_hash) == 64
 ```
 - **Invalid input** → `PromptValidationError`, **no** render:
 ```python
 try:
-    render(reg, "greet", Greeting, {"name": "Ada", "count": -1})
+    render(reg, "greet", Greeting, data={"name": "Ada", "count": -1})
     assert False
 except PromptValidationError as e:
     # e.errors is a list of FieldError (attribute access, not dict subscription).
@@ -64,7 +64,7 @@ except PromptValidationError as e:
 reg_y = Registry(); reg_y.load_yaml(yaml_text)
 reg_j = Registry(); reg_j.load_json(json_text)
 reg_o = Registry(); reg_o.insert(PromptDefinition.model_validate(obj))
-out = lambda reg: render(reg, "greet", Greeting, {"name":"Ada","count":3}).text
+out = lambda reg: render(reg, "greet", Greeting, data={"name":"Ada","count":3}).text
 assert out(reg_y) == out(reg_j) == out(reg_o)
 ```
 - **Malformed** input → `LoadError`, nothing partially loaded:

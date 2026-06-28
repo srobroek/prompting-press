@@ -4,10 +4,12 @@ A typed, versioned, variant-aware **prompt-template library** with one shared en
 languages. One prompt definition renders byte-identically in Python, TypeScript, and Rust — by
 construction (a single compiled Rust core), not by per-language reimplementation.
 
-> **Status:** Specs 001–004 implemented — Foundations (001), the engine kernel (002), the Rust
-> consumer API (003), and the **Python binding** (004, `prompting-press-py` via PyO3 + Pydantic).
-> Prompts render with typed-input validation, the agreement/provenance lint, and composition from
-> Rust **and** Python today. The TypeScript binding (005) and the remaining specs (006–009) follow.
+> **Status:** Specs 001–005 implemented — Foundations (001), the engine kernel (002), the Rust
+> consumer API (003), the **Python binding** (004, `prompting-press-py` via PyO3 + Pydantic), and the
+> **TypeScript binding** (005, `prompting-press-node` via napi-rs + Zod). Prompts render with
+> typed-input validation, the agreement/provenance lint, and composition from **Rust, Python, and
+> TypeScript** today — with byte-identical provenance hashes across all three (the shared-core
+> guarantee, Principle I). The conformance corpus (006) and the remaining specs (007–009) follow.
 
 ## What it is (and isn't)
 
@@ -57,5 +59,5 @@ Generated files under `**/generated/` are **never hand-edited** — regenerate a
 ## Governance
 
 Development follows a spec-driven workflow. The project [constitution](.specify/memory/constitution.md)
-(Principles I–VII) and [spec roadmap](.specify/memory/roadmap.md) (specs 001–007, decisions C-01..C-10)
-are the artifacts of record. Licensed under Apache-2.0.
+(v1.1.0, Principles I–VII) and [spec roadmap](.specify/memory/roadmap.md) (specs 001–009, decisions
+C-01..C-11) are the artifacts of record. Licensed under Apache-2.0.

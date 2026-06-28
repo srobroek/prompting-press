@@ -6,6 +6,11 @@ repos:
     hooks:
       - id: check-added-large-files
       - id: check-json
+        # tsconfig*.json are JSONC (TypeScript reads // comments by design — the
+        # scaffold's tsconfig has shipped comments since spec 001). check-json is a
+        # strict JSON parser and rejects them, so exclude them here. tsc itself is the
+        # real validator for these files (the typecheck gate).
+        exclude: 'tsconfig[^/]*\.json$'
       - id: check-toml
       - id: check-yaml
       - id: detect-private-key

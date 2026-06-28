@@ -1,0 +1,9 @@
+# typos (crate-ci/typos) configuration.
+#
+# `nam` is an INTENTIONAL identifier in the binding test suites — the "three-sets gap"
+# fixture deliberately misnames a Vars field (`nam`) relative to the template's
+# `{{ name }}` to prove a field-name mismatch surfaces as a loud `undefined_variable`
+# render error, never a silent empty render (spec 004/005, the `Misnamed` model).
+# It is not a typo; allowlist it so the typos pre-commit hook does not flag the fixtures.
+[default.extend-words]
+nam = "nam"

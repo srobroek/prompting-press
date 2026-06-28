@@ -16,11 +16,15 @@
     "exactOptionalPropertyTypes": true,
     "forceConsistentCasingInFileNames": true,
 
-    // Declaration emit (the wrapper publishes `.d.ts` types for consumers).
+    // Declaration emit (the facade publishes `.d.ts` types for consumers).
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
     "outDir": "./dist",
+    // Pin the emit root to `src/` so the facade compiles to `dist/index.js` (not
+    // `dist/src/index.js`). The napi-generated `../index.d.ts` is imported by the facade for types
+    // only; it lives outside `rootDir` (it is the low-level addon, emitted by napi, not by tsc).
+    "rootDir": "./src",
 
     // Interop / module hygiene.
     "esModuleInterop": true,
@@ -28,11 +32,12 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },
-  // Spec 001 ships no hand-written runtime code, but it DOES commit the
-  // code-generated type shape under `src/generated/` (constitution C-07,
-  // FR-016). Type-checking that file under this strict config is the local
-  // proof the committed generated TS is valid (US4 freshness gate). The thin
-  // wrapper source lands in a later spec and will widen `include` then.
-  "include": ["src/generated/**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  // The facade source (`src/index.ts`, spec 005) and the code-generated prompt-definition shape
+  // under `src/generated/` (constitution C-07, FR-016). `tsc` compiles `src/index.ts` →
+  // `dist/index.js` (+ `.d.ts`) and type-checks the generated shape (the US4 freshness-gate proof).
+  // The napi-generated `../index.d.ts` (the low-level addon) is pulled in only as an import
+  // dependency for type resolution — it is emitted by napi, never by tsc. Tests live in `test/` and
+  // run against the built JS (node --test), so they are excluded from the facade compile.
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "test"]
 }

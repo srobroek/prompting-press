@@ -51,3 +51,17 @@ tasks:
     options:
       runFromWorkspaceRoot: true
       cache: false
+
+  check-advisories-node:
+    description: 'T029 — Scan Node deps locked in packages/typescript/pnpm-lock.yaml for known CVEs via pnpm audit (FR-025, SC-011, SEC-201). Mirrors ci:check-advisories (Rust) + ci:check-advisories-py (Python).'
+    command: 'bash scripts/ci/check-advisories-node.sh'
+    options:
+      runFromWorkspaceRoot: true
+      cache: false
+
+  test-node:
+    description: 'Spec 005 (review I1 lesson) — build the prompting-press-node addon + the TS facade and run cargo test -p prompting-press-node + pnpm -C packages/typescript test. Gates the TS-observable guarantees (Zod validate-at-render, the napi-error->Error-subclass decoder, loader parity, composition) that cargo build --workspace does not exercise.'
+    command: 'bash scripts/ci/test-node.sh'
+    options:
+      runFromWorkspaceRoot: true
+      cache: false

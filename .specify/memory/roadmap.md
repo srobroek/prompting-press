@@ -147,6 +147,21 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   `cargo publish` after-hook and nothing to the hard wheel + napi-prebuild
   paths. Exact tool versions verified at spec-007 time (verify-at-spec-time
   discipline). _Spec-007 governance; does not affect 001._
+- **C-11 — Options objects over long/optional positional parameters (per-binding API shape):** a public
+  function with optional or >~2 meaningful parameters takes its optional/config tail as a single named
+  **options object** (TS/JS) or **keyword-only args** (Python `*, kw=...`) / options struct (Rust), never
+  a positional list of optionals. Required positional operands (registry, name, schema+data) stay
+  positional. Also kills positional-shape duck-typing (schema-vs-data by `.safeParse` sniff). Codifies
+  the constitution **v1.1.0** Principle VI amendment (see `DECISIONS.md` 2026-06-28). **Per-language
+  threshold:** TS/JS + Python are strict (any optional → options object / keyword-only); **Rust** keeps a
+  **single** `Option<T>` positional (idiomatic, self-documenting) and only needs an options struct at
+  **2+** optional params. **Origin:** the spec-005 TS-binding review — `render` couldn't select a variant
+  without colliding with `guard`, and composition entries were duck-typed tuples (Long Parameter List +
+  Primitive Obsession, refactoring.guru). **Applied:** 005 TS (`render`/`getSource`/`Composition` →
+  options objects, `329cd20`); Python binding (`render`/`get_source`/`Composition.append`/`GuardConfig`
+  → keyword-only via PyO3 `signature` `*,`). **Rust** (kernel + consumer): no change — below the Rust
+  threshold. _Governs all binding specs (004/005 + future); does not change the workflow, only the
+  per-language public call shape._
 
 ## Planned Specs
 
@@ -249,13 +264,14 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   validators, agreement/lint wired to Zod, array-literal composition, and
   normalized errors as JS errors.
 - **Scope (in):** napi-rs marshaling; Zod Vars + validators; agreement/lint
-  wiring; dual-input loader; array-literal / builder composition;
+  wiring; dual-input loader; **options-object** composition entries
+  (`{ name, schema?, data, variant? }` — per C-11; was "array-literal/builder");
   error normalization.
 - **Scope (out):** any engine logic in the binding; ~~token hook~~ (struck — same
   F4 reason as 004; the token surface is deferred, not a binding concern); a fluent `.chain()` API
   (cannot cross napi; collides with idiom).
 - **Depends on:** 002 (kernel); informed by 003/004.
-- **Governed by:** C-02, C-06.
+- **Governed by:** C-02, C-06, C-11 (the options-object convention originated in this spec's review).
 - **Notes:** Second binding makes the FFI boundary real — surfaces marshaling
   divergences that 006 then locks down.
 

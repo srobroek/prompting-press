@@ -270,12 +270,12 @@ def test_check_is_pure_render_is_unchanged_and_repeated_checks_are_equal() -> No
         }
     )
 
-    before = render(reg, "greet", _Greeting, {"name": "Ada"})
+    before = render(reg, "greet", _Greeting, data={"name": "Ada"})
 
     report_a = check(reg)
     report_b = check(reg)
 
-    after = render(reg, "greet", _Greeting, {"name": "Ada"})
+    after = render(reg, "greet", _Greeting, data={"name": "Ada"})
 
     # Render is identical after check ⇒ check rendered nothing and mutated nothing.
     assert after.text == before.text == "Hi Ada"

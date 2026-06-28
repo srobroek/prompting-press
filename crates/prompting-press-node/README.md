@@ -6,5 +6,8 @@ and Rust consumer stay FFI-free (Principle II / C-02). It exposes the Rust consu
 surface to Node.js as a native addon; `packages/typescript/` wraps it into an npm
 package.
 
-Spec 001 ships this as a **stub** (a trivial `#[napi]` function). Marshaling + the
-Zod facade land in spec 005.
+It contains the `#[napi]` marshaling layer over the kernel/consumer (registry,
+render, getSource, check, composition) — marshaling + delegation only, **zero engine
+logic** (render/agreement/variant/hash live once in the shared core, Principle I).
+The Zod facade + the public API live in `packages/typescript/`. See that package's
+README for the consumer-facing docs.

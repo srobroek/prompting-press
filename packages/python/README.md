@@ -105,7 +105,7 @@ reg.insert({
     },
 })
 
-result = render(reg, "greet", Greeting, {"name": "Ada", "count": 3})
+result = render(reg, "greet", Greeting, data={"name": "Ada", "count": 3})
 
 result.text           # "Hi Ada, you have 3 messages"  (the rendered BODY only)
 result.name           # "greet"
@@ -115,9 +115,10 @@ result.render_hash    # SHA-256 of the rendered output (64-char hex)
 result.guard          # None  (no guard requested — see "Guard" below)
 ```
 
-`render(reg, name, vars, data=None, variant=None, guard=None)` accepts either a Vars **class**
-plus a `data` dict (validated for you, as above) or a pre-built Vars **instance**. Select a
-named variant with `render(reg, name, Vars, data, variant="formal")`.
+`render(reg, name, vars, *, data=None, variant=None, guard=None)` accepts either a Vars **class**
+plus a `data` dict (validated for you, as above) or a pre-built Vars **instance**. `data`,
+`variant`, and `guard` are **keyword-only** (C-11). Select a named variant with
+`render(reg, name, Vars, data=..., variant="formal")`.
 
 ### The three-sets invariant (loud, never silent)
 
@@ -228,7 +229,7 @@ reg.insert({
     "variables": {"topic": {"type": "string", "provenance": "untrusted"}},
 })
 
-result = render(reg, "ask", Ask, {"topic": "rivers"}, guard=GuardConfig(enabled=True))
+result = render(reg, "ask", Ask, data={"topic": "rivers"}, guard=GuardConfig(enabled=True))
 result.text    # "Tell me about rivers."   (body only — unchanged whether or not a guard is on)
 result.guard   # advisory guard instruction → route into YOUR system prompt
 
@@ -261,7 +262,7 @@ PromptingPressError        # base; carries .errors -> list[FieldError]
 from prompting_press import PromptValidationError, render
 
 try:
-    render(reg, "greet", Greeting, {"name": "Ada", "count": -1})
+    render(reg, "greet", Greeting, data={"name": "Ada", "count": -1})
 except PromptValidationError as exc:
     for row in exc.errors:
         print(row.field, row.code, row.message)   # "count" "validation" "..."

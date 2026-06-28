@@ -73,7 +73,9 @@ Consumer #1's language (Bellwether/claudebroker). PyO3 + Pydantic.
     zero rendering/hashing/analysis logic (Principle II).
 20. **Pydantic Vars facade** + custom validators; agreement check + provenance lint wired to the
     Pydantic model's declared fields.
-21. **Dual-input loader, composition (`from_messages([...])`), token hook** — Python-idiomatic.
+21. **Dual-input loader, composition (`from_messages([...])`)** — Python-idiomatic. (Token hook
+    struck — dropped in spec 003 refinement F4; the whole token surface is deferred, see the Deferred
+    "Token budgeting / truncation" entry.)
 22. **Error normalization** to the common shape (Python exceptions).
 
 ## Phase 4 — TypeScript binding (`prompting-press-node` → `packages/typescript`)
@@ -82,7 +84,8 @@ Proves the *second* binding pattern — exercises the FFI seam the conformance c
 
 23. **napi-rs marshaling** over the kernel (npm package, platform-binary packaging).
 24. **Zod Vars facade** + `.refine()` validators; agreement check + provenance lint wired to Zod.
-25. **Dual-input loader, composition (array literal / builder), token hook** — TS-idiomatic.
+25. **Dual-input loader, composition (array literal / builder)** — TS-idiomatic. (Token hook struck —
+    same F4 reason as the Python binding; the token surface is deferred, not a binding concern.)
 26. **Error normalization** to the common shape (JS errors).
 
 ## Phase 5 — Conformance corpus + cross-language hardening

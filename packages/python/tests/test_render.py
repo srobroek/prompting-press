@@ -181,7 +181,7 @@ ASK_DEF = {
 def test_valid_render_produces_text_and_hex_hashes() -> None:
     reg = _registry(GREET_DEF)
 
-    result = render(reg, "greet", Greeting, {"name": "Ada", "count": 3})
+    result = render(reg, "greet", Greeting, data={"name": "Ada", "count": 3})
 
     assert result.text == "Hi Ada, you have 3 messages"
     assert result.name == "greet"
@@ -202,7 +202,7 @@ def test_validation_failure_raises_before_render() -> None:
     reg = _registry(GREET_DEF)
 
     with pytest.raises(PromptValidationError) as excinfo:
-        render(reg, "greet", Greeting, {"name": "Ada", "count": -1})
+        render(reg, "greet", Greeting, data={"name": "Ada", "count": -1})
 
     exc = excinfo.value
     # The normalized contract: a list of {field, code, message} rows.
@@ -221,7 +221,7 @@ def test_validation_failure_names_every_offending_field() -> None:
 
     with pytest.raises(PromptValidationError) as excinfo:
         # Both fields violate their validators in one model_validate pass.
-        render(reg, "greet", TwoFields, {"name": "", "count": -1})
+        render(reg, "greet", TwoFields, data={"name": "", "count": -1})
 
     fields = {r.field for r in excinfo.value.errors}
     assert {"name", "count"} <= fields, (
@@ -239,7 +239,7 @@ def test_validation_error_is_not_a_pydantic_error() -> None:
     reg = _registry(GREET_DEF)
 
     with pytest.raises(PromptingPressError) as excinfo:
-        render(reg, "greet", Greeting, {"name": "Ada", "count": -1})
+        render(reg, "greet", Greeting, data={"name": "Ada", "count": -1})
 
     exc = excinfo.value
     # The raised type is the binding's, and is specifically the validation subtype ...
@@ -265,7 +265,7 @@ def test_rejected_sensitive_input_is_not_leaked() -> None:
     )
 
     with pytest.raises(PromptValidationError) as excinfo:
-        render(reg, "leaky", Secretful, {"token": secret})
+        render(reg, "leaky", Secretful, data={"token": secret})
 
     exc = excinfo.value
     # Neither str(exc) nor any row message may contain the rejected value — only the
@@ -300,7 +300,7 @@ def test_secret_in_a_kernel_render_error_is_not_leaked() -> None:
     )
 
     with pytest.raises(PromptRenderError) as excinfo:
-        render(reg, "kernely", Secret, {"token": secret})
+        render(reg, "kernely", Secret, data={"token": secret})
 
     exc = excinfo.value
     assert secret not in str(exc), f"str(exc) leaked the secret: {exc}"
@@ -331,7 +331,7 @@ def test_field_name_mismatch_is_loud_undefined_variable() -> None:
 
     # Validation passes (Misnamed is internally consistent) — the failure is at render.
     with pytest.raises(PromptRenderError) as excinfo:
-        render(reg, "greet", Misnamed, {"nam": "Ada"})
+        render(reg, "greet", Misnamed, data={"nam": "Ada"})
 
     exc = excinfo.value
     codes = [r.code for r in exc.errors]
@@ -348,9 +348,9 @@ def test_field_name_mismatch_is_loud_undefined_variable() -> None:
 def test_guard_is_plumbed_through_and_separate_from_text() -> None:
     reg = _registry(ASK_DEF)
 
-    plain = render(reg, "ask", Topic, {"topic": "rivers"})
+    plain = render(reg, "ask", Topic, data={"topic": "rivers"})
     guarded = render(
-        reg, "ask", Topic, {"topic": "rivers"}, guard=GuardConfig(enabled=True)
+        reg, "ask", Topic, data={"topic": "rivers"}, guard=GuardConfig(enabled=True)
     )
 
     # Default render ⇒ no guard.
@@ -371,9 +371,9 @@ def test_guard_is_plumbed_through_and_separate_from_text() -> None:
 def test_disabled_guard_config_matches_no_guard() -> None:
     reg = _registry(ASK_DEF)
 
-    no_guard = render(reg, "ask", Topic, {"topic": "rivers"})
+    no_guard = render(reg, "ask", Topic, data={"topic": "rivers"})
     disabled = render(
-        reg, "ask", Topic, {"topic": "rivers"}, guard=GuardConfig(enabled=False)
+        reg, "ask", Topic, data={"topic": "rivers"}, guard=GuardConfig(enabled=False)
     )
 
     # GuardConfig() / enabled=False is equivalent to passing no guard at all.

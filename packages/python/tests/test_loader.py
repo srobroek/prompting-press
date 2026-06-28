@@ -123,10 +123,10 @@ def test_all_entry_points_reach_one_core_with_identical_render_and_provenance() 
     reg_model.insert(PromptDefinition.model_validate(GREET_OBJ))
 
     results = {
-        "yaml": render(reg_yaml, "greet", Greeting, GREET_INPUTS),
-        "json": render(reg_json, "greet", Greeting, GREET_INPUTS),
-        "insert_dict": render(reg_dict, "greet", Greeting, GREET_INPUTS),
-        "insert_model_instance": render(reg_model, "greet", Greeting, GREET_INPUTS),
+        "yaml": render(reg_yaml, "greet", Greeting, data=GREET_INPUTS),
+        "json": render(reg_json, "greet", Greeting, data=GREET_INPUTS),
+        "insert_dict": render(reg_dict, "greet", Greeting, data=GREET_INPUTS),
+        "insert_model_instance": render(reg_model, "greet", Greeting, data=GREET_INPUTS),
     }
 
     # Each individually renders the expected body with hex hashes.
@@ -160,8 +160,8 @@ def test_insert_dict_equals_load_json_of_same_data() -> None:
     reg_txt = Registry()
     reg_txt.load_json(json.dumps(GREET_OBJ))
 
-    via_obj = render(reg_obj, "greet", Greeting, GREET_INPUTS)
-    via_txt = render(reg_txt, "greet", Greeting, GREET_INPUTS)
+    via_obj = render(reg_obj, "greet", Greeting, data=GREET_INPUTS)
+    via_txt = render(reg_txt, "greet", Greeting, data=GREET_INPUTS)
 
     assert via_obj.text == via_txt.text == GREET_TEXT
     assert via_obj.template_hash == via_txt.template_hash
@@ -181,7 +181,7 @@ def test_malformed_yaml_raises_load_error_and_loads_nothing() -> None:
     # FR-007: a failed load inserts nothing — that name is not in the registry, so a
     # render against it is an UnknownPromptError (raised before validation/templating).
     with pytest.raises(UnknownPromptError):
-        render(reg, "unterminated", Empty, {})
+        render(reg, "unterminated", Empty, data={})
 
 
 def test_malformed_json_raises_load_error_and_loads_nothing() -> None:
@@ -190,7 +190,7 @@ def test_malformed_json_raises_load_error_and_loads_nothing() -> None:
         reg.load_json("{ not valid json ")
 
     with pytest.raises(UnknownPromptError):
-        render(reg, "greet", Empty, {})
+        render(reg, "greet", Empty, data={})
 
 
 def test_shape_violation_missing_body_raises_load_error_on_every_surface() -> None:
@@ -214,7 +214,7 @@ def test_shape_violation_missing_body_raises_load_error_on_every_surface() -> No
     # None of the three left a usable entry behind (FR-007).
     for reg in (reg_json, reg_insert, reg_yaml):
         with pytest.raises(UnknownPromptError):
-            render(reg, "noBody", Empty, {})
+            render(reg, "noBody", Empty, data={})
 
 
 def test_failed_reload_does_not_corrupt_an_existing_entry() -> None:
@@ -233,14 +233,14 @@ def test_failed_reload_does_not_corrupt_an_existing_entry() -> None:
     class V(BaseModel):
         n: str
 
-    assert render(reg, "keep", V, {"n": "Ada"}).text == "Hi Ada"
+    assert render(reg, "keep", V, data={"n": "Ada"}).text == "Hi Ada"
 
     # A malformed document keyed by the same logical name fails and changes nothing.
     with pytest.raises(LoadError):
         reg.load_yaml("keep: [bad")
 
     # The original entry still renders unchanged.
-    assert render(reg, "keep", V, {"n": "Bo"}).text == "Hi Bo"
+    assert render(reg, "keep", V, data={"n": "Bo"}).text == "Hi Bo"
 
 
 def test_insert_accepts_a_pydantic_model_instance() -> None:
@@ -254,8 +254,8 @@ def test_insert_accepts_a_pydantic_model_instance() -> None:
     reg_dict = Registry()
     reg_dict.insert(GREET_OBJ)
 
-    via_model = render(reg_model, "greet", Greeting, GREET_INPUTS)
-    via_dict = render(reg_dict, "greet", Greeting, GREET_INPUTS)
+    via_model = render(reg_model, "greet", Greeting, data=GREET_INPUTS)
+    via_dict = render(reg_dict, "greet", Greeting, data=GREET_INPUTS)
 
     assert via_model.text == via_dict.text == GREET_TEXT
     assert via_model.template_hash == via_dict.template_hash
@@ -279,7 +279,7 @@ def test_yaml_norway_values_parse_as_strings_not_booleans(literal: str) -> None:
     reg = Registry()
     reg.load_yaml(f"name: norway\nrole: user\nbody: {literal}\n")
 
-    result = render(reg, "norway", Empty, {})
+    result = render(reg, "norway", Empty, data={})
 
     assert result.text == literal, (
         f"unquoted YAML `{literal}` should round-trip as the string, got {result.text!r}"
@@ -302,9 +302,9 @@ def test_loaders_return_none_and_key_by_name() -> None:
     assert reg.insert(GREET_OBJ) is None
 
     # The single declared name renders; an undeclared one is unknown.
-    assert render(reg, "greet", Greeting, GREET_INPUTS).text == GREET_TEXT
+    assert render(reg, "greet", Greeting, data=GREET_INPUTS).text == GREET_TEXT
     with pytest.raises(UnknownPromptError):
-        render(reg, "absent", Greeting, GREET_INPUTS)
+        render(reg, "absent", Greeting, data=GREET_INPUTS)
 
 
 def test_module_exposes_us2_loader_surface() -> None:
