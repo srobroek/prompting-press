@@ -1,0 +1,15 @@
+# YAML twin of schemas/jsonschema/fixtures/valid/single-body.json — exercises each binding's
+# load_yaml path (FR-011). A schema-VALID document: must be ACCEPTED identically by all three bindings.
+name: greeting
+role: system
+body: "You are a helpful assistant. Today is {{date}}."
+variables:
+  date:
+    type: string
+    provenance: trusted
+    format: date
+    description: The current date injected by the server.
+output_model: GreetingOutput
+metadata:
+  author: team-foundations
+  version: "1.0.0"

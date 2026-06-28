@@ -1,0 +1,37 @@
+{
+  "case": "decimal",
+  "definition": {
+    "body": "Total due: {{ amount }} ({{ rate }} rate).",
+    "name": "invoice",
+    "role": "user",
+    "variables": {
+      "amount": {
+        "description": "A monetary amount as an exact decimal string.",
+        "provenance": "trusted",
+        "type": "string"
+      },
+      "rate": {
+        "description": "A precise rate as a decimal string.",
+        "provenance": "trusted",
+        "type": "string"
+      }
+    }
+  },
+  "description": "A high-precision decimal, pinned by its canonical decimal-as-string form (JS has no native decimal type; no JS decimal library is added). Tests that no binding silently rounds, truncates, or reformats a high-precision numeric.",
+  "expected": {
+    "render_hash": "7d8401f986caf73955040bca9cb13da639cc8eb1f927faec4831042fea397a90",
+    "template_hash": "0a7e5f13597839b70ab3ed7908e21434339d8fded11959883b1880e3105bfb4e",
+    "text": "Total due: 12345.67890123456789 (0.00000000000000001 rate)."
+  },
+  "input": {
+    "amount": {
+      "type": "decimal",
+      "value": "12345.67890123456789"
+    },
+    "rate": {
+      "type": "decimal",
+      "value": "0.00000000000000001"
+    }
+  },
+  "variant": null
+}

@@ -1,0 +1,48 @@
+{
+  "case": "null-undefined-none",
+  "definition": {
+    "body": "present={{ present }} explicit_null={% if explicit_null is none %}NULL{% else %}{{ explicit_null }}{% endif %} missing={% if missing is defined %}{{ missing }}{% else %}ABSENT{% endif %}.",
+    "name": "flags",
+    "role": "user",
+    "variables": {
+      "explicit_null": {
+        "description": "An explicitly null value.",
+        "provenance": "trusted",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "missing": {
+        "description": "A field that is absent from the input.",
+        "provenance": "trusted",
+        "type": "string"
+      },
+      "present": {
+        "description": "A present, non-null value.",
+        "provenance": "trusted",
+        "type": "string"
+      }
+    }
+  },
+  "description": "The fixed null/undefined/None/absent contract (specs 004/005 FR-003a): explicit null/None marshals to JSON null; an absent field (JS undefined / Python absent) is field-not-present. The template guards each with an `is defined` / null check so the three forms render distinctly and identically across bindings.",
+  "expected": {
+    "render_hash": "2110fda8e0be3d7ba8fd65a73a229149dfe7fb6086a079ced6cf3965f82746ab",
+    "template_hash": "a25c0de5df4e8dc8a91d27f14e1c21738506e26ce277945965b72f613ea64394",
+    "text": "present=yes explicit_null=NULL missing=ABSENT."
+  },
+  "input": {
+    "explicit_null": {
+      "type": "null",
+      "value": null
+    },
+    "missing": {
+      "type": "absent"
+    },
+    "present": {
+      "type": "string",
+      "value": "yes"
+    }
+  },
+  "variant": null
+}

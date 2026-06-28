@@ -1,0 +1,82 @@
+{
+  "case": "nested-model",
+  "definition": {
+    "body": "User {{ user.name }} in {{ user.address.city }}, {{ user.address.country }}. Roles:{% for r in roles %} {{ r.id }}={{ r.label }}{% endfor %}.",
+    "name": "profile",
+    "role": "system",
+    "variables": {
+      "roles": {
+        "description": "A list of role objects.",
+        "provenance": "trusted",
+        "type": "array"
+      },
+      "user": {
+        "description": "A nested user object.",
+        "provenance": "trusted",
+        "type": "object"
+      }
+    }
+  },
+  "description": "A nested object (object-in-object) and a list of objects, exercised through MiniJinja attribute/index access and a loop. Tests that nested structures marshal identically (no field reordering, dropping, or shape change) across bindings.",
+  "expected": {
+    "render_hash": "e0cbbc9a88852911786488a9cac9231e0fbdadaf1bb91d8c18a4deef02a77574",
+    "template_hash": "c1b8980372bef1b393eb724b9584484bedf36dd44802469623f3e521cea1c404",
+    "text": "User Ada in London, UK. Roles: 1=admin 2=editor."
+  },
+  "input": {
+    "roles": {
+      "type": "array",
+      "value": [
+        {
+          "type": "object",
+          "value": {
+            "id": {
+              "type": "int",
+              "value": 1
+            },
+            "label": {
+              "type": "string",
+              "value": "admin"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "value": {
+            "id": {
+              "type": "int",
+              "value": 2
+            },
+            "label": {
+              "type": "string",
+              "value": "editor"
+            }
+          }
+        }
+      ]
+    },
+    "user": {
+      "type": "object",
+      "value": {
+        "address": {
+          "type": "object",
+          "value": {
+            "city": {
+              "type": "string",
+              "value": "London"
+            },
+            "country": {
+              "type": "string",
+              "value": "UK"
+            }
+          }
+        },
+        "name": {
+          "type": "string",
+          "value": "Ada"
+        }
+      }
+    }
+  },
+  "variant": null
+}

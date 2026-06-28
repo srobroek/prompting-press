@@ -1,0 +1,37 @@
+{
+  "case": "int-vs-float",
+  "definition": {
+    "body": "count={{ count }} ratio={{ ratio }} sum={{ count + ratio }}.",
+    "name": "metrics",
+    "role": "user",
+    "variables": {
+      "count": {
+        "description": "An integer count.",
+        "provenance": "trusted",
+        "type": "integer"
+      },
+      "ratio": {
+        "description": "A fractional float.",
+        "provenance": "trusted",
+        "type": "number"
+      }
+    }
+  },
+  "description": "An integer vs a FRACTIONAL float — distinctions representable in all three languages. (1.0-vs-1 is excluded: JavaScript has a single IEEE-754 number type, so 1.0 is indistinguishable from 1 — see spec Edge Cases.) Tests that an integer stays integer-rendered and a fractional float stays float-rendered, identically across bindings.",
+  "expected": {
+    "render_hash": "2404d602c65d5bd658d994bb2eaa5ca90c61ddd814edb0b0a0e4cfd1946003da",
+    "template_hash": "973a104110e3252fcfcfc6ef24aa45ffeea35ba60b5b92ba0f77127033e5b021",
+    "text": "count=1 ratio=2.5 sum=3.5."
+  },
+  "input": {
+    "count": {
+      "type": "int",
+      "value": 1
+    },
+    "ratio": {
+      "type": "float",
+      "value": 2.5
+    }
+  },
+  "variant": null
+}

@@ -1,0 +1,16 @@
+{
+  "description": "Schema round-trip fixtures (spec 006, FR-003/009/010/011). Each binding feeds the document at `path` through its own LOADER matching `form` (load_json/loadJson or load_yaml/loadYaml) and MUST reach the expected `verdict` identically: an `accept` doc loads cleanly; a `reject` doc raises the binding's normalized structured error (no partial load, no crash). Reuses the existing schemas/jsonschema/fixtures set (does not fork it) plus one valid + one invalid YAML twin for the load_yaml path. Paths are repo-relative and MUST resolve within the repo root (SEC-001). NOTE ON LAYERS: the loaders do serde SHAPE deserialization, not full JSON-Schema validation. Two of the schema `invalid/` fixtures encode JSON-Schema `propertyNames`/structural rules that serde cannot model and are enforced DOWNSTREAM (by check()/render), so the loaders accept them: `variant-named-default` (a variant literally named 'default' — flagged by check() as a ReservedVariantName finding) is therefore EXCLUDED from this loader round-trip set. (`variant-redefines-role` IS loader-rejected because the Variant struct is additionalProperties:false over {body,meta}, so a `role` key fails serde deserialization — it is included.) The corpus tests the loader's verdict, which is the binding-observable round-trip; the schema-validator's stricter verdict is spec-001's `validate-fixtures` gate.",
+  "fixtures": [
+    { "path": "schemas/jsonschema/fixtures/valid/single-body.json", "form": "json", "verdict": "accept", "note": "minimal single-body prompt" },
+    { "path": "schemas/jsonschema/fixtures/valid/multi-variant.json", "form": "json", "verdict": "accept", "note": "multiple named variants" },
+    { "path": "schemas/jsonschema/fixtures/valid/variant-with-meta.json", "form": "json", "verdict": "accept", "note": "variant carrying opaque meta" },
+    { "path": "conformance/schema/yaml/valid-single-body.yaml", "form": "yaml", "verdict": "accept", "note": "YAML twin of single-body (load_yaml path)" },
+    { "path": "schemas/jsonschema/fixtures/invalid/missing-required.json", "form": "json", "verdict": "reject", "note": "missing a required field (serde: missing field)" },
+    { "path": "schemas/jsonschema/fixtures/invalid/extra-root-key.json", "form": "json", "verdict": "reject", "note": "unknown root key (serde: additionalProperties:false)" },
+    { "path": "schemas/jsonschema/fixtures/invalid/bad-role.json", "form": "json", "verdict": "reject", "note": "role not in enum (serde: unknown variant)" },
+    { "path": "schemas/jsonschema/fixtures/invalid/bad-provenance.json", "form": "json", "verdict": "reject", "note": "provenance not in enum (serde: unknown variant)" },
+    { "path": "schemas/jsonschema/fixtures/invalid/variant-redefines-role.json", "form": "json", "verdict": "reject", "note": "a variant redefining role (serde: Variant is additionalProperties:false)" },
+    { "path": "schemas/jsonschema/fixtures/invalid/not-json.txt", "form": "json", "verdict": "reject", "note": "malformed (not parseable JSON)" },
+    { "path": "conformance/schema/yaml/invalid-bad-role.yaml", "form": "yaml", "verdict": "reject", "note": "YAML twin of bad-role (load_yaml reject path)" }
+  ]
+}

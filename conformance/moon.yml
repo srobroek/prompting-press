@@ -1,0 +1,21 @@
+# moon.yml for the `conformance` project — conformance corpus tooling tasks.
+#
+# Separate from `ci/moon.yml` so the regen entry point has its own project
+# namespace (`conformance:regen`) and is clearly not a CI gate task.
+#
+# Do not inherit the global all.yml tasks (cargo build/test are wrong here).
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+language: 'unknown'
+
+workspace:
+  inheritedTasks:
+    exclude: ['build', 'test']
+
+tasks:
+  regen:
+    description: 'Spec 006 (D3) — regenerate the committed conformance goldens from the Rust reference binding. Runs `cargo test -p prompting-press --test conformance_goldens -- --ignored` to rewrite fixtures/conformance/*.golden.json in place. This is a DELIBERATE, MANUALLY-RUN, PR-REVIEWED step: regenerated goldens must be inspected and committed via a reviewed PR. NOT wired into ci.yml and NOT run by the conformance gate (ci:conformance omits --test conformance_goldens intentionally).'
+    command: 'cargo test -p prompting-press --test conformance_goldens -- --ignored'
+    options:
+      runFromWorkspaceRoot: true
+      cache: false

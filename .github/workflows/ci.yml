@@ -178,6 +178,51 @@ jobs:
           CARGO_TERM_COLOR: always
 
   # ---------------------------------------------------------------------------
+  # conformance — spec 006 (FR-012 / FR-015): build both FFI bindings and run
+  # all three conformance legs. The unique CI value is leg 1: cargo test -p
+  # prompting-press --test conformance_marshaling --test conformance_schema —
+  # the Rust consumer conformance tests that the OS-matrix `build` job never
+  # runs. Legs 2 and 3 exercise only the two conformance files from the Python
+  # and TS suites respectively (full suites covered by test-python/test-node).
+  # One Linux leg: conformance correctness is OS-independent (link behavior is
+  # covered per-OS by the `build` matrix).
+  # ---------------------------------------------------------------------------
+  conformance:
+    name: 'Conformance corpus gate (ubuntu)'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0  # let moon resolve the base branch on pull_request events
+
+      # Python is required for maturin develop (builds the prompting-press-py
+      # extension into the hermetic venv in step 2 of conformance.sh).
+      # Using the same version as the `build` matrix for consistency; abi3-py39
+      # means any 3.9+ interpreter works — 3.12 matches the build job.
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: '3.12'
+
+      - name: Install mise toolchain
+        uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac  # v2
+        with:
+          experimental: true
+
+      # Install the TS workspace deps (zod runtime + napi-cli/tsc) so the addon
+      # build in step 3 of conformance.sh runs hermetically against the pinned
+      # frozen lockfile.
+      - name: 'Install TS deps (pnpm)'
+        run: mise exec -- pnpm -C packages/typescript install --frozen-lockfile
+
+      - name: 'Spec 006: conformance corpus gate (all three legs)'
+        run: mise exec -- moon run ci:conformance
+        env:
+          CARGO_TERM_COLOR: always
+
+  # ---------------------------------------------------------------------------
   # build — OS-sensitive: exercises FFI link paths per platform
   # ---------------------------------------------------------------------------
   build:

@@ -1,0 +1,37 @@
+{
+  "case": "date",
+  "definition": {
+    "body": "Event at {{ when }} (created {{ created }}).",
+    "name": "scheduled",
+    "role": "system",
+    "variables": {
+      "created": {
+        "description": "A calendar date.",
+        "provenance": "trusted",
+        "type": "string"
+      },
+      "when": {
+        "description": "An instant in time.",
+        "provenance": "trusted",
+        "type": "string"
+      }
+    }
+  },
+  "description": "A date value, constructed natively in each binding (Python datetime, JS Date, Rust chrono) and pinned by its canonical ISO-8601 serialized form. Tests that no binding silently reformats a date when marshaling it to the kernel.",
+  "expected": {
+    "render_hash": "1b6565aae0a76be9928dca6ac3832a9619ac290ff8027998fbea957f3fd35c97",
+    "template_hash": "896ae41eb7fcee63ff535be7fedf037b89ca2b05767abe388902466c05b73f9e",
+    "text": "Event at 2026-06-28T12:30:00+00:00 (created 2026-06-28)."
+  },
+  "input": {
+    "created": {
+      "type": "date",
+      "value": "2026-06-28"
+    },
+    "when": {
+      "type": "datetime",
+      "value": "2026-06-28T12:30:00+00:00"
+    }
+  },
+  "variant": null
+}

@@ -65,3 +65,10 @@ tasks:
     options:
       runFromWorkspaceRoot: true
       cache: false
+
+  conformance:
+    description: 'Spec 006 (FR-012 / FR-015) — build both FFI bindings and run all three conformance legs: (1) cargo test -p prompting-press --test conformance_marshaling --test conformance_schema (the unique CI value — closes the gap where the OS-matrix build never ran Rust consumer tests); (2) pytest on the two Python conformance files; (3) node --test on the two TS conformance files. A single self-contained, locally-reproducible gate for FFI marshaling parity and schema round-trip across all three bindings.'
+    command: 'bash scripts/ci/conformance.sh'
+    options:
+      runFromWorkspaceRoot: true
+      cache: false

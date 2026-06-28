@@ -1,0 +1,6 @@
+# YAML twin of schemas/jsonschema/fixtures/invalid/bad-role.json — exercises each binding's load_yaml
+# REJECT path (FR-011). A schema-INVALID document (role not in {system,user,assistant}): must be
+# REJECTED identically by all three bindings with a structured error (no partial load, no crash).
+name: bad-role-example
+role: developer
+body: "This prompt has a role value that is not in the enum."

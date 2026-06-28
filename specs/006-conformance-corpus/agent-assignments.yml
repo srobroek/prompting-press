@@ -1,0 +1,90 @@
+# Agent Assignments
+# Feature: 006 — Conformance corpus + cross-language hardening
+# Generated: 2026-06-28
+# Command: /speckit.agent-assign.assign
+#
+# Routing rationale: Rust-centric feature (runners + support module + generator are Rust; Python/TS
+# runners mirror them; CI glue is bash/YAML). Cross-language VERIFICATION/parity-confirmation tasks
+# (T006, T010, T014, T020, T021) are routed to `default` (main-thread orchestrator) on purpose: they are
+# the most fabrication-sensitive work (a subagent falsely claiming "all parity checks pass" is the
+# worst case — see memory speckit-workflow-gotchas), and T006 commits the load-bearing goldens, which
+# must respect the APM-drift-exclusion commit discipline the orchestrator controls.
+
+agents_scanned:
+  - name: "rust-pro"
+    source: "project"
+    description: "Rust 1.75+ — async, type system, systems programming, idiomatic crates"
+  - name: "python-pro"
+    source: "project"
+    description: "Python 3.12+ — modern features, pytest, packaging"
+  - name: "typescript-pro"
+    source: "project"
+    description: "TypeScript — advanced types, strict safety, node tooling"
+  - name: "coder"
+    source: "project"
+    description: "General implementation subagent for bounded code changes, tests, refactors"
+
+assignments:
+  T001:
+    agent: "coder"
+    reason: "Create the conformance/ directory structure + a README summarizing the corpus contract — scaffold + doc, general implementer."
+  T002:
+    agent: "coder"
+    reason: "Author five marshaling fixture JSON files (type-tagged inputs) per data-model.md — JSON data authoring against a documented schema."
+  T003:
+    agent: "coder"
+    reason: "Author the schema manifest + one valid/invalid YAML twin — JSON/YAML data authoring."
+  T004:
+    agent: "rust-pro"
+    reason: "Rust test-support module: the RawVars newtype (Serialize-delegation + no-op garde Validate), fixture deserialization structs, the type->serde_json::Value builder — garde/serde/minijinja idioms."
+  T005:
+    agent: "rust-pro"
+    reason: "Golden generator as an #[ignore]d Rust integration test rendering each fixture via the consumer's render — Rust + kernel API."
+  T006:
+    agent: "default"
+    reason: "Run the generator and COMMIT the goldens. Load-bearing (all runners assert against these) and commit-discipline-sensitive (APM-drift exclusion) — main-thread orchestrator."
+  T007:
+    agent: "rust-pro"
+    reason: "Rust marshaling runner (integration test) asserting text+template_hash+render_hash equal golden."
+  T008:
+    agent: "python-pro"
+    reason: "Python marshaling runner (pytest): construct native datetime/Decimal/nested/None/float, render, assert golden."
+  T009:
+    agent: "typescript-pro"
+    reason: "TS marshaling runner (node:test): construct native Date/nested/null/float, render, assert golden."
+  T010:
+    agent: "default"
+    reason: "Confirm cross-binding marshaling parity + seeded-divergence detection. Cross-language verification — fabrication-sensitive, main-thread."
+  T011:
+    agent: "rust-pro"
+    reason: "Rust schema runner: load_json/load_yaml per manifest, assert accept/reject verdict."
+  T012:
+    agent: "python-pro"
+    reason: "Python schema runner: load_json/load_yaml, assert accept vs structured LoadError reject."
+  T013:
+    agent: "typescript-pro"
+    reason: "TS schema runner: loadJson/loadYaml, assert accept vs thrown structured error reject."
+  T014:
+    agent: "default"
+    reason: "Confirm schema verdict parity across all three loaders incl. YAML twins. Cross-language verification — main-thread."
+  T015:
+    agent: "coder"
+    reason: "Add scripts/ci/conformance.sh — bash CI glue mirroring test-node.sh."
+  T016:
+    agent: "coder"
+    reason: "Add a conformance task to ci/moon.yml — moon YAML config."
+  T017:
+    agent: "coder"
+    reason: "Wire the gate into .github/workflows/ci.yml ensuring the Rust consumer leg runs — GitHub Actions YAML."
+  T018:
+    agent: "coder"
+    reason: "Add a goldens-regeneration moon task entry point (not gated) — moon glue."
+  T019:
+    agent: "coder"
+    reason: "Finalize conformance/README.md + cross-links + the type-tag vocabulary — docs."
+  T020:
+    agent: "default"
+    reason: "Verify scope guards (ci:check-ffi green; spec-002 render fixtures byte-unchanged; golden set bounded). Verification — main-thread."
+  T021:
+    agent: "default"
+    reason: "Run the full quickstart.md validation end-to-end (ci:conformance green; seeded divergence fails). Verification — main-thread."

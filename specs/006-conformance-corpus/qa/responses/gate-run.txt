@@ -1,0 +1,105 @@
+▮▮▮▮ ci:conformance (a82e4a8b)
+Conformance corpus gate (spec 006 / FR-012 / FR-015)
+
+==> cargo test -p prompting-press --test conformance_marshaling --test conformance_schema
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.49s
+     Running tests/conformance_marshaling.rs (target/debug/deps/conformance_marshaling-fe84ab7e9587f426)
+     Running tests/conformance_schema.rs (target/debug/deps/conformance_schema-e4602f8557717b35)
+
+running 1 test
+test marshaling_fixtures_match_golden ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 1 test
+test schema_round_trip_matches_verdict ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+==> Python conformance leg: maturin develop + pytest conformance files
+  libpython LIBDIR: /Users/sjors/.local/share/mise/installs/python/3.14.4/lib
+==> uv venv + build extension (maturin develop) into /tmp/pp-conformance-oio8YY
+Using CPython 3.10.19
+Creating virtual environment at: /tmp/pp-conformance-oio8YY
+Activate with: source /tmp/pp-conformance-oio8YY/bin/activate
+Using Python 3.10.19 environment at: /tmp/pp-conformance-oio8YY
+Resolved 12 packages in 76ms
+Installed 12 packages in 1.32s
+ + annotated-types==0.7.0
+ + exceptiongroup==1.3.1
+ + iniconfig==2.3.0
+ + packaging==26.2
+ + pluggy==1.6.0
+ + pydantic==2.13.4
+ + pydantic-core==2.46.4
+ + pygments==2.20.0
+ + pytest==9.1.1
+ + tomli==2.4.1
+ + typing-extensions==4.15.0
+ + typing-inspection==0.4.2
+🍹 Building a mixed python/rust project
+🐍 Found CPython 3.10 at /tmp/pp-conformance-oio8YY/bin/python
+🔗 Found pyo3 bindings with abi3-py3.10 support
+📡 Using build options features from pyproject.toml
+Using Python 3.10.19 environment at: /tmp/pp-conformance-oio8YY
+Checked 1 package in 354ms
+   Compiling prompting-press-py v0.0.0 (/Users/sjors/personal/dev/prompting-press/crates/prompting-press-py)
+▮▮▮▮ ci:conformance (running for 30s)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.89s
+📦 Built wheel for abi3 Python ≥ 3.10 to /var/folders/lf/7fygmzxx4476lmvkcz2y3gqw0000gq/T/.tmpw6JPqf/prompting_press-0.0.0-cp310-abi3-macosx_11_0_arm64.whl
+✏️ Setting installed package as editable
+🛠 Installed prompting-press-0.0.0
+
+==> pytest conformance files (marshaling + schema)
+.................                                                        [100%]
+17 passed in 1.61s
+
+==> TypeScript conformance leg: pnpm build + node --test conformance files
+
+> prompting-press@0.0.0 build /Users/sjors/personal/dev/prompting-press/packages/typescript
+> pnpm run build:addon && pnpm run build:facade
+
+
+> prompting-press@0.0.0 build:addon /Users/sjors/personal/dev/prompting-press/packages/typescript
+> napi build --release --platform --esm --manifest-path ../../crates/prompting-press-node/Cargo.toml --output-dir .
+
+    Finished `release` profile [optimized] target(s) in 0.35s
+
+> prompting-press@0.0.0 build:facade /Users/sjors/personal/dev/prompting-press/packages/typescript
+> tsc -p tsconfig.json
+
+
+==> node --test conformance files (marshaling + schema)
+✔ marshaling/date: TS render reproduces the Rust golden byte-for-byte (3.274541ms)
+✔ marshaling/decimal: TS render reproduces the Rust golden byte-for-byte (0.122ms)
+✔ marshaling/int-vs-float: TS render reproduces the Rust golden byte-for-byte (0.098209ms)
+✔ marshaling/nested-model: TS render reproduces the Rust golden byte-for-byte (0.12225ms)
+✔ marshaling/null-undefined-none: TS render reproduces the Rust golden byte-for-byte (0.087291ms)
+✔ schema/accept/json: schemas/jsonschema/fixtures/valid/single-body.json (minimal single-body prompt) (1.070542ms)
+✔ schema/accept/json: schemas/jsonschema/fixtures/valid/multi-variant.json (multiple named variants) (0.990166ms)
+✔ schema/accept/json: schemas/jsonschema/fixtures/valid/variant-with-meta.json (variant carrying opaque meta) (0.768042ms)
+✔ schema/accept/yaml: conformance/schema/yaml/valid-single-body.yaml (YAML twin of single-body (load_yaml path)) (0.587ms)
+✔ schema/reject/json: schemas/jsonschema/fixtures/invalid/missing-required.json (missing a required field (serde: missing field)) (0.503125ms)
+✔ schema/reject/json: schemas/jsonschema/fixtures/invalid/extra-root-key.json (unknown root key (serde: additionalProperties:false)) (0.311791ms)
+✔ schema/reject/json: schemas/jsonschema/fixtures/invalid/bad-role.json (role not in enum (serde: unknown variant)) (0.853708ms)
+✔ schema/reject/json: schemas/jsonschema/fixtures/invalid/bad-provenance.json (provenance not in enum (serde: unknown variant)) (0.454792ms)
+✔ schema/reject/json: schemas/jsonschema/fixtures/invalid/variant-redefines-role.json (a variant redefining role (serde: Variant is additionalProperties:false)) (0.251792ms)
+✔ schema/reject/json: schemas/jsonschema/fixtures/invalid/not-json.txt (malformed (not parseable JSON)) (0.753417ms)
+✔ schema/reject/yaml: conformance/schema/yaml/invalid-bad-role.yaml (YAML twin of bad-role (load_yaml reject path)) (0.449709ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1556.809667
+
+Conformance gate PASSED.
+▮▮▮▮ ci:conformance (57s 636ms, a82e4a8b)
+
+Tasks: 1 completed
+ Time: 58s 857ms
+
