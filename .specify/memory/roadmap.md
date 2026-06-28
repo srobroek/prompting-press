@@ -264,13 +264,14 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   validators, agreement/lint wired to Zod, array-literal composition, and
   normalized errors as JS errors.
 - **Scope (in):** napi-rs marshaling; Zod Vars + validators; agreement/lint
-  wiring; dual-input loader; array-literal / builder composition;
+  wiring; dual-input loader; **options-object** composition entries
+  (`{ name, schema?, data, variant? }` — per C-11; was "array-literal/builder");
   error normalization.
 - **Scope (out):** any engine logic in the binding; ~~token hook~~ (struck — same
   F4 reason as 004; the token surface is deferred, not a binding concern); a fluent `.chain()` API
   (cannot cross napi; collides with idiom).
 - **Depends on:** 002 (kernel); informed by 003/004.
-- **Governed by:** C-02, C-06.
+- **Governed by:** C-02, C-06, C-11 (the options-object convention originated in this spec's review).
 - **Notes:** Second binding makes the FFI boundary real — surfaces marshaling
   divergences that 006 then locks down.
 
