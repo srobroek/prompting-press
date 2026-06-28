@@ -255,7 +255,7 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 - **Governed by:** C-02, C-06.
 - **Notes:** Marshaling + facade only — zero engine logic (Principle II).
 
-### 005 — TypeScript binding (`prompting-press-node` → `packages/typescript`)  [status: planned]
+### 005 — TypeScript binding (`prompting-press-node` → `packages/typescript`)  [status: implemented]
 
 - **Description:** napi-rs + Zod binding — proves the *second* binding pattern and
   exercises the FFI seam the conformance corpus targets.
