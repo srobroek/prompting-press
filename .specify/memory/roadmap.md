@@ -1,14 +1,37 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.1.3 → 1.1.4
-Bump rationale: PATCH — spec 006 status transition (planned → implemented) from its
-  post-implementation debrief. Outcome met, scope clean, C-01/C-07 upheld, zero
-  Must-Address findings — so NO scope/outcome reword (a contrast to 002/003 which
-  had roadmap-stale scope). Notes line added citing the debrief + memories D1/A1 +
-  the int-vs-float critique refinement. No new decision; C-01..C-11 untouched.
+Version change: 1.1.4 → 1.2.0
+Bump rationale: MINOR — three NEW planned specs added (008 pre-publish schema & repo
+  refinement; 009 adversarial hardening & fuzzing; 010 documentation site), and spec
+  007's scope materially narrowed (the user docs site moved to 010; READMEs slimmed to
+  pointers) + its depends-on extended to 008/009/010. Structural additions → MINOR per
+  the roadmap semver policy. No constraint/decision reversed; C-01..C-11 untouched.
 
-Changes this revision (1.1.4, 2026-06-28):
+Changes this revision (1.2.0, 2026-06-28):
+  - Added spec 008 — Pre-publish schema & repo refinement [planned]: rename the schema
+    `provenance` field → `origin` (single source + 3 codegen'd shapes + all consumers;
+    enum values unchanged) and move the schema accept/reject fixtures into a tests/
+    namespace. Must land before 007 (don't rename a published contract). Governed C-07/C-09.
+  - Added spec 009 — Adversarial hardening & fuzzing [planned]: robustness + property-based
+    (proptest/hypothesis/fast-check) fuzzing, an honest injection/guard demo (guard is
+    advisory, no LLM), and secret-scrub verification, in the library's own suites + CI.
+    Should land before 007. Governed C-03/C-09.
+  - Added spec 010 — Documentation site (Astro/Starlight) [planned]: end-user docs site
+    (overview/getting-started/howto/FAQ/API-ref) derived from the codebase + JSON Schema +
+    template feature set; README slimmed to a pointer. Subsumes the spec-007 user-docs +
+    template-feature-doc gap. Depends on 008 (final field name). Governed C-07/C-05.
+  - Spec 007 — scope narrowed (docs site → 010; per-package READMEs stay short pointers)
+    and depends-on extended to 008 + 009 + 010 (sequencing: those three land before 007).
+    Outcome/decisions otherwise unchanged.
+
+Prior revision (1.1.4, 2026-06-28):
+  Bump rationale: PATCH — spec 006 status transition (planned → implemented) from its
+  post-implementation debrief. Outcome met, scope clean, C-01/C-07 upheld, zero
+  Must-Address findings. Notes line added citing the debrief + memories D1/A1 + the
+  int-vs-float critique refinement. No new decision; C-01..C-11 untouched.
+
+Changes in revision (1.1.4, 2026-06-28):
   - Spec 006 status: planned → implemented (PR #185, squash b2092c0; 21 issues
     #164–#184 auto-closed; full Phase-3 QA — verify-tasks/verify/review/qa/
     code-review/security-review/cleanup/sync.analyze/sync.conflicts/retro — all
@@ -70,8 +93,9 @@ Prior revision (1.0.0, 2026-06-25):
   - Added Deferred section (Go binding, inline partials, token budgeting, etc.)
   - Added Never section (boundary defense — requires constitution amendment)
 
-Specs affected: 006 (this revision, → implemented); 003 (1.1.3); 002 (1.1.2);
-  001 (1.1.1); 007 (1.1.0); 001–007 (initial).
+Specs affected: 008/009/010 (this revision, added [planned]) + 007 (scope narrowed);
+  006 (1.1.4, → implemented); 003 (1.1.3); 002 (1.1.2); 001 (1.1.1); 007 (1.1.0);
+  001–007 (initial).
 Open questions added/resolved: none this revision; 3 added at 1.0.0.
 
 Notes: Supersedes the informal docs/research/roadmap.md (which remains as a
@@ -333,10 +357,15 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   Apache-2.0; docs carrying both halves of the tagline (type-safety AND
   press/provenance); Bellwether using it end-to-end (in-repo prompts, provenance
   → its traces, output models referenced).
-- **Scope (in):** package READMEs + quickstart; registry-name reservation;
-  license/NOTICE; publish; Bellwether integration validation.
-- **Scope (out):** anything in the Deferred/Never lists below.
-- **Depends on:** 006.
+- **Scope (in):** package metadata (description/keywords/repository/license),
+  per-package READMEs, registry-name reservation; license/NOTICE; publish;
+  Bellwether integration validation. (The full end-user **docs site** moved to
+  spec **010**; the per-package READMEs here stay short + point at it.)
+- **Scope (out):** anything in the Deferred/Never lists below; the docs site (010);
+  the schema rename + fixture move (008); adversarial hardening (009).
+- **Depends on:** 006; **008** (publish the renamed contract, not a renamed-post-publish
+  contract); **009** (don't publish an un-hardened library); **010** (docs site live at
+  publish). Sequencing: 008 + 009 + 010 land before 007.
 - **Governed by:** C-03, C-05, C-10.
 - **Notes:** README must carry the type-safety half prominently — the press
   imagery must not bury the actual differentiator (brief R6). **Release tooling
@@ -346,6 +375,86 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   `@napi-rs/cli` (npm prebuilds). GoReleaser evaluated and rejected (binary
   builder, not a library/wheel/native-addon publisher — see C-10). Verify exact
   tool versions when 007 is specced.
+
+### 008 — Pre-publish schema & repo refinement  [status: planned]
+
+- **Description:** Two pre-publish contract/repo refinements that must land BEFORE the v1 publish
+  (007), because both are awkward-to-impossible to change once packages are on the registries.
+- **Outcome:** (a) the prompt-definition schema's per-variable `provenance` field is renamed to
+  **`origin`** across the single-source JSON Schema + all three codegen'd shapes + every consumer;
+  (b) the schema's accept/reject test fixtures move out of the schema dir into a `tests/` namespace.
+  The published v1 contract uses the final field name; CI + conformance stay green.
+- **Scope (in):** rename `provenance` → `origin` in `schemas/jsonschema/prompt-definition.schema.json`
+  (the enum values `trusted|untrusted|external` are unchanged) → regenerate the 3 per-language shapes
+  (Rust/Pydantic/TS) → update the kernel `ProvenanceView`/check + the consumer + both bindings reading
+  the field → update all fixtures + the conformance corpus + spec docs; move
+  `schemas/jsonschema/fixtures/{valid,invalid}/` → `schemas/jsonschema/tests/fixtures/{valid,invalid}/`
+  and fix the 3 references (`validate_fixtures.py`, the `schemas:validate-fixtures` moon-task inputs,
+  `conformance/schema/manifest.json`).
+- **Scope (out):** any behavior change (this is a rename + move, not new capability); renaming the enum
+  values; touching the `meta.guard` convention or the lint semantics.
+- **Depends on:** 006 (the conformance corpus references the fixtures + provenance). **Blocks 007.**
+- **Governed by:** C-07 (JSON Schema single source — codegen, never hand-mirror), C-09 (the 3-way
+  provenance/origin tag stays declarative metadata). A schema-contract change — SpecKit-worthy.
+- **Notes:** `origin` chosen over keeping `provenance` because the user found it more descriptive and
+  it still fits all three values (two of which — external, untrusted — are origins, not trust levels);
+  a boolean was rejected (can't express the 3rd value). ~180 files touched (schema is the source of
+  truth; everything downstream regenerates/updates). Do as ONE coordinated change with a full
+  conformance + CI re-run. Discussed 2026-06-28.
+
+### 009 — Adversarial hardening & fuzzing  [status: planned]
+
+- **Description:** A library-hardening test pass: fuzzing + hostile-input + scrub-verification tests in
+  the library's OWN suites (not the examples repo), proving the boundary holds under abuse.
+- **Outcome:** Each binding's test suite (+ the kernel) gains adversarial coverage that asserts the
+  library never panics, always returns a structured error, never leaks bound-value content, and upholds
+  its invariants under generated/hostile input — wired into CI.
+- **Scope (in):** (a) **robustness fuzzing** — malformed/huge/deeply-nested/Unicode/control-char inputs
+  to load/render/check; assert no panic, structured error, no leak; (b) **property-based / generative
+  fuzzing** — Rust `proptest`/`arbitrary`, Python `hypothesis`, TS `fast-check` asserting invariants
+  (never-panic, validate-before-render, hash-determinism); (c) **injection/guard demo** — injection-
+  shaped untrusted input shows `check()` flags the unguarded field + the guard text wraps it, with
+  EXPLICIT notes that the guard is advisory text, NOT enforcement (no LLM in the library); (d)
+  **secret-scrub verification** — secret-looking values that trigger parse/render errors must never
+  appear in the error message/stack (SEC-004 holds end to end).
+- **Scope (out):** any "jailbreak the model" claim (the library has no model — Principle III); turning
+  the advisory guard into runtime enforcement (that's a future capability spec, if ever); changing the
+  boundary.
+- **Depends on:** 002–005 (the surfaces under test). Independent of 008's rename (rebase if 008 lands
+  first). **Should land before 007** (don't publish un-hardened).
+- **Governed by:** C-03 (boundary — fuzzing proves it, doesn't expand it), C-09 (provenance is
+  metadata + advisory guard, never silent mutation — the injection demo states this honestly).
+- **Notes:** new dev-deps per ecosystem (proptest/hypothesis/fast-check) pinned exact (the
+  floating-version gate). Origin: user asked for fuzzing + failure-mode + "break the model" coverage
+  2026-06-28; the honest framing (library robustness, not LLM jailbreak) is load-bearing.
+
+### 010 — Documentation site (Astro/Starlight)  [status: planned]
+
+- **Description:** A published end-user documentation site for the library, built with Astro (Starlight
+  docs theme), with content derived from the codebase + the JSON Schema + the supported template
+  feature set. Subsumes the spec-007 "user docs" + the template-feature-set doc gap.
+- **Outcome:** A GitHub-hosted Astro docs site with: overview, getting-started, how-to guides, FAQ, and
+  an **API reference** (per-language: Rust/Python/TS) generated/derived from the codebase + schema; the
+  repo README is slimmed to overview + getting-started + a pointer to the site. The
+  template-engine + supported-feature documentation (MiniJinja; interpolation/conditionals/loops in,
+  includes/macros/inheritance out) lives here.
+- **Scope (in):** Astro + Starlight site scaffold; hand-written overview/getting-started/howto/FAQ;
+  API-reference generation per language (cargo doc / schema-driven shape docs / TS types); the template
+  feature-set page; doc the `variables[].type` is carried-metadata-for-codegen (not runtime-enforced)
+  and the variant/default shared-variables guarantee; README slim-down + pointer; CI build/deploy of the
+  site.
+- **Scope (out):** auto-generating prose (the narrative pages are hand-written); a docs *framework*
+  beyond Starlight; versioned/multi-release docs (a later concern); hosting choice bikeshedding
+  (GitHub Pages assumed unless decided otherwise at specify time).
+- **Depends on:** 008 (document the FINAL `origin` field name, not a renamed-after-docs name); informed
+  by 002–006 (the API it documents). **Should land before/with 007** (docs live at publish).
+- **Governed by:** C-07 (schema is the single source the API ref derives from), C-05 (document the
+  git-canonical/provenance model). Doc-only — no library behavior change.
+- **Notes:** SUBSTANTIAL deliverable (a real site). Decide at specify time: how much API ref is truly
+  auto-generated vs hand-curated, and the hosting/deploy path. Origin: user request 2026-06-28 (Astro
+  docs with overview/howto/FAQ/getting-started/API-ref, schema-derived; README points to it). The
+  spec-007 "package READMEs + quickstart" scope was narrowed to short per-package READMEs that point
+  here.
 
 ## Deferred
 
@@ -450,4 +559,4 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 
 ---
 
-**Version**: 1.1.4 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-28
+**Version**: 1.2.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-28
