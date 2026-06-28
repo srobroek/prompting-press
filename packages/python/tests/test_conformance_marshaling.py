@@ -16,8 +16,7 @@ How the native value is built (the fixture's ``type`` tag → the native Python 
 
     string / int / float / bool / null  → the JSON value verbatim (``None`` for null)
     absent                               → the key is OMITTED entirely (never set)
-    datetime / date                      → the canonical ISO string (see DECISION below)
-    decimal                              → ``decimal.Decimal(value)`` (see DECISION below)
+    datetime / date / decimal            → the canonical serialized string verbatim (see DECISION below)
     object                               → recurse into a ``dict``
     array                                → recurse into a ``list``
 

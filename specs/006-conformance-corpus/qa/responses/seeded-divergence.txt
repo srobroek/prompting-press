@@ -1,0 +1,5 @@
+--- RUST (expect FAIL) ---
+[rust] case=decimal divergence=render_hash: got 7d8401f986caf73955040bca9cb13da639cc8eb1f927faec4831042fea397a90, golden 0000000000000000000000000000000000000000000000000000000000000000
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+--- PYTHON (expect FAIL) ---
+1 failed, 5 passed in 0.10s

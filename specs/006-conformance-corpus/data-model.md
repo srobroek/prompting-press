@@ -32,14 +32,22 @@ Each `input` field is an object `{ "type": <logical-type>, "value": <json> }` so
 | `bool` | boolean | `bool` | `boolean` | serde bool |
 | `null` | `null` | `None` | `null` | serde null |
 | `absent` | (field omitted from constructed Vars) | key not set | key not set / `undefined` | key absent |
-| `datetime` | ISO-8601 string | `datetime.fromisoformat(value)` | `new Date(value)` | `chrono::DateTime::parse_from_rfc3339(value)` |
-| `date` | `YYYY-MM-DD` string | `date.fromisoformat(value)` | `new Date(value)` | `chrono::NaiveDate::parse_from_str` |
-| `decimal` | decimal-as-string | `Decimal(value)` | `value` (string; no JS decimal lib) | `rust_decimal`/string (test-only; whatever serializes to the same string) |
+| `datetime` | ISO-8601 string | the string verbatim | the string verbatim | the string verbatim |
+| `date` | `YYYY-MM-DD` string | the string verbatim | the string verbatim | the string verbatim |
+| `decimal` | decimal-as-string | the string verbatim | the string verbatim (no JS decimal lib) | the string verbatim |
 | `object` | object (recursively typed) | nested dict/model | nested object | nested serde map |
 | `array` | array (recursively typed) | list | array | serde seq |
 
 The `absent` and `null` rows encode the fixed FR-008 contract: `null`/`None` → JSON `null`; `absent`
 (and JS `undefined`) → field-not-present → kernel strict-undefined if referenced.
+
+> **As-built note (canonical serialized form — memory [[D1]]):** the `datetime`/`date`/`decimal` rows were
+> originally drafted to construct a *native* object (`datetime.fromisoformat`, `new Date`, `Decimal`), but
+> implementation proved native objects do NOT reproduce the golden — each ecosystem's serializer
+> recanonicalizes (Pydantic `mode="json"` emits a `Z` suffix and `1E-17`; JS `Date.toISOString()` emits
+> `.000Z`). All three runners therefore feed the **canonical serialized string verbatim**, which the
+> kernel renders identically. See `conformance/README.md` and `research.md` D1; the TS runner's
+> `assertDateDiverges()` proves the divergence at runtime. Do not "fix" a runner to build a native object.
 
 ### Expected outcome (the golden)
 
@@ -71,8 +79,17 @@ Coverage (reusing the as-built fixtures):
 - **accept**: `valid/single-body.json`, `valid/multi-variant.json`, `valid/variant-with-meta.json`,
   plus one **YAML twin** of a valid doc (new, under `conformance/schema/yaml/`).
 - **reject**: `invalid/missing-required.json`, `invalid/extra-root-key.json`, `invalid/bad-role.json`,
-  `invalid/bad-provenance.json`, `invalid/variant-named-default.json`,
-  `invalid/variant-redefines-role.json`, `invalid/not-json.txt`, plus one **YAML twin** of an invalid doc.
+  `invalid/bad-provenance.json`, `invalid/variant-redefines-role.json`, `invalid/not-json.txt`, plus one
+  **YAML twin** of an invalid doc.
+
+> **As-built note (loader vs schema-validator layers — memory [[A1]]):** `invalid/variant-named-default.json`
+> was originally listed as a loader `reject` but is **EXCLUDED** from the loader round-trip set. The
+> loaders do serde *shape* deserialization, not full JSON-Schema validation; the "no variant named
+> `default`" rule is a JSON-Schema `propertyNames` constraint serde cannot model, so the loader ACCEPTS
+> it (it is flagged downstream by `check()` as a `ReservedVariantName` finding, not at load).
+> `variant-redefines-role` IS loader-rejected (the `Variant` struct is `additionalProperties:false`, so a
+> `role` key fails serde). The corpus tests the **loader's** verdict; spec-001's `validate-fixtures` gate
+> tests the stricter schema-validator verdict.
 
 Each runner asserts: an `accept` doc loads without error in its binding; a `reject` doc raises the
 binding's normalized structured error (`LoadError`/equivalent) — no partial load, no crash (FR-010).
