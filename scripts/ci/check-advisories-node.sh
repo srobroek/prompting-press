@@ -8,10 +8,12 @@
 # json-schema-to-typescript, typescript, prettier) before they ship. Mirrors
 # ci:check-advisories (Rust/cargo-deny) and ci:check-advisories-py (Python/pip-audit).
 #
-# Approach: `pnpm audit --prod` over the workspace package, failing on any advisory at or
-# above the configured level. We gate on `high` + `critical` (matching the conservative
-# posture of the Rust/Python gates — a `moderate` in a build-time dev tool should not block
-# CI, but a high/critical anywhere should). Adjust --audit-level deliberately, not casually.
+# Approach: `pnpm audit` over the workspace package's FULL dependency tree (runtime + the dev
+# toolchain — @napi-rs/cli, tsc, prettier, json-schema-to-typescript), failing on any advisory
+# at or above the configured level. Deliberately NOT `--prod`: the build toolchain is part of the
+# supply chain and should be scanned too. We gate on `high` + `critical` (matching the conservative
+# posture of the Rust/Python gates — a `moderate` in a build-time dev tool should not block CI, but
+# a high/critical anywhere should). Adjust --audit-level deliberately, not casually.
 #
 # Runtime: pnpm (mise-pinned). No build of the native addon required — this reads the lockfile.
 #
@@ -34,9 +36,9 @@ echo "Advisory gate (Node): scanning ${TS_PKG}/pnpm-lock.yaml for known CVEs (le
 echo ""
 
 # `pnpm audit` exits non-zero if it finds advisories at or above --audit-level → fails the gate.
-# --prod: audit the production dependency tree (the wheel's runtime + transitive); the dev
-# toolchain (napi-cli, tsc, prettier) is build-time only, but pnpm audit --prod still covers
-# what ships. Run from the package dir so pnpm resolves the right lockfile.
+# No `--prod`: scan the FULL tree (runtime zod + the dev toolchain @napi-rs/cli/tsc/prettier/
+# json-schema-to-typescript) — the build toolchain is supply chain too. Run from the package dir
+# so pnpm resolves the right lockfile.
 mise exec -- pnpm -C "${TS_PKG}" audit --audit-level "${AUDIT_LEVEL}"
 
 echo ""

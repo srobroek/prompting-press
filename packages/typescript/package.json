@@ -1,7 +1,7 @@
 {
   "name": "prompting-press",
   "version": "0.0.0",
-  "description": "Node.js distribution of Prompting Press — a thin wrapper around the Rust napi-rs binding crate (crates/prompting-press-node). Skeleton only: no runtime code ships in spec 001.",
+  "description": "Node.js distribution of Prompting Press — a typed, variant-aware prompt-template library. A thin Zod facade over the Rust napi-rs binding crate (crates/prompting-press-node) and the shared Rust engine.",
   "license": "Apache-2.0",
   "type": "module",
   "author": "Sjors Robroek",

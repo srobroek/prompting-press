@@ -189,7 +189,19 @@ function decodeAddonError(thrown: unknown): PromptingPressError {
       typeof parsed === "object" &&
       parsed !== null &&
       typeof (parsed as { code?: unknown }).code === "string" &&
-      Array.isArray((parsed as { errors?: unknown }).errors)
+      Array.isArray((parsed as { errors?: unknown }).errors) &&
+      // Validate each row's shape, not just the envelope (security review M1): the rows flow
+      // out on `.errors` and into the summary. Today the Rust side is the only producer and is
+      // exhaustively typed, so this never fails — it is defense-in-depth so a future/foreign
+      // payload with a well-formed `code` but malformed rows cannot surface a non-`FieldError`.
+      (parsed as { errors: unknown[] }).errors.every(
+        (row) =>
+          typeof row === "object" &&
+          row !== null &&
+          typeof (row as FieldError).field === "string" &&
+          typeof (row as FieldError).code === "string" &&
+          typeof (row as FieldError).message === "string",
+      )
     ) {
       payload = parsed as DecodedPayload;
     }
