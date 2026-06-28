@@ -323,12 +323,9 @@ def test_three_tuple_selects_named_variant() -> None:
     via_factory = Composition.from_messages([("salute", Named(name="Di"), "formal")])
     assert [m.text for m in via_factory.resolve(reg)] == ["Good day, Di"]
 
-    # The same variant selection via append (positional and keyword forms agree).
-    via_append_pos = Composition()
-    via_append_pos.append("salute", Named(name="Di"), "formal")
+    # The same variant selection via append (variant is keyword-only — C-11).
     via_append_kw = Composition()
     via_append_kw.append("salute", Named(name="Di"), variant="formal")
-    assert via_append_pos.resolve(reg)[0].text == "Good day, Di"
     assert via_append_kw.resolve(reg)[0].text == "Good day, Di"
 
 
