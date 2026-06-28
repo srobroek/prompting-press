@@ -1,0 +1,14 @@
+✅ TC-001 US1 valid render → text + 64-hex provenance (SC-001)
+✅ TC-002 US1 invalid → PromptValidationError naming field, no render (SC-002)
+✅ TC-003 US1 SC-006 not a ZodError on the public API
+✅ TC-004 US2 YAML/JSON/object parity → identical text + hashes (SC-003)
+✅ TC-005 US2 malformed YAML → LoadError, nothing loaded
+✅ TC-006 US3 check flags undeclared + untrusted-without-guard (SC-004/005)
+✅ TC-007 US3 clean registry → passed(), purity
+✅ TC-008 US4 composition → N ordered {role,text} (SC-008)
+✅ TC-009 US4 one invalid entry → throws, no partial; empty → []
+✅ TC-010 variant selection via opts.variant (NEW — C-11/FR-009 parity)
+✅ TC-011 SEC-004 kernel render-error secret scrub (no leak)
+✅ TC-012 keyword-only/options enforced: positional variant is ignored-or-typed (C-11)
+
+=== 12/12 passed ===
