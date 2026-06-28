@@ -25,13 +25,22 @@ duck-typing, and is the idiomatic call shape in every target ecosystem. Python's
 keyword-only args; Rust's is an options struct / builder. This is "uniform capability, native idiom" —
 the existing spirit of Principle VI — made explicit as a call-shape rule.
 
+**Per-language threshold (decided 2026-06-28, with the user):**
+- **TS/JS + Python** — strict: ANY optional param, or >~2 params, moves into an options object /
+  keyword-only args. Their positional optionals are the order-fragile `null`-soup the rule targets.
+- **Rust** — `Option<T>` is a self-documenting optional at the call site (`Some("formal")`, not a bare
+  `null`), so a **single** optional/`Option` param is idiomatic and NOT a violation. The options-struct
+  / builder form is required only at **2+** optional params (a genuine long tail). Consequence: the
+  `prompting-press` Rust consumer (`render<V>(.., variant: Option<&str>, guard: &GuardConfig)` — one
+  optional + one required config; `get_source(.., variant)`; `Composition::append(.., variant)` — one
+  optional each) **stays positional, conformant, no refactor.** The kernel likewise.
+
 **Propagation / migration**:
-- Roadmap decision **C-11** records the same rule in the spec ledger (`.specify/memory/roadmap.md`).
-- **Applied** in spec 005 (TS binding): `render`/`getSource`/`Composition` refactored to options
-  objects (commit `329cd20`).
-- **Deferred follow-ups** (tracked at roadmap-debrief, not blocking): the Python binding's `render`
-  (`#[pyo3(signature = (reg, name, vars, data=None, variant=None, guard=None))]`) should make
-  `data`/`variant`/`guard` keyword-only (`*,`) to conform — recorded as a spec-004 follow-up.
+- Roadmap decision **C-11** records the same rule + the Rust threshold in the spec ledger.
+- **Applied** in spec 005 (TS binding): `render`/`getSource`/`Composition` → options objects (`329cd20`).
+- **Applied** in the Python binding (spec 004): `render`/`get_source`/`Composition.append`/`GuardConfig`
+  made keyword-only via PyO3 `signature` `*,` (this change).
+- **Rust** (kernel + consumer): no change — below the Rust threshold (see above).
 - Dependent templates (plan/spec/tasks) need no structural change; this is a coding-idiom rule a
   reviewer applies, not a new workflow gate.
 

@@ -158,11 +158,16 @@ correct, not a defect.
   variant=None, guard=None)`, Rust an options struct / builder where a call would otherwise grow a long
   optional tail. Required positional operands (the registry, prompt name, a schema+data pair) stay
   positional; it is the **optional/config tail** that moves into the object. This also eliminates
-  positional-shape duck-typing (e.g. sniffing schema-vs-data by a method's presence). *Rationale:* a
-  long optional positional list is a Long Parameter List smell — order-fragile, unreadable at the call
-  site, forcing `null` placeholders; named options are self-documenting, extensible without breaking
-  call sites, and idiomatic in every target ecosystem. (Adopted from the spec-005 review; see
-  `DECISIONS.md`.)
+  positional-shape duck-typing (e.g. sniffing schema-vs-data by a method's presence). **Rust
+  threshold:** Rust uses `Option<T>` as a self-documenting optional at the call site (`Some("formal")`,
+  not a bare `null`), so a **single** optional/`Option` param is idiomatic and is NOT a violation; the
+  options-struct/builder form is required only when a Rust function would otherwise carry **2+** optional
+  params (a genuine long tail). The TS/JS and Python thresholds are stricter (any optional, or >~2
+  params) because their positional optionals ARE the order-fragile `null`-soup this rule targets.
+  *Rationale:* a long optional positional list is a Long Parameter List smell — order-fragile,
+  unreadable at the call site, forcing `null` placeholders; named options are self-documenting,
+  extensible without breaking call sites, and idiomatic in every target ecosystem. (Adopted from the
+  spec-005 review; see `DECISIONS.md`.)
 
 *Rationale:* forcing one shape across three ecosystems produces an alien API in at least two of them.
 Uniform capability + native idiom is what makes each binding feel first-class.

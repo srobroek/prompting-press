@@ -152,13 +152,16 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   **options object** (TS/JS) or **keyword-only args** (Python `*, kw=...`) / options struct (Rust), never
   a positional list of optionals. Required positional operands (registry, name, schema+data) stay
   positional. Also kills positional-shape duck-typing (schema-vs-data by `.safeParse` sniff). Codifies
-  the constitution **v1.1.0** Principle VI amendment (see `DECISIONS.md` 2026-06-28). **Origin:** the
-  spec-005 TS-binding review — `render` couldn't select a variant without colliding with `guard`, and
-  composition entries were duck-typed tuples (Long Parameter List + Primitive Obsession,
-  refactoring.guru). **Applied** in 005 (`render`/`getSource`/`Composition` → options objects, commit
-  `329cd20`). **Follow-up:** make the Python binding's `render` data/variant/guard keyword-only (spec-004
-  follow-up, tracked at debrief). _Governs all binding specs (004/005 + future); does not change the
-  workflow, only the per-language public call shape._
+  the constitution **v1.1.0** Principle VI amendment (see `DECISIONS.md` 2026-06-28). **Per-language
+  threshold:** TS/JS + Python are strict (any optional → options object / keyword-only); **Rust** keeps a
+  **single** `Option<T>` positional (idiomatic, self-documenting) and only needs an options struct at
+  **2+** optional params. **Origin:** the spec-005 TS-binding review — `render` couldn't select a variant
+  without colliding with `guard`, and composition entries were duck-typed tuples (Long Parameter List +
+  Primitive Obsession, refactoring.guru). **Applied:** 005 TS (`render`/`getSource`/`Composition` →
+  options objects, `329cd20`); Python binding (`render`/`get_source`/`Composition.append`/`GuardConfig`
+  → keyword-only via PyO3 `signature` `*,`). **Rust** (kernel + consumer): no change — below the Rust
+  threshold. _Governs all binding specs (004/005 + future); does not change the workflow, only the
+  per-language public call shape._
 
 ## Planned Specs
 
