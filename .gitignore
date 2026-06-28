@@ -349,6 +349,9 @@ packages/*/node_modules/
 /packages/typescript/index.js
 /packages/typescript/index.d.ts
 
+# npm pack output (e.g. the SC-009 fresh-env-install check produces a tarball); regenerable.
+*.tgz
+
 # moon: local task cache (regenerable; never committed). Config under .moon/*.yml
 # and .moon/tasks/ IS tracked — only the cache dir is ignored.
 .moon/cache/

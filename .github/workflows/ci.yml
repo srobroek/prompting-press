@@ -105,6 +105,11 @@ jobs:
       - name: 'T028: Python advisory scan'
         run: mise exec -- moon run ci:check-advisories-py
 
+      # T029 — Node advisory scan: known CVEs in npm deps (FR-025, SC-011, SEC-201)
+      # pnpm audit reads packages/typescript/pnpm-lock.yaml; does NOT require building the addon.
+      - name: 'T029: Node advisory scan'
+        run: mise exec -- moon run ci:check-advisories-node
+
   # ---------------------------------------------------------------------------
   # test-python — spec 004 (review I1): build the prompting-press-py extension
   # and run BOTH binding test suites. The `build` matrix only `cargo build`s the
@@ -134,6 +139,41 @@ jobs:
       # and builds the extension via uvx maturin into a hermetic uv venv.
       - name: 'Spec 004 / I1: build extension + run pytest & cargo test'
         run: mise exec -- moon run ci:test-python
+        env:
+          CARGO_TERM_COLOR: always
+
+  # ---------------------------------------------------------------------------
+  # test-node — spec 005 (same review-I1 lesson): build the prompting-press-node
+  # addon + the TS facade and run cargo test + the node:test suites. The `build`
+  # matrix only `cargo build`s the workspace and never runs tests, so without this
+  # job the 36 cargo + 57 TS tests — the only coverage for the Zod validate-at-render
+  # path, the napi-error->Error-subclass decoder, loader parity, and composition —
+  # can rot green. One Linux leg: the suites are OS-independent (the napi link itself
+  # is covered per-OS by the `build` matrix). Verifying the addon LOADS on Linux is
+  # the highest-probability surprise — this job catches it.
+  # ---------------------------------------------------------------------------
+  test-node:
+    name: 'Node binding tests (ubuntu)'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0  # let moon resolve the base branch on pull_request events
+
+      - name: Install mise toolchain
+        uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac  # v2
+        with:
+          experimental: true
+
+      # Install the TS workspace deps (zod runtime + napi-cli/tsc) so the addon build
+      # + node:test run hermetically against a pinned, frozen lockfile.
+      - name: 'Install TS deps (pnpm)'
+        run: mise exec -- pnpm -C packages/typescript install --frozen-lockfile
+
+      - name: 'Spec 005 / I1: build addon + run node:test & cargo test'
+        run: mise exec -- moon run ci:test-node
         env:
           CARGO_TERM_COLOR: always
 
