@@ -8,7 +8,7 @@
 #      path, the ZodError->rows scrub, the napi-error->Error-subclass decoder, the dual-input
 #      loader parity, and composition. None of these are reachable from the Rust tests.
 #
-# WHY THIS GATE EXISTS: without it the 36 cargo + 57 TS tests can rot green — a regression in
+# WHY THIS GATE EXISTS: without it the Rust + TS binding test suites can rot green — a regression in
 # the facade or the marshaling path would pass CI. The OS-matrix `build` job compiles the crate
 # (catching link regressions) but never runs its tests.
 #

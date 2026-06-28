@@ -147,6 +147,18 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   `cargo publish` after-hook and nothing to the hard wheel + napi-prebuild
   paths. Exact tool versions verified at spec-007 time (verify-at-spec-time
   discipline). _Spec-007 governance; does not affect 001._
+- **C-11 — Options objects over long/optional positional parameters (per-binding API shape):** a public
+  function with optional or >~2 meaningful parameters takes its optional/config tail as a single named
+  **options object** (TS/JS) or **keyword-only args** (Python `*, kw=...`) / options struct (Rust), never
+  a positional list of optionals. Required positional operands (registry, name, schema+data) stay
+  positional. Also kills positional-shape duck-typing (schema-vs-data by `.safeParse` sniff). Codifies
+  the constitution **v1.1.0** Principle VI amendment (see `DECISIONS.md` 2026-06-28). **Origin:** the
+  spec-005 TS-binding review — `render` couldn't select a variant without colliding with `guard`, and
+  composition entries were duck-typed tuples (Long Parameter List + Primitive Obsession,
+  refactoring.guru). **Applied** in 005 (`render`/`getSource`/`Composition` → options objects, commit
+  `329cd20`). **Follow-up:** make the Python binding's `render` data/variant/guard keyword-only (spec-004
+  follow-up, tracked at debrief). _Governs all binding specs (004/005 + future); does not change the
+  workflow, only the per-language public call shape._
 
 ## Planned Specs
 

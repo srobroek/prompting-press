@@ -150,6 +150,19 @@ correct, not a defect.
 - Validation and error types MUST be **normalized to a common structured shape**
   (`[{field, code, message}]`) at each consumer boundary; native error types (garde `Report`,
   Pydantic/Zod errors) MUST NOT leak across FFI.
+- **Options objects over long/optional positional parameters.** A public function with optional or
+  more than ~2 meaningful parameters MUST take its optional and configuration parameters as a single
+  named **options object** (TypeScript/JS) or **keyword-only arguments** (Python `*, kw=...`), never as
+  a positional list of optionals. This is one capability in each language's native idiom: TS
+  `render(reg, name, schema, data, { variant, guard })`, Python `render(reg, name, vars, *, data=None,
+  variant=None, guard=None)`, Rust an options struct / builder where a call would otherwise grow a long
+  optional tail. Required positional operands (the registry, prompt name, a schema+data pair) stay
+  positional; it is the **optional/config tail** that moves into the object. This also eliminates
+  positional-shape duck-typing (e.g. sniffing schema-vs-data by a method's presence). *Rationale:* a
+  long optional positional list is a Long Parameter List smell — order-fragile, unreadable at the call
+  site, forcing `null` placeholders; named options are self-documenting, extensible without breaking
+  call sites, and idiomatic in every target ecosystem. (Adopted from the spec-005 review; see
+  `DECISIONS.md`.)
 
 *Rationale:* forcing one shape across three ecosystems produces an alien API in at least two of them.
 Uniform capability + native idiom is what makes each binding feel first-class.
@@ -227,4 +240,4 @@ after the first feature lands; major rewrites should be rare and recorded in
   output parsing, a managed version axis, or a new pluggable interface is presumed out of scope and
   requires an amendment (with rationale) before work begins.
 
-**Version**: 1.0.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-25
+**Version**: 1.1.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-28

@@ -21,7 +21,7 @@ boundary real for the spec-006 conformance corpus.
 
 **Technical approach** (from Phase 0): expose `#[napi]` classes (`Registry`, `RenderResult`,
 `CheckReport`/`Finding`, `Composition`/`Message`) and `#[napi]` functions over the shared Rust core using
-**napi 3.x / napi-derive 3.x** (already pinned at `"3"`; latest = **3.9.4** — pin exact, see below). The
+**napi 3.x / napi-derive 3.x** (already pinned at `"3"`; latest = **napi 3.9.4 / napi-derive 3.5.7**, which version independently — pin each exact, see below). The
 Zod schema is validated in TS (`safeParse`) at the render boundary; on success the plain validated JS
 object crosses napi and is marshaled into the kernel value type. **Render + compose marshal to the
 *kernel* directly** (`prompting_press_core::render`), mirroring the 004 decision: the *consumer's*
@@ -46,7 +46,7 @@ kernel or Rust consumer → `ci:check-ffi` stays green (the gate **already asser
 
 **Primary Dependencies** (all version-verified this cycle against crates.io / npm directly — see
 research.md):
-- `napi = "3.9.4"`, `napi-derive = "3.9.4"` — crates.io latest 3.x is **3.9.4** (updated 2026-06-24).
+- `napi = "3.9.4"`, `napi-derive = "3.5.7"` — crates.io latest 3.x (the two crates version independently; verified 2026-06-24).
   Pin **exact** (crate currently declares floating `"3"`) so the `ci:check-floating-versions` gate stays
   green — the napi-pin reconciliation flagged in the spec (resolved here: pin exact).
 - `prompting-press` (Rust consumer, path dep — already present) and `prompting-press-core` (kernel, path
@@ -91,7 +91,7 @@ the generated shape already present; pin napi exact + add Zod + a test runner; n
 packaging wiring; VERIFY `ci:check-ffi` covers napi (already does); add a `ci:check-advisories-node` + `ci:test-node` gate.
 No kernel or consumer changes; no relocation.
 
-**Unknowns**: none open. napi/napi-derive **3.9.4** (crates.io), Zod **4.4.3**, @napi-rs/cli **3.7.2**,
+**Unknowns**: none open. napi **3.9.4** + napi-derive **3.5.7** (crates.io; version independently), Zod **4.4.3**, @napi-rs/cli **3.7.2**,
 json-schema-to-typescript **15.0.4**, typescript **5.9.2** all re-verified against crates.io / npm
 **directly** this cycle (the project's fabricated-subagent-version guard). Remaining plan-time
 confirmations are napi 3.x API-shape details + the Zod v4 issue API + the JS↔serde marshaling primitive
@@ -133,7 +133,7 @@ specs/005-ts-binding/
 
 ```text
 crates/prompting-press-node/      # THE BINDING (this spec's work — builds out the existing stub)
-├── Cargo.toml                    # pin napi/napi-derive 3.9.4 exact (was floating "3")
+├── Cargo.toml                    # pin napi 3.9.4 + napi-derive 3.5.7 exact (independent versions; was floating "3")
 ├── src/
 │   ├── lib.rs                    # #[napi] module: register classes + functions (replaces the stub fn)
 │   ├── registry.rs               # #[napi] Registry over consumer Registry: loadYaml/loadJson/insert
@@ -177,8 +177,8 @@ Two items worth noting (not violations):
 
 ### Verified-this-cycle (so a future reader doesn't re-litigate)
 
-- **napi** / **napi-derive** crates.io latest 3.x = **3.9.4** (updated 2026-06-24); crate currently
-  declares floating `"3"` → **pin exact 3.9.4** (resolves the floating-version concern; the
+- **napi** crates.io latest 3.x = **3.9.4**, **napi-derive** = **3.5.7** (they version INDEPENDENTLY;
+  verified 2026-06-24); crate currently declares floating `"3"` → **pin each exact** (resolves the floating-version concern; the
   `ci:check-floating-versions` gate covers Cargo manifests).
 - **Zod** npm latest = **4.4.3** (v4 — the clarified Q7 target; the `ZodError` issue API the mapper reads
   is v4's). **@napi-rs/cli** npm latest = **3.7.2** (matches scaffold). **json-schema-to-typescript** npm

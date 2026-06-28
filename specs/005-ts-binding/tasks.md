@@ -35,7 +35,7 @@ marshaling bridge + error hierarchy + registry class + the TS facade scaffold) t
   Zod v4; Q8 ESM-only.
 - **Codegen'd shape** (C-07): never hand-edit `packages/typescript/src/generated/`;
   `schemas:codegen-check` gates freshness. **No token surface** anywhere (F4).
-- Versions verified this cycle (crates.io/npm directly): napi/napi-derive 3.9.4 (pin EXACT — was floating
+- Versions verified this cycle (crates.io/npm directly): napi 3.9.4 + napi-derive 3.5.7 (they version INDEPENDENTLY; pin EXACT — was floating
   `"3"`), Zod 4.4.3, @napi-rs/cli 3.7.2, json-schema-to-typescript 15.0.4, typescript 5.9.2. `rm` blocked
   → `git mv`/`rmdir`. Pushes via `dgit`; cargo/moon/pnpm under `mise exec --`; single-quote `git commit -m`
   with backticks. Cite "roadmap decision C-NN", never "constitution C-NN".
@@ -47,7 +47,7 @@ marshaling bridge + error hierarchy + registry class + the TS facade scaffold) t
 **Purpose**: Pin the FFI toolkit, add the Zod + test-runner deps, and confirm the FFI gate + a baseline
 build/import before code.
 
-- [X] T001 In `crates/prompting-press-node/Cargo.toml`: pin `napi` and `napi-derive` to the EXACT latest 3.x (`3.9.4`, crates.io-verified) — they currently declare floating `"3"`, which the `ci:check-floating-versions` gate flags. Confirm path deps on `prompting-press` + `prompting-press-core` remain (already present). Keep `crate-type = ["cdylib"]`.
+- [X] T001 In `crates/prompting-press-node/Cargo.toml`: pin `napi` and `napi-derive` to their EXACT latest 3.x — `napi = "3.9.4"`, `napi-derive = "3.5.7"` (crates.io-verified; the two crates version INDEPENDENTLY) — they currently declare floating `"3"`, which the `ci:check-floating-versions` gate flags. Confirm path deps on `prompting-press` + `prompting-press-core` remain (already present). Keep `crate-type = ["cdylib"]`.
 - [X] T002 In `packages/typescript/package.json`: add `zod` (v4, exact `4.4.3` or a pinned spec — the floating-version gate may cover `package.json`; pin, don't caret) to `dependencies` (the runtime Vars facade); add the chosen test runner (D6 — lean Vitest, else node:test → no dep) to `devDependencies` (pinned). Leave `type: module`, the `@napi-rs/cli` build scripts, `json-schema-to-typescript`, and `typescript` as-is. Run `pnpm -C packages/typescript install` to refresh the lockfile.
 - [X] T003 Baseline build + FFI/codegen gates: `mise exec -- cargo build -p prompting-press-node`; `mise exec -- pnpm -C packages/typescript build` (napi build → the platform `.node` + `index.{js,d.ts}`); `node --input-type=module -e "import('prompting-press').then(m=>console.log(typeof m))"` (the stub addon imports — SC-009 baseline); `mise exec -- moon run ci:check-ffi --force` (still green for pyo3 — napi assertion added in T028); `mise exec -- moon run schemas:codegen-check --force` (generated TS shape fresh). All green before writing binding code.
 
