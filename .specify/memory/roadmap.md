@@ -1,14 +1,32 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.1.4 → 1.2.0
-Bump rationale: MINOR — three NEW planned specs added (008 pre-publish schema & repo
-  refinement; 009 adversarial hardening & fuzzing; 010 documentation site), and spec
-  007's scope materially narrowed (the user docs site moved to 010; READMEs slimmed to
-  pointers) + its depends-on extended to 008/009/010. Structural additions → MINOR per
-  the roadmap semver policy. No constraint/decision reversed; C-01..C-11 untouched.
+Version change: 1.2.0 → 1.3.0
+Bump rationale: MINOR — spec 008 materially broadened from "schema rename + fixture move"
+  to "Pre-publish API & schema reshape": adds the prompt-as-object API redesign + the
+  candidate `validation_required` schema field, bundled because they are one object-model
+  decision (research note docs/research/registry-value-and-object-model.md). 008 now blocks
+  010 too. Material scope change → MINOR. No constraint reversed; C-08/C-11 newly cited by
+  008's expanded scope.
 
-Changes this revision (1.2.0, 2026-06-28):
+Changes this revision (1.3.0, 2026-06-28):
+  - Spec 008 retitled "…schema & repo refinement" → "Pre-publish API & schema reshape";
+    scope expanded to bundle (a) provenance→origin, (b) fixture move, (c) prompt-as-object
+    API redesign (first-class Prompt; render/getSource/check migrate onto it; Composition
+    aggregates Prompt objects; Registry kept-thin/optional/dropped — decided at clarify;
+    resolves the TS render duck-typing), (d) candidate `validation_required` schema boolean.
+    Clarify-gated open questions recorded. Now blocks 007 AND 010. Governed-by extended to
+    C-01/C-06/C-08/C-11.
+  - Added docs/research/registry-value-and-object-model.md (008 clarify input): researches
+    the registry's value vs. plain Prompt objects (BAML method-per-prompt client; LangChain
+    held template objects — neither uses name-keyed lookup) + the full object model + linked
+    decisions + open questions.
+
+Prior revision (1.2.0, 2026-06-28):
+  Bump rationale: MINOR — three NEW planned specs added (008/009/010) + spec 007 scope narrowed
+  (docs site → 010; READMEs slimmed) + depends-on extended. Structural additions → MINOR.
+
+Changes in revision (1.2.0, 2026-06-28):
   - Added spec 008 — Pre-publish schema & repo refinement [planned]: rename the schema
     `provenance` field → `origin` (single source + 3 codegen'd shapes + all consumers;
     enum values unchanged) and move the schema accept/reject fixtures into a tests/
@@ -93,7 +111,7 @@ Prior revision (1.0.0, 2026-06-25):
   - Added Deferred section (Go binding, inline partials, token budgeting, etc.)
   - Added Never section (boundary defense — requires constitution amendment)
 
-Specs affected: 008/009/010 (this revision, added [planned]) + 007 (scope narrowed);
+Specs affected: 008 (this revision, scope broadened → API reshape); 008/009/010 (1.2.0, added [planned]) + 007 (scope narrowed);
   006 (1.1.4, → implemented); 003 (1.1.3); 002 (1.1.2); 001 (1.1.1); 007 (1.1.0);
   001–007 (initial).
 Open questions added/resolved: none this revision; 3 added at 1.0.0.
@@ -376,31 +394,53 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   builder, not a library/wheel/native-addon publisher — see C-10). Verify exact
   tool versions when 007 is specced.
 
-### 008 — Pre-publish schema & repo refinement  [status: planned]
+### 008 — Pre-publish API & schema reshape  [status: planned]
 
-- **Description:** Two pre-publish contract/repo refinements that must land BEFORE the v1 publish
-  (007), because both are awkward-to-impossible to change once packages are on the registries.
-- **Outcome:** (a) the prompt-definition schema's per-variable `provenance` field is renamed to
-  **`origin`** across the single-source JSON Schema + all three codegen'd shapes + every consumer;
-  (b) the schema's accept/reject test fixtures move out of the schema dir into a `tests/` namespace.
-  The published v1 contract uses the final field name; CI + conformance stay green.
-- **Scope (in):** rename `provenance` → `origin` in `schemas/jsonschema/prompt-definition.schema.json`
-  (the enum values `trusted|untrusted|external` are unchanged) → regenerate the 3 per-language shapes
-  (Rust/Pydantic/TS) → update the kernel `ProvenanceView`/check + the consumer + both bindings reading
-  the field → update all fixtures + the conformance corpus + spec docs; move
-  `schemas/jsonschema/fixtures/{valid,invalid}/` → `schemas/jsonschema/tests/fixtures/{valid,invalid}/`
-  and fix the 3 references (`validate_fixtures.py`, the `schemas:validate-fixtures` moon-task inputs,
-  `conformance/schema/manifest.json`).
-- **Scope (out):** any behavior change (this is a rename + move, not new capability); renaming the enum
-  values; touching the `meta.guard` convention or the lint semantics.
-- **Depends on:** 006 (the conformance corpus references the fixtures + provenance). **Blocks 007.**
-- **Governed by:** C-07 (JSON Schema single source — codegen, never hand-mirror), C-09 (the 3-way
-  provenance/origin tag stays declarative metadata). A schema-contract change — SpecKit-worthy.
-- **Notes:** `origin` chosen over keeping `provenance` because the user found it more descriptive and
-  it still fits all three values (two of which — external, untrusted — are origins, not trust levels);
-  a boolean was rejected (can't express the 3rd value). ~180 files touched (schema is the source of
-  truth; everything downstream regenerates/updates). Do as ONE coordinated change with a full
-  conformance + CI re-run. Discussed 2026-06-28.
+- **Description:** The pre-publish reshape of the public contract — the LAST chance to change the API
+  shape + schema before packages go on the registries (post-publish these are breaking changes). Bundles
+  the schema rename, the fixture move, and the **prompt-as-object** API redesign because they are ONE
+  decision about the library's core object model (research note:
+  `docs/research/registry-value-and-object-model.md`). Resolve the object-model open questions at this
+  spec's **clarify** phase.
+- **Outcome:** The published v1 contract uses (a) the final field name `origin`; (b) the resolved object
+  model (prompt-as-object vs. registry-keyed — clarify decides); (c) the resolved validator-attachment
+  shape. CI + conformance stay green throughout. Every example + binding test + the conformance runners
+  reflect the final shape.
+- **Scope (in):**
+  - **Schema rename** — `provenance` → `origin` in `schemas/jsonschema/prompt-definition.schema.json`
+    (enum values `trusted|untrusted|external` unchanged) → regenerate the 3 per-language shapes → update
+    kernel `ProvenanceView`/check + consumer + both bindings + all fixtures + conformance + docs.
+  - **Fixture move** — `schemas/jsonschema/fixtures/{valid,invalid}/` →
+    `schemas/jsonschema/tests/fixtures/{valid,invalid}/`; fix the 3 refs (`validate_fixtures.py`, the
+    `schemas:validate-fixtures` moon-task inputs, `conformance/schema/manifest.json`).
+  - **Prompt-as-object API redesign** (clarify-gated — see open questions) — a first-class `Prompt`
+    object across all three bindings; `render`/`getSource`/`check` migrate onto it (single-prompt ops);
+    `Composition` aggregates `Prompt` objects; the `Registry` is re-decided (kept-thin / optional sugar +
+    `checkAll()` / dropped). Resolves the TS `render` schema-vs-data duck-typing (named `schema` key, no
+    `isSchema()`/`.safeParse` sniff) and the `reg`/`name` positional questions.
+  - **`validation_required` (candidate, clarify-gated)** — an optional schema boolean letting a prompt
+    mandate that a validator was supplied (closes the Python/TS static-render bypass). Tripwire, NOT a
+    proof of meaningful validation (an empty Zod/Pydantic model still passes); pairs with `origin:
+    untrusted`. Keeps the kernel validation-blind (C-06).
+- **Scope (out):** new rendering/agreement/hashing behavior (the kernel is untouched — Principle I); the
+  fuzzing/hardening (009); the docs site (010); runtime enforcement of `origin`/`validation_required`
+  beyond "a validator ran".
+- **Depends on:** 006 (conformance references the fixtures + the field). **Blocks 007, 010** (010
+  documents the FINAL API + field name). All-bindings reshape — must precede publish.
+- **Governed by:** C-01 (kernel unchanged; cross-binding symmetry — the object model lands in all three),
+  C-06 (native validators; errors normalized), C-07 (JSON Schema single source — codegen), C-08 (Scope
+  Discipline — the registry keep/drop decision IS this discipline applied to the registry abstraction),
+  C-09 (origin tag declarative), C-11 (the options-object/receiver call-shape). Schema + API contract —
+  firmly SpecKit-worthy.
+- **Notes:** Bundled per the 2026-06-28 design conversation (see the research note). `origin` chosen over
+  `provenance` (more descriptive; fits all three values; a boolean can't express the 3rd). Object-model
+  lean = prompt-as-object + optional registry (matches the actual data flow — `render` needs one def,
+  `check` is per-prompt, `Composition` aggregates prompts; aligns with BAML's method-per-prompt client +
+  LangChain's held template objects, neither of which uses name-keyed registry lookup). ~180+ files; do
+  as ONE coordinated change, full conformance + CI re-run. **Open questions for clarify** (from the
+  research note §6): keep the registry at all? prompt.check() vs reg.checkAll()? accept the single-prompt-
+  on-Prompt / multi-prompt-elsewhere split? confirm the all-bindings (incl. Rust generic `render::<V>`)
+  appetite? ship `validation_required` now or defer?
 
 ### 009 — Adversarial hardening & fuzzing  [status: planned]
 
@@ -559,4 +599,4 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 
 ---
 
-**Version**: 1.2.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-28
+**Version**: 1.3.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-28
