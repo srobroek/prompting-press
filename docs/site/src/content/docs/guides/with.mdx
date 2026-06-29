@@ -1,0 +1,223 @@
+---
+title: "Deriving a prompt with `with`"
+description: "Use the with / with_ method to create a new Prompt with shallow-replaced fields — re-validated, original untouched."
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+`Prompt` is immutable — there are no setters. **`with`** (Rust/TypeScript) / **`with_`** (Python) is
+the single, general-purpose way to produce a *changed* prompt: it shallow-replaces any subset of
+top-level fields, re-validates the **merged whole** (agreement, parse, reserved-variant-name), and
+returns a **new `Prompt`** — the original is untouched.
+
+It is general — use it to replace the body, rename, swap the variables map, adjust metadata, or **add
+a variant at runtime**. (If you just want to *declare* alternative bodies up front in the prompt
+document, that's simpler — see **[Variants](/prompting-press/guides/variants/)**. This page is for
+deriving a changed copy of an already-constructed `Prompt`.)
+
+Two complementary surfaces work together:
+
+- **Read** the current fields with the **accessors** — `.variants()` (Rust) / `.variants` (Python &
+  TypeScript properties), `.body()`/`.name()`, etc. These never mutate; they return what the prompt
+  currently holds.
+- **Derive** a changed copy with the **sole mutator** `with` / `with_`. `.variants()` and `with` are
+  not alternatives — the accessor cannot change anything, and `with` is the only thing that can; the
+  "add a variant" example below uses both together (read with `.variants()`, write with `with`).
+
+<Aside type="note" title="Why `with_` and not `with` in Python (and why not `.from`)">
+`with` is a reserved keyword in Python, so the method is spelled `with_` (the standard PEP 8
+trailing-underscore convention for keyword clashes). `from` was considered but is **also** a Python
+keyword (`from x import y`) — it would hit the same problem (`from_`) *and* read like a constructor,
+colliding with the `from_yaml`/`from_json`/`from_toml` text factories. `with` best matches the
+operation (a `dataclasses.replace`-style immutable derive) and is kept across all three languages.
+</Aside>
+
+## What can be overlaid
+
+Any top-level field of the prompt definition:
+
+| Field | Overlay type |
+|-------|-------------|
+| `name` | string |
+| `role` | `"system"` \| `"user"` \| `"assistant"` |
+| `body` | string (template source) |
+| `variables` | full variables map (replaces the entire map) |
+| `variants` | full variants map (replaces the entire map) |
+| `output_model` | `string \| null` (TS/Py) / `Option<String>` (Rust) |
+| `metadata` | opaque object |
+| `meta` | opaque object |
+
+Fields absent from the overlay are kept from the original. Re-validation runs over the **merged
+whole** — so an overlay that introduces an agreement violation (a new body that references an
+undeclared variable) is rejected.
+
+## `variants` is replaced wholesale — read, then spread
+
+This is the one sharp edge: `with` does a **shallow replace** per top-level field, so an overlay's
+`variants` map **replaces the entire existing map** — it does not merge. If your prompt already has
+variants and you want to *add* one while keeping the rest, **read the current map with
+`.variants()` and spread it into the overlay**. (If your prompt has no variants yet, you can pass the
+new map directly — there is nothing to preserve.)
+
+`.variants()` is a **read accessor** (it returns the current map; it never mutates). `with` is the
+**only mutator**. The pattern below uses both together: read with `.variants()`, write with `with`.
+
+<Tabs>
+<TabItem label="Rust">
+```rust
+use prompting_press::{Prompt, PromptOverlay};
+use serde_json::json;
+
+let greet = Prompt::from_yaml(yaml_text)?;
+
+// READ the current variants, then add to a clone — so existing arms survive.
+let mut variants = greet.variants().clone();
+variants.insert(
+    "formal".to_string(),
+    serde_json::from_value(json!({
+        "body": "Good day, {{ name }}. You have {{ count }} messages."
+    }))?,
+);
+
+// WRITE the merged map back via the sole mutator.
+let formal_greet = greet.with(PromptOverlay {
+    variants: Some(variants),
+    ..Default::default()
+})?;
+// greet is unchanged; formal_greet is a new, fully-validated Prompt.
+```
+</TabItem>
+<TabItem label="Python">
+```python
+from prompting_press import Prompt
+
+greet = Prompt.from_yaml(yaml_text)
+
+# READ the current variants (spread), then add one — so existing arms survive.
+derived = greet.with_({
+    "variants": {
+        **greet.variants,   # keep what's already there
+        "formal": {"body": "Good day, {{ name }}. You have {{ count }} messages."},
+    }
+})
+# greet is unchanged; derived is a new, fully-validated Prompt.
+```
+`with_(overlay, *, validators=None)` — `overlay` is a plain dict. `greet.variants` is the read-only
+accessor for the current map.
+</TabItem>
+<TabItem label="TypeScript">
+```ts
+import { Prompt } from "prompting-press";
+
+const greet = Prompt.fromYaml(yamlText);
+
+// READ the current variants (spread), then add one — so existing arms survive.
+const derivedGreet = greet.with({
+  variants: {
+    ...greet.variants,   // keep what's already there
+    formal: { body: "Good day, {{ name }}. You have {{ count }} messages." },
+  },
+});
+// greet is unchanged; derivedGreet is a new, fully-validated Prompt.
+```
+`with(overlay, validators?)` — `overlay` is a partial `PromptDefinition` object. `greet.variants` is
+the read-only accessor for the current map.
+</TabItem>
+</Tabs>
+
+<Aside type="caution" title="Don't drop existing variants by accident">
+Because `variants` is replaced, not merged, passing `{ formal: {...} }` **without** spreading
+`greet.variants` first would discard every variant the prompt already had. Read-then-spread is the
+safe idiom whenever the prompt may already carry variants.
+</Aside>
+
+## Replacing the body
+
+Replace just the root body (the default arm):
+
+<Tabs>
+<TabItem label="Rust">
+```rust
+let brief_greet = greet.with(PromptOverlay {
+    body: Some("Hi {{ name }}!".to_string()),
+    ..Default::default()
+})?;
+```
+</TabItem>
+<TabItem label="Python">
+```python
+brief_greet = greet.with_({"body": "Hi {{ name }}!"})
+```
+</TabItem>
+<TabItem label="TypeScript">
+```ts
+const briefGreet = greet.with({ body: "Hi {{ name }}!" });
+```
+</TabItem>
+</Tabs>
+
+## Re-validation on overlay
+
+If the merged definition violates any construction invariant, `with` / `with_` returns an error
+(Rust `Result::Err`) or raises/throws. Example — overlaying a body that references an undeclared
+variable:
+
+<Tabs>
+<TabItem label="Python">
+```python
+try:
+    bad = greet.with_({"body": "Hi {{ ghost }}"})
+except PromptRenderError as exc:
+    print(exc.errors[0].code)    # "undefined_variable"
+    print(exc.errors[0].field)   # "ghost"
+```
+</TabItem>
+<TabItem label="TypeScript">
+```ts
+try {
+  const bad = greet.with({ body: "Hi {{ ghost }}" });
+} catch (err) {
+  if (err instanceof PromptRenderError) {
+    console.error(err.errors[0].code);   // "undefined_variable"
+    console.error(err.errors[0].field);  // "ghost"
+  }
+}
+```
+</TabItem>
+</Tabs>
+
+## Validators carry forward (Python / TypeScript)
+
+In Python and TypeScript, the `validators` supplied at construction carry forward to the derived
+`Prompt` by default. Pass `validators=NewModel` (Python) or `with(overlay, newSchema)`
+(TypeScript) to override.
+
+<Aside type="note">
+In **Rust**, the validator type `V` is named at the `render<V>()` call site — it is a
+compile-time generic, so there is nothing to carry forward. `PromptOverlay` contains only data
+fields (no runtime validator object).
+</Aside>
+
+## Rendering a named variant
+
+After adding a variant, select it by name at render time:
+
+<Tabs>
+<TabItem label="Python">
+```python
+result = derived.render(GreetVars, data={"name": "Ada", "count": 3}, variant="formal")
+print(result.text)     # "Good day, Ada. You have 3 messages."
+print(result.variant)  # "formal"
+```
+</TabItem>
+<TabItem label="TypeScript">
+```ts
+const result = derivedGreet.render(GreetVars, { name: "Ada", count: 3 }, { variant: "formal" });
+console.log(result.text);     // "Good day, Ada. You have 3 messages."
+console.log(result.variant);  // "formal"
+```
+</TabItem>
+</Tabs>
+
+Variant selection is **caller-owned** — the library validates the name, renders it, and stamps
+provenance. It does not own experiment-assignment logic or choose variants automatically.

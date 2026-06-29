@@ -1,0 +1,111 @@
+---
+title: "The advisory guard"
+description: "How the opt-in guard works, what it does and doesn't do, and how to route it."
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The **advisory guard** is an opt-in, additive render option. When enabled, `RenderResult.guard`
+carries a short instruction that names the prompt's `untrusted` / `external` variables, advising
+the downstream model to treat them with care.
+
+<Aside type="caution" title="The guard is advisory text, not enforcement">
+Enabling the guard does **not** sanitize, escape, strip, or otherwise transform any bound value.
+Untrusted and external values pass through into the rendered `text` byte-for-byte — the guard
+text only names them in a separate advisory string. It is a suggestion to the downstream model,
+not a runtime filter.
+</Aside>
+
+## How to enable it
+
+Pass a `GuardConfig` with `enabled: true` to `render`:
+
+### Rust
+
+```rust
+use prompting_press::Prompt;
+use prompting_press_core::GuardConfig;
+
+let result = ask.render(
+    &vars,
+    None,
+    &GuardConfig { enabled: true, template: None },
+)?;
+
+println!("{}", result.text);          // the rendered body — unchanged by the guard
+println!("{:?}", result.guard);       // Some("...advisory instruction...")
+```
+
+### Python
+
+```python
+from prompting_press import Prompt, GuardConfig
+
+result = ask.render(Ask, data={"topic": "rivers"}, guard=GuardConfig(enabled=True))
+
+print(result.text)   # "Tell me about rivers."   — body only, unchanged
+print(result.guard)  # advisory guard instruction string
+```
+
+`GuardConfig()` / `GuardConfig(enabled=False)` is equivalent to `guard=None` — no guard text.
+
+### TypeScript
+
+```ts
+import { Prompt } from "prompting-press";
+
+const result = ask.render(Ask, { topic: "rivers" }, { guard: { enabled: true } });
+
+console.log(result.text);   // "Tell me about rivers."  — body only, unchanged
+console.log(result.guard);  // advisory guard instruction string
+```
+
+`{ guard: null }` or omitting `guard` opts out — `result.guard` is `null`.
+
+## Where to route the guard text
+
+The guard text is **separate from `text` by design**. The library never concatenates them and
+provides no composed field — assembling the provider request body is the caller's responsibility.
+
+**Single render — system+user pattern:**
+
+```python
+messages = [
+    {"role": "system", "content": result.guard},
+    {"role": "user",   "content": result.text},
+]
+```
+
+**Multi-message — prepend as a system message:**
+
+```python
+guard_msg = {"role": "system", "content": result.guard}
+body_messages = [{"role": m.role, "content": m.text} for m in comp.resolve()]
+request_messages = [guard_msg] + body_messages
+```
+
+## Checking for untrusted variables
+
+`check()` surfaces an advisory finding when a prompt declares `untrusted`/`external` variables
+but carries no `guard` key in `meta` or `metadata`. The presence of the key (any value) suppresses
+the advisory. See [Lint prompts in CI](/prompting-press/guides/lint-in-ci/).
+
+```yaml
+variables:
+  topic:
+    type: string
+    origin: untrusted
+meta:
+  guard:            # presence of this key → check() passes
+    enabled: true
+```
+
+## What the guard does NOT do
+
+- It does **not** inspect, escape, or sanitize the `untrusted`/`external` field's value.
+- It does **not** change `result.text` — enabling the guard leaves the rendered body byte-for-byte
+  identical to a render without the guard.
+- It does **not** call an LLM or compose a provider request body.
+- `origin` tags on variables are **declarative metadata** — there is no runtime gate that prevents
+  an `untrusted` field from being interpolated into the template (see
+  [FAQ](/prompting-press/faq/)).

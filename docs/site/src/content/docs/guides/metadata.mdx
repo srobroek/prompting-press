@@ -1,0 +1,96 @@
+---
+title: "Metadata"
+description: "Attach opaque prompt-level metadata and per-variant selection metadata, and read it back in your own code."
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+A prompt can carry two kinds of free-form metadata. Both are **library-opaque**: the library stores
+them, echoes them back through accessors, and never interprets or acts on them. They exist so *your*
+code can attach whatever it needs and read it back.
+
+| Field | Where | Purpose |
+|-------|-------|---------|
+| `metadata` | prompt-level | Arbitrary prompt annotations — model hints, param hints, tags, ownership. |
+| `meta` | the root body, and each variant | Selection metadata for *your* variant-choosing logic — weights, group labels, tags. |
+
+Neither is schema-constrained beyond "an object", and neither changes rendering. `output_model` is a
+separate top-level string field with the same opaque, carried-only contract (a reference to your
+output model; never resolved by the library).
+
+## Declaring metadata
+
+```yaml title="summary.yaml"
+name: summary
+role: user
+body: "Summarise {{ article }}."
+variables:
+  article:
+    type: string
+    origin: untrusted
+metadata:                 # prompt-level: anything you want to carry
+  model_hint: claude-sonnet-4-6
+  max_tokens: 512
+  owner: team-content
+variants:
+  terse:
+    body: "TL;DR of {{ article }}."
+    meta:                 # per-variant: drives YOUR selection logic
+      weight: 0.2
+      group: experiment-q4
+```
+
+## Reading it back
+
+The accessors return the maps as-is; act on them in your own code (the library won't).
+
+<Tabs syncKey="construct">
+<TabItem label="Rust">
+```rust
+let p = Prompt::from_yaml(yaml_text)?;
+
+// metadata() / meta() return &serde_json::Map<String, serde_json::Value>.
+if let Some(hint) = p.metadata().get("model_hint") {
+    route_to_model(hint.as_str().unwrap_or("default"));
+}
+
+// Per-variant selection metadata is on each Variant in p.variants(); read it
+// in your own selection code (the library never does).
+let _root_meta = p.meta();
+```
+</TabItem>
+<TabItem label="Python">
+```python
+p = Prompt.from_yaml(yaml_text)
+
+p.metadata           # => {"model_hint": "claude-sonnet-4-6", "max_tokens": 512, "owner": "team-content"}
+p.metadata["model_hint"]   # your code decides what to do with it
+
+# the root arm's selection metadata:
+p.meta               # => {}  (none declared at the root here)
+```
+</TabItem>
+<TabItem label="TypeScript">
+```ts
+const p = Prompt.fromYaml(yamlText);
+
+p.metadata;          // => { model_hint: "claude-sonnet-4-6", max_tokens: 512, owner: "team-content" }
+p.metadata.model_hint;     // your code decides what to do with it
+
+p.meta;              // => {}  (root-arm selection metadata; none declared here)
+```
+</TabItem>
+</Tabs>
+
+<Aside type="note">
+**The library never reads these.** `metadata` and `meta` never affect rendering, validation, or the
+provenance hashes. A `model_hint` does not pick a model; a variant `weight` does not pick a variant —
+those are decisions your application makes after reading the values back. (Variant *selection* itself
+is caller-owned — see [Variants](/prompting-press/guides/variants/).)
+</Aside>
+
+## Updating metadata on a derived prompt
+
+`metadata` and `meta` are overlayable like any other top-level field — `with` replaces the whole map
+(shallow), so read-then-spread to add a key without dropping the rest. See
+[Deriving a prompt with `with`](/prompting-press/guides/with/).

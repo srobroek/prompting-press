@@ -34,10 +34,12 @@ export default defineConfig({
         {
           label: "Guides",
           items: [
-            { label: "Lint prompts in CI", link: "/guides/lint-in-ci/" },
-            { label: "Derive a variant with `with`", link: "/guides/variants-with/" },
+            { label: "Variants", link: "/guides/variants/" },
+            { label: "Deriving a prompt with `with`", link: "/guides/with/" },
+            { label: "Metadata", link: "/guides/metadata/" },
             { label: "Compose multi-message prompts", link: "/guides/composition/" },
             { label: "The advisory guard", link: "/guides/guard/" },
+            { label: "Lint prompts in CI", link: "/guides/lint-in-ci/" },
           ],
         },
         { label: "Template features", link: "/templates/" },

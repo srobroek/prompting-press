@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "astro dev",
+    "prebuild": "node scripts/gen-shape-table.mjs",
     "build": "astro build",
     "preview": "astro preview",
     "check-stale-surface": "node scripts/check-stale-surface.mjs"

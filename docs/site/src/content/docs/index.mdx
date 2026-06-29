@@ -10,20 +10,53 @@ across all three.
 
 ## What it does
 
-- **Typed inputs, checked statically.** A prompt declares its variables; the **sound agreement check** catches a
-  template that references a variable the prompt never declared — at construction and as a CI lint, not as a
-  silent empty render. This is the headline differentiator.
-- **An immutable `Prompt` object.** Construct one from a shape object or from YAML / JSON / TOML text, then
-  `render`, read its source, `check` it, or derive a variant with `with`. Prompts are immutable values — no
-  setters.
+### Templating
+
+- **A focused template language** (powered by MiniJinja): **interpolation** (`{{ name }}`), **conditionals**
+  (`{% if %}`), and **loops** (`{% for %}`). Includes, macros, and inheritance are deliberately **excluded** so
+  the agreement check below stays sound — see **[Template features](/prompting-press/templates/)**.
+- **Named variants.** A prompt can carry alternative bodies (`concise`, `formal`, …) that share the same
+  declared variables; you select one by name at render (`variant: "formal"`). Selection is caller-owned — the
+  library never picks for you. → **[Variants](/prompting-press/guides/variants/)**.
+
+### Typed, validated inputs (the differentiator)
+
+- **Declared, typed variables.** Each prompt declares its variables with a `type` and an `origin` tag; the
+  shape is one JSON Schema, code-generated into a Rust struct / Pydantic model / TypeScript type.
+- **The sound agreement check.** A template that references a variable the prompt never declared is caught **at
+  construction** (and as a CI lint via `check()`) — not as a silent empty render. This static check is the
+  reason the library exists.
+- **Native value validators.** Your render values are validated by your language's own system — **garde**
+  (Rust), **Pydantic** (Python), **Zod** (TypeScript) — before any templating runs. A variable can be marked
+  `validation_required` to insist a validator covers it (enforced at construction in Python/TS, at compile time
+  in Rust).
+
+### Provenance & trust
+
+- **`origin` tagging + an advisory guard.** Tag a variable `trusted` / `untrusted` / `external`; opt into a
+  guard at render to get a **separate** advisory string naming the untrusted fields for the downstream model.
+  It is advisory text — it never sanitizes the value. → **[The advisory guard](/prompting-press/guides/guard/)**.
 - **Content-addressed provenance.** Every render returns a `template_hash` and a `render_hash` (SHA-256), so a
-  trace can pin exactly which template produced which output.
-- **Native validators.** Your variables are validated by your language's own system — garde (Rust), Pydantic
-  (Python), Zod (TypeScript).
+  trace can pin exactly which template produced which output — byte-identical across all three languages.
+- **Opaque metadata.** Carry arbitrary prompt-level `metadata` (model hints, tags, an `output_model` reference)
+  and per-variant `meta` (weights, groups). The library stores and echoes these; it never interprets them.
+
+### The object model
+
+- **An immutable `Prompt`.** Construct from a shape object or from **YAML / JSON / TOML** text, then `render`,
+  read its source, or `check()` it. No setters — to vary a prompt you derive a **new** one with `with`
+  (shallow-replace a field, re-validate the whole). → **[Getting started](/prompting-press/getting-started/rust/)**.
+- **Multi-message composition.** Aggregate several `Prompt` objects (each with its own vars) into an ordered,
+  role-tagged `[{role, text}]` sequence — no registry, you pass the objects directly. →
+  **[Composition](/prompting-press/guides/composition/)**.
+- **One engine, three languages.** Rust, Python, and TypeScript bind the **same** Rust core, so rendering,
+  validation behavior, and hashes are identical everywhere — the idiom is native per language, the result is not.
 
 ## What it deliberately does *not* do
 
-- It performs **no I/O** — you push prompt data in; it never reads files, a database, or the network.
+- It performs **no I/O of its own** — you read your prompt files (or fetch them however you like) and
+  pass the text to `from_yaml` / `from_json` / `from_toml`; the library never touches the filesystem,
+  a database, or the network itself.
 - It **never calls an LLM**, assembles a provider request body, counts tokens, or parses model output.
 - Its untrusted-input **guard is advisory text, not enforcement** — it names untrusted fields for the
   downstream model; it does not sanitize values, and the library has no model of its own.

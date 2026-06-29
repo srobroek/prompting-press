@@ -1,0 +1,250 @@
+---
+title: "Python API reference"
+description: "Complete API reference for the prompting-press Python binding: Prompt, RenderResult, Composition, exceptions."
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Package: `prompting-press` (PyPI). Import: `from prompting_press import ...`.
+Python 3.12+. Single `abi3` wheel (`abi3-py312` — one wheel covers CPython 3.12 and up).
+
+The primary public type is `Prompt` — an immutable, fully-validated prompt object. Validation is
+owned by **Pydantic** at the binding boundary. Native Pydantic and Rust error types never leak
+across FFI.
+
+---
+
+## `Prompt`
+
+### Construction
+
+All constructors validate fully — they raise on any violation; never return `None` or a partial object.
+
+#### `Prompt(shape, *, validators=None)`
+
+```python
+Prompt(shape: PromptDefinition | dict, *, validators: type[BaseModel] | None = None)
+```
+
+Primary validating constructor. `shape` is a `PromptDefinition` Pydantic model instance or a
+plain `dict`. Both are reduced to JSON and routed through the Rust consumer.
+
+`validators` is an optional Pydantic model **class**. When any `VariableDecl` in `shape.variables`
+has `validation_required = True`, a covering `validators` class **must** be supplied — construction
+raises `PromptValidationError` naming the first uncovered variable if it is absent.
+
+**Raises:**
+- `PromptValidationError` — shape/parse/agreement/reserved-name failure, or uncovered
+  `validation_required` variable.
+- `LoadError` — `shape` could not be serialized to JSON.
+
+#### `Prompt.from_yaml(text, *, validators=None)`
+
+```python
+@staticmethod
+Prompt.from_yaml(text: str, *, validators: type[BaseModel] | None = None) -> Prompt
+```
+
+Parse already-read YAML text, then validate. The library reads no files.
+
+**Raises:** `LoadError` for malformed YAML/shape; `PromptValidationError` for invariant violations.
+
+#### `Prompt.from_json(text, *, validators=None)`
+
+```python
+@staticmethod
+Prompt.from_json(text: str, *, validators: type[BaseModel] | None = None) -> Prompt
+```
+
+Same as `from_yaml` for JSON input.
+
+#### `Prompt.from_toml(text, *, validators=None)`
+
+```python
+@staticmethod
+Prompt.from_toml(text: str, *, validators: type[BaseModel] | None = None) -> Prompt
+```
+
+Same as `from_yaml` for TOML input. TOML parsing is done by the Rust consumer; no Python
+`tomllib` dependency is used.
+
+### Read-only properties
+
+```python
+prompt.name          # str
+prompt.role          # str  — "system" | "user" | "assistant"
+prompt.body          # str  — root body template source
+prompt.variables     # dict — { name: VariableDecl }
+prompt.variants      # dict — { name: Variant }; empty when no named variants
+prompt.output_model  # str | None
+prompt.metadata      # dict
+prompt.meta          # dict
+```
+
+### `render`
+
+```python
+prompt.render(model=None, *, data=None, variant=None, guard=None) -> RenderResult
+```
+
+Validate-then-render. All keyword arguments after `model` are keyword-only.
+
+Two call forms:
+- **Class + data:** `render(GreetVars, data={"name": "Ada", "count": 3})` — Pydantic
+  `model.model_validate(data)` runs before any templating.
+- **Instance:** `render(GreetVars(name="Ada", count=3))` — instance is re-validated before
+  templating.
+
+`variant=None` selects the default (root body) arm. `guard=None` opts out of advisory guard text.
+
+**Raises:**
+- `PromptValidationError` — Pydantic rejected the vars (before any templating).
+- `PromptRenderError` — kernel error (unknown variant, undefined variable, parse/render failure).
+
+### `get_source`
+
+```python
+prompt.get_source(*, variant=None) -> str
+```
+
+Returns the unrendered template source for the given variant. Pure: no vars, no validation.
+`variant=None` returns the root body source.
+
+**Raises:** `PromptRenderError` — unknown variant name.
+
+### `check`
+
+```python
+prompt.check() -> CheckReport
+```
+
+Pure advisory lint. Returns a `CheckReport`. The only live finding is `untrusted_without_guard`.
+Never renders, never mutates.
+
+### `with_`
+
+```python
+prompt.with_(overlay: dict, *, validators=None) -> Prompt
+```
+
+Shallow-replace top-level fields from `overlay` (a dict), route the merged definition through
+full re-validation, return a **new `Prompt`**. The original is untouched. `validators`
+carries forward from `self` by default; pass `validators=NewModel` to override.
+
+**Raises:** `PromptValidationError` or `LoadError` — same as construction.
+
+<Aside type="note">
+The method is named `with_` (trailing underscore) because `with` is a reserved Python keyword
+(PEP 8 trailing-underscore convention).
+</Aside>
+
+---
+
+## `RenderResult`
+
+```python
+result.text           # str  — rendered body text
+result.name           # str  — prompt name
+result.variant        # str  — resolved variant name ("default" when none selected)
+result.template_hash  # str  — lowercase-hex SHA256(variant template source), 64 chars
+result.render_hash    # str  — lowercase-hex SHA256(rendered output), 64 chars
+result.guard          # str | None — advisory guard text; None when guard not enabled
+```
+
+---
+
+## `GuardConfig`
+
+```python
+from prompting_press import GuardConfig
+
+GuardConfig(enabled: bool = False, template: str | None = None)
+```
+
+`GuardConfig()` and `GuardConfig(enabled=False)` are equivalent to `guard=None` — no guard text.
+
+---
+
+## `CheckReport` and `Finding`
+
+```python
+report.passed()       # bool — True iff no findings
+report.is_empty()     # bool — alias for passed()
+bool(report)          # True iff there ARE findings (inverse of passed())
+len(report)           # int — number of findings
+report.findings       # list[Finding]
+
+# Finding fields:
+finding.prompt        # str — prompt name
+finding.variant       # str | None
+finding.kind          # str — stable kind string (see table below)
+finding.detail        # str — human-readable, actionable description
+```
+
+`finding.kind` vocabulary:
+
+| Kind | Live? | Meaning |
+|------|-------|---------|
+| `"untrusted_without_guard"` | **Yes** | Untrusted/external variable, no guard key in meta/metadata. |
+| `"undeclared_variable"` | No (enforced at construction) | Template references undeclared variable. |
+| `"reserved_variant_name"` | No (enforced at construction) | Variant named `"default"`. |
+| `"analysis_error"` | No (enforced at construction) | Template could not be analyzed. |
+
+---
+
+## Exception hierarchy
+
+```
+PromptingPressError          # base; carries .errors: list[FieldError]
+├── PromptValidationError    # Pydantic/construction validation failed  (code "validation")
+├── PromptRenderError        # kernel render failure
+│                            #   codes: unknown_variant | undefined_variable | parse |
+│                            #          render | excluded_feature
+├── UnknownPromptError       # a prompt name lookup failed             (code "unknown_prompt")
+└── LoadError                # malformed YAML/JSON/TOML or shape error (code "load")
+```
+
+Each `FieldError`:
+```python
+error.field    # str — offending field / path; "" when not field-specific
+error.code     # str — stable code (see table above)
+error.message  # str — human-readable, scrubbed message (the rejected value is never echoed)
+```
+
+---
+
+## `Composition`
+
+```python
+from prompting_press import Composition, Message
+
+comp = Composition()
+comp.append(prompt, vars_instance)                        # validate eagerly
+comp.append(prompt, vars_instance, variant="formal")      # with variant
+
+# Or from a list of tuples:
+comp = Composition.from_messages([
+    (prompt1, vars1),
+    (prompt2, vars2, "variant_name"),  # 3-tuple selects a variant
+])
+
+messages = comp.resolve()   # list[Message] in append order
+
+# Message fields:
+msg.role  # str — from the Prompt definition's role
+msg.text  # str — rendered body text
+```
+
+`append` accepts a Pydantic model **instance**. Validation is eager — a failure raises
+`PromptValidationError` and nothing is stored.
+
+---
+
+## Provenance — two distinct concepts
+
+| Concept | Where | What |
+|---------|-------|------|
+| `template_hash` / `render_hash` | `RenderResult` fields | SHA-256 content fingerprints of the template source and rendered output. Computed at render time. Byte-identical across all three language bindings. |
+| `origin` | `variables[name].origin` | Per-variable trust tag (`"trusted"` / `"untrusted"` / `"external"`). Declarative metadata; not enforced by the kernel. |
+
+See [Prompt definition shape](/prompting-press/reference/prompt-definition/) for `VariableDecl.origin` details.

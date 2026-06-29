@@ -1,0 +1,107 @@
+---
+# AUTO-GENERATED — do not edit by hand.
+# Source: schemas/jsonschema/prompt-definition.schema.json
+# Regenerate: pnpm -C docs/site build  (runs scripts/gen-shape-table.mjs as prebuild).
+title: "Prompt definition shape"
+description: "Complete field reference for the prompt-definition document, derived from the JSON Schema single source of truth."
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+<Aside type="note">
+This page is **generated** from
+[`schemas/jsonschema/prompt-definition.schema.json`](https://github.com/srobroek/prompting-press/blob/main/schemas/jsonschema/prompt-definition.schema.json)
+— the single source of truth for the prompt shape. Do not edit it by hand; run `pnpm -C docs/site build` to regenerate.
+</Aside>
+
+A prompt definition is a YAML, JSON, or TOML document that the `Prompt` object is constructed from.
+The shape is defined **once** as a JSON Schema; the per-language typed forms (Pydantic v2, TypeScript
+types, Rust serde structs) are **code-generated** from it at build time and never hand-maintained.
+---
+
+## Top-level fields
+
+`name`, `role`, and `body` are **required**. All other fields are optional.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | `string` | Yes | Logical prompt name; the caller's reference key. |
+| `role` | `"system" \| "user" \| "assistant"` | Yes | Conversational role; first-class metadata the caller reads. Shared across all variants. |
+| `body` | `string` | Yes | The DEFAULT variant's template source. The root body IS the default arm; surfaced under reserved name 'default' with is_default=true. |
+| `variables` | `object` | No | Declared input variables, shared across all variants. Rich enough to generate-then-extend a typed Vars model in a later spec. Default: `{}`. |
+| `variants` | `object` | No | Named alternative arms. Absent => the prompt has only the default (root body) arm. Each arm differs ONLY in body (+ optional opaque meta). |
+| `output_model` | `string` | No | Optional OPAQUE reference to the caller's output model (e.g. 'NodeOutput'). Stored and echoed; never resolved, loaded, or parsed. Shared across variants. |
+| `metadata` | `object` | No | Arbitrary prompt-level metadata; library-OPAQUE (may include uninterpreted model/param hints). Never interpreted by the library. |
+| `meta` | `object` | No | The default (root) arm's selection metadata; library-opaque (weight, group, tags, ...). Symmetric with Variant.meta. |
+
+---
+
+## `variables[*]` — VariableDecl
+
+Each entry in the `variables` map is a `VariableDecl`. The `type` and `origin` fields are required.
+The remaining fields are optional JSON-Schema validation hints (carried as metadata; they drive
+code-generated validators but are not enforced by the rendering kernel).
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | `"string" \| "integer" \| "number" \| "boolean" \| "array" \| "object" \| array` | Yes | JSON-Schema type keyword(s) for the variable. |
+| `origin` | `"trusted" \| "untrusted" \| "external"` | Yes | Per-field origin (input-trust) tag. DECLARATIVE METADATA ONLY — there is NO runtime enforcement of this tag in the current library version; it is not a security guard by itself. Untrusted-input guarding (the opt-in, additive guard expansion + lint) is introduced in a later spec. Do not assume the library protects `untrusted`/`external` fields until that version. NOTE: this is the per-VARIABLE trust tag, distinct from the render-result provenance (template_hash/render_hash) which is unchanged. |
+| `validation_required` | `boolean` | No | When true, a validator covering this variable MUST be supplied when the Prompt is constructed. Orthogonal to `origin` — it MAY mark any variable, not only untrusted/external ones. Declarative metadata; enforcement is per-language: TypeScript (Zod) and Python (Pydantic) introspect the supplied validator and throw/raise at construction if this variable is uncovered, while Rust guarantees coverage structurally at compile time. The kernel never reads this field (validation-blind). Default: `false`. |
+| `format` | `string` | No |  |
+| `pattern` | `string` | No |  |
+| `enum` | `array` | No |  |
+| `minimum` | `number` | No |  |
+| `maximum` | `number` | No |  |
+| `minLength` | `integer` | No |  |
+| `maxLength` | `integer` | No |  |
+| `description` | `string` | No |  |
+
+### `origin` values
+
+The `origin` field is the **per-variable input-trust tag**.
+It is **declarative metadata** — the kernel does not enforce it at render time. Use `check()` to
+detect untrusted variables that lack a declared guard.
+
+- `"trusted"`
+- `"untrusted"`
+- `"external"`
+
+<Aside type="caution">
+**`origin` ≠ render-result provenance.** The per-variable `origin` tag (trust classification) is
+distinct from the render-result provenance hashes (`template_hash` / `render_hash`). The hashes are
+content-addressed fingerprints of the template source and the rendered output; `origin` is a
+per-field trust annotation. Do not conflate the two.
+</Aside>
+
+---
+
+## `variants[*]` — Variant
+
+Each entry in the `variants` map is a named alternative arm. A variant carries only a `body` (its
+own template source) and an optional `meta` map. Role, variables, and output model are shared
+across all variants.
+
+The name `"default"` is **reserved** for the root body; declaring a variant with that name is
+rejected at construction.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `body` | `string` | Yes | The variant's template source — the only field that differs per variant. |
+| `meta` | `object` | No | Library-OPAQUE selection metadata (weight, group, tags, ...). Stored + exposed; never interpreted by the library (caller selects). No schema-enforced selection semantics. |
+
+---
+
+## Provenance (render-result hashes)
+
+Every call to `render` returns a `RenderResult` that carries two content-addressed hashes (in
+addition to the rendered `text`):
+
+| Field | What it hashes |
+|-------|----------------|
+| `template_hash` (`templateHash` in TS) | `SHA256(resolved variant template source)` |
+| `render_hash` (`renderHash` in TS) | `SHA256(rendered output text)` |
+
+These hashes are **not** the same as the per-variable `origin` tag. They are content-addressed
+fingerprints you can store in a trace to pin exactly which template produced which output —
+and because all three bindings share the same Rust engine, the hashes are **byte-identical** across
+Rust, Python, and TypeScript for the same inputs.

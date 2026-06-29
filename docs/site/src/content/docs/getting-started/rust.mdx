@@ -1,0 +1,237 @@
+---
+title: "Getting started — Rust"
+description: "Install prompting-press and render your first prompt in Rust."
+---
+
+import { Aside, Code, Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Install
+
+Add the crate to your `Cargo.toml`:
+
+```toml
+[dependencies]
+prompting-press = "1"
+garde = { version = "0.23", features = ["derive", "serde"] }
+serde = { version = "1", features = ["derive"] }
+```
+
+`garde` is the Rust validator crate; `serde` is required so your Vars struct can be serialized
+across the FFI bridge.
+
+## Write a prompt definition
+
+A prompt definition is a YAML, JSON, or TOML document — same shape, your choice of format. You read
+the text however suits your app and hand it to the `from_*` factories; the library does no file I/O
+itself. The `greet` definition used throughout this page:
+
+<Tabs syncKey="def-format">
+<TabItem label="YAML">
+```yaml title="greet.yaml"
+name: greet
+role: user
+body: "Hi {{ name }}, you have {{ count }} messages."
+variables:
+  name:
+    type: string
+    origin: trusted
+  count:
+    type: integer
+    origin: trusted
+```
+</TabItem>
+<TabItem label="JSON">
+```json title="greet.json"
+{
+  "name": "greet",
+  "role": "user",
+  "body": "Hi {{ name }}, you have {{ count }} messages.",
+  "variables": {
+    "name": { "type": "string", "origin": "trusted" },
+    "count": { "type": "integer", "origin": "trusted" }
+  }
+}
+```
+</TabItem>
+<TabItem label="TOML">
+```toml title="greet.toml"
+name = "greet"
+role = "user"
+body = "Hi {{ name }}, you have {{ count }} messages."
+
+[variables.name]
+type = "string"
+origin = "trusted"
+
+[variables.count]
+type = "integer"
+origin = "trusted"
+```
+</TabItem>
+</Tabs>
+
+## Construct and render
+
+### Step 1 — construct a `Prompt` (and validate)
+
+Construct from text with a `from_*` factory, or from an already-built `PromptDefinition` value with
+`Prompt::new`. All four routes run the **same** validation immediately:
+
+<Tabs syncKey="construct">
+<TabItem label="From text">
+```rust
+use prompting_press::Prompt;
+
+let yaml = std::fs::read_to_string("greet.yaml")?;
+let greet = Prompt::from_yaml(&yaml)?;          // validates here, or returns Err
+// from_json / from_toml parse the JSON / TOML forms into the same Prompt.
+
+greet.name();          // => "greet"
+greet.body();          // => "Hi {{ name }}, you have {{ count }} messages."
+```
+</TabItem>
+<TabItem label="From a definition value">
+```rust
+use prompting_press::{Prompt, PromptDefinition};
+
+// PromptDefinition is the codegen'd shape. Building it inline is verbose (its
+// fields are newtypes), so it's usually deserialized — here, from a JSON literal:
+let def: PromptDefinition = serde_json::from_value(serde_json::json!({
+    "name": "greet",
+    "role": "user",
+    "body": "Hi {{ name }}, you have {{ count }} messages.",
+    "variables": {
+        "name":  { "type": "string",  "origin": "trusted" },
+        "count": { "type": "integer", "origin": "trusted" }
+    }
+}))?;
+
+let greet = Prompt::new(def)?;   // same validation as the from_* factories
+```
+For most code the `from_*` text factories are simpler; `Prompt::new` is the path when you already
+hold a `PromptDefinition` (e.g. one you built programmatically).
+</TabItem>
+</Tabs>
+
+Construction **validates immediately**. If the template referenced a variable that `variables` doesn't
+declare — say the body said `{{ usrname }}` — this would have returned `Err(ConsumerError::Kernel(..))`
+right here, **before any render**: a disagreement between the template and its declared variables is
+caught at construction, never as a silent empty render.
+
+### Step 2 — declare the typed Vars
+
+The values you render with are a struct you own, validated by [`garde`](https://docs.rs/garde). Its
+field names must match the prompt's `variables` (`name`, `count`); the `#[garde(..)]` rules run at
+render time, before the kernel is touched:
+
+```rust
+use garde::Validate;
+use serde::Serialize;
+
+#[derive(Serialize, Validate)]
+struct GreetVars {
+    #[garde(length(min = 1))]
+    name: String,
+    #[garde(range(min = 0))]
+    count: i64,
+}
+```
+
+### Step 3 — render, and read the result
+
+Hand the `Prompt` from Step 1 the `GreetVars` from Step 2:
+
+```rust
+use prompting_press::GuardConfig;
+
+let vars = GreetVars { name: "Ada".into(), count: 3 };
+
+let result = greet.render(&vars, None, &GuardConfig::default())?;
+
+result.text;          // => "Hi Ada, you have 3 messages."
+result.variant;       // => "default"
+result.template_hash; // => e.g. "9f2c…" (64-char lowercase-hex SHA-256 of the template)
+result.render_hash;   // => e.g. "1ab4…" (64-char lowercase-hex SHA-256 of result.text)
+```
+
+`render::<V>(&self, vars: &V, variant: Option<&str>, guard: &GuardConfig)`:
+- `variant = None` selects the default (root body) arm — the same arm `greet.body()` showed in Step 1.
+- `guard = &GuardConfig::default()` opts out of the advisory guard text (so `result.guard` is `None`).
+
+The generic `V` is resolved at the **call site**, so "this prompt has a validator for `count`" is a
+compile-time guarantee — no runtime validator object is stored on the `Prompt` (this is the Rust side
+of the per-language validator model).
+
+### Complete example
+
+```rust
+use garde::Validate;
+use prompting_press::{GuardConfig, Prompt};
+use serde::Serialize;
+
+#[derive(Serialize, Validate)]
+struct GreetVars {
+    #[garde(length(min = 1))]
+    name: String,
+    #[garde(range(min = 0))]
+    count: i64,
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // 1. Construct (validates here).
+    let yaml = std::fs::read_to_string("greet.yaml")?;
+    let greet = Prompt::from_yaml(&yaml)?;
+
+    // 2 + 3. Render with typed, garde-validated vars.
+    let vars = GreetVars { name: "Ada".into(), count: 3 };
+    let result = greet.render(&vars, None, &GuardConfig::default())?;
+
+    println!("{}", result.text);          // Hi Ada, you have 3 messages.
+    println!("{}", result.template_hash); // 64-char hex
+    Ok(())
+}
+```
+
+## What `RenderResult` carries
+
+| Field | Value |
+|-------|-------|
+| `text` | The rendered body text. |
+| `name` | The prompt name (`def.name`). |
+| `variant` | The resolved variant name (`"default"` when none was selected). |
+| `template_hash` | `SHA256(resolved variant template source)` — lowercase hex. |
+| `render_hash` | `SHA256(rendered output text)` — lowercase hex. |
+| `guard` | `Option<String>` — advisory guard text when opted in; `None` otherwise. |
+
+## Error types
+
+```rust
+use prompting_press::{ConsumerError, error::code};
+
+match greet.render(&vars, None, &GuardConfig::default()) {
+    Err(ConsumerError::Validation(rows)) => {
+        for row in &rows {
+            eprintln!("{}: {} [{}]", row.field, row.message, row.code);
+        }
+    }
+    Err(ConsumerError::Kernel(rows)) => { /* parse/render/agreement failure */ }
+    Err(ConsumerError::Load(msg))    => { /* malformed YAML/JSON/TOML */ }
+    Ok(result) => { /* ... */ }
+    _ => {}
+}
+```
+
+Every `FieldError` row carries `field`, `code` (a stable string from `error::code::*`), and
+`message`. The closed code vocabulary: `"validation"`, `"unknown_variant"`,
+`"undefined_variable"`, `"parse"`, `"render"`, `"excluded_feature"`, `"load"`.
+
+## Next steps
+
+- **[Variants](/prompting-press/guides/variants/)** — declare alternative bodies and select one at render.
+- **[Deriving a prompt with `with`](/prompting-press/guides/with/)** — produce a changed copy of an immutable prompt.
+- **[Metadata](/prompting-press/guides/metadata/)** — attach and read back opaque prompt-level and per-variant metadata.
+- **[Compose multi-message prompts](/prompting-press/guides/composition/)** — aggregate `Prompt` objects into a role-tagged sequence.
+- **[The advisory guard](/prompting-press/guides/guard/)** — tag untrusted variables and surface the advisory guard text.
+- **[Lint prompts in CI](/prompting-press/guides/lint-in-ci/)** — wire `prompt.check()` as a test that fails the build.
+- **[Template features](/prompting-press/templates/)** — which MiniJinja features are supported (and which are deliberately excluded).
+- **[Rust API reference](/prompting-press/reference/rust/)** — full method signatures.
