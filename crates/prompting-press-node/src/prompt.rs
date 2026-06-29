@@ -131,28 +131,45 @@ impl NapiPrompt {
 
     // ── operations ────────────────────────────────────────────────────────────────────────
 
-    /// `prompt.renderPrompt(value, variant?, guard?)` — render the prompt with the
-    /// already-validated `value`.
+    /// `prompt.renderPrompt(value, variant?, guard?, unsafeRevealRenderDetail?)` — render the
+    /// prompt with the already-validated `value`.
     ///
     /// Validation has **already happened** in the TS facade (`schema.safeParse(data)` — Q1)
     /// before this is called. This function:
     /// 1. Marshals the validated value through [`to_kernel_value`] (FR-003a).
     /// 2. Calls [`prompting_press_core::render`] directly (critique E1 / C-01).
-    /// 3. Maps any [`KernelError`] through the existing scrubber (SEC-004 preserved).
+    /// 3. Normalizes any [`KernelError`] through the consumer seam with the per-call opt-in,
+    ///    then maps the result to a napi error (SEC-004 preserved when flag is false).
+    ///
+    /// ## `unsafe_reveal_render_detail` — off-by-default render-error detail opt-in
+    ///
+    /// Default `None` / `false`. When `true`, the full underlying render-error detail is
+    /// surfaced in the returned napi error's `errors[0].message` instead of the fixed
+    /// scrubbed string.
+    ///
+    /// **Risk:** enabling this may place **bound-value content** — untrusted input, PII,
+    /// secrets — into the thrown error and into any log line or stack trace derived from it.
+    /// Use only in a controlled debug context with a trusted log destination, and only after
+    /// deliberately accepting that exposure. Never set `true` by default or via ambient
+    /// configuration (SEC-004 carve-out D3).
     ///
     /// # Errors
     ///
     /// A kernel code (`unknown_variant` / `undefined_variable` / `parse` / `render` /
-    /// `excluded_feature`) — the kernel rejected the render.
+    /// `excluded_feature`) — the kernel rejected the render. `render` detail scrubbed unless
+    /// `unsafe_reveal_render_detail = true` (SEC-004 / decision D3). `parse` detail always
+    /// preserved (decision D2).
     #[napi]
     pub fn render_prompt(
         &self,
         value: serde_json::Value,
         variant: Option<String>,
         guard: Option<GuardConfig>,
+        unsafe_reveal_render_detail: Option<bool>,
     ) -> napi::Result<RenderResult> {
         let values = to_kernel_value(value);
         let guard_cfg = guard.map_or_else(KernelGuardConfig::default, KernelGuardConfig::from);
+        let reveal = unsafe_reveal_render_detail.unwrap_or(false);
 
         prompting_press_core::render(
             self.inner.definition(),
@@ -161,7 +178,10 @@ impl NapiPrompt {
             &guard_cfg,
         )
         .map(RenderResult::from)
-        .map_err(kernel_error_to_napi_err)
+        .map_err(|e| {
+            let consumer = prompting_press::ConsumerError::from_kernel_revealing(e, reveal);
+            consumer_error_to_napi_err(consumer)
+        })
     }
 
     /// `prompt.getSourcePrompt(variant?)` — return a variant's unrendered template source.
@@ -440,7 +460,7 @@ mod tests {
         });
         let p = prompt_new(shape).expect("valid");
         let result = p
-            .render_prompt(serde_json::json!({ "name": "Ada" }), None, None)
+            .render_prompt(serde_json::json!({ "name": "Ada" }), None, None, None)
             .expect("render succeeds");
         assert_eq!(result.text(), "Hi Ada!");
         assert_eq!(result.template_hash().len(), 64);

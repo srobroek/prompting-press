@@ -335,6 +335,17 @@ export interface RenderOptions {
 	variant?: string;
 	/** Opt-in guard config; absent / `{ enabled: false }` ⇒ a plain render (`RenderResult.guard === null`). */
 	guard?: GuardConfig | null;
+	/**
+	 * **Off by default.** When `true`, the full underlying render-error detail is surfaced in
+	 * the thrown {@link PromptRenderError}``.errors[0].message` instead of the fixed scrubbed
+	 * string (SEC-004 carve-out D3).
+	 *
+	 * **Risk:** enabling this may place **bound-value content** — untrusted input, PII, secrets —
+	 * into the thrown error and into any log line or stack trace derived from it. Use only in a
+	 * controlled debug context with a trusted log destination, and only after deliberately
+	 * accepting that exposure. Never set `true` by default or via ambient configuration.
+	 */
+	unsafeRevealRenderDetail?: boolean;
 }
 
 // --------------------------------------------------------------------------------------
@@ -670,6 +681,7 @@ export class Prompt {
 				value as Record<string, unknown>,
 				options?.variant ?? undefined,
 				options?.guard ?? undefined,
+				options?.unsafeRevealRenderDetail ?? false,
 			);
 		} catch (thrown) {
 			throw decodeAddonError(thrown);
@@ -868,6 +880,7 @@ export class Composition {
 					entry.value as Record<string, unknown>,
 					entry.variant,
 					undefined, // composition uses no guard expansion
+					false, // composition never reveals render detail
 				);
 			} catch (thrown) {
 				throw decodeAddonError(thrown);

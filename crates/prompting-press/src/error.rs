@@ -209,6 +209,50 @@ impl From<KernelError> for ConsumerError {
     }
 }
 
+impl ConsumerError {
+    /// Normalize a [`KernelError`] into [`ConsumerError`], with an explicit opt-in to
+    /// surface the render-error detail.
+    ///
+    /// ## Behavior
+    ///
+    /// - When `reveal_render_detail == false` **or** the error is any kind other than
+    ///   [`KernelError::Render`]: produces the **exact same result** as
+    ///   `ConsumerError::from(err)` — the scrubbing default (SEC-004 unchanged).
+    /// - When `reveal_render_detail == true` **and** the error is
+    ///   [`KernelError::Render { detail }`]: surfaces the real `detail` verbatim in the
+    ///   returned [`FieldError::message`]. All other fields (`field`, `code`) are unchanged.
+    ///
+    /// ## Risk warning
+    ///
+    /// Enabling `reveal_render_detail = true` may place **bound-value content** — untrusted
+    /// input, PII, secrets — into the returned error message and into any log line or stack
+    /// trace derived from it. The caller is responsible for ensuring the error is handled in
+    /// a context where such exposure is acceptable (e.g. a controlled debug session with a
+    /// trusted log sink). Never enable this in production without deliberate review.
+    ///
+    /// ## When to use
+    ///
+    /// Pass `reveal_render_detail = false` everywhere except a deliberate, per-call debug
+    /// render where you control the log destination and accept the bound-value exposure risk.
+    /// The canonical production call site is always `ConsumerError::from(err)` (or this
+    /// function with `false`), which keeps SEC-004 intact.
+    pub fn from_kernel_revealing(err: KernelError, reveal_render_detail: bool) -> Self {
+        // Only the Render arm with reveal=true differs from the scrubbing default.
+        if reveal_render_detail {
+            if let KernelError::Render { detail } = err {
+                return Self::Kernel(vec![FieldError {
+                    field: "template".to_string(),
+                    code: code::RENDER.to_string(),
+                    // Surfaced verbatim — the caller has opted in and accepted responsibility.
+                    message: detail,
+                }]);
+            }
+        }
+        // All other cases: byte-for-byte identical to the From impl (scrubbing default).
+        Self::from(err)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -341,5 +385,152 @@ mod tests {
             }
             other => panic!("expected ConsumerError::Kernel, got {other:?}"),
         }
+    }
+
+    // ── from_kernel_revealing (spec 013 T001) ─────────────────────────────────
+
+    /// Helper: build a fresh Render KernelError with the given detail string.
+    fn make_render(detail: &str) -> KernelError {
+        KernelError::Render {
+            detail: detail.to_string(),
+        }
+    }
+
+    /// (a) reveal=false is byte-for-byte identical to From for ALL arms.
+    #[test]
+    fn from_kernel_revealing_false_equals_from_render() {
+        let detail = "secret-detail-value";
+        assert_eq!(
+            ConsumerError::from(make_render(detail)),
+            ConsumerError::from_kernel_revealing(make_render(detail), false),
+            "reveal=false must equal From for Render"
+        );
+    }
+
+    #[test]
+    fn from_kernel_revealing_false_equals_from_parse() {
+        let k = || KernelError::Parse {
+            detail: "syntax error at line 1".to_string(),
+        };
+        assert_eq!(
+            ConsumerError::from(k()),
+            ConsumerError::from_kernel_revealing(k(), false),
+            "reveal=false must equal From for Parse"
+        );
+    }
+
+    #[test]
+    fn from_kernel_revealing_false_equals_from_excluded_feature() {
+        let k = || KernelError::ExcludedFeature {
+            detail: "{% include %}".to_string(),
+        };
+        assert_eq!(
+            ConsumerError::from(k()),
+            ConsumerError::from_kernel_revealing(k(), false),
+            "reveal=false must equal From for ExcludedFeature"
+        );
+    }
+
+    #[test]
+    fn from_kernel_revealing_false_equals_from_unknown_variant() {
+        let k = || KernelError::UnknownVariant {
+            requested: "concise".to_string(),
+        };
+        assert_eq!(
+            ConsumerError::from(k()),
+            ConsumerError::from_kernel_revealing(k(), false),
+            "reveal=false must equal From for UnknownVariant"
+        );
+    }
+
+    #[test]
+    fn from_kernel_revealing_false_equals_from_undefined_variable() {
+        let k = || KernelError::UndefinedVariable {
+            name: "payload".to_string(),
+        };
+        assert_eq!(
+            ConsumerError::from(k()),
+            ConsumerError::from_kernel_revealing(k(), false),
+            "reveal=false must equal From for UndefinedVariable"
+        );
+    }
+
+    /// (b) reveal=true for Render surfaces the real detail verbatim.
+    #[test]
+    fn from_kernel_revealing_true_surfaces_render_detail_verbatim() {
+        const DETAIL: &str = "failed to render value `sk-secret-abc` in loop";
+        let kernel = KernelError::Render {
+            detail: DETAIL.to_string(),
+        };
+
+        let revealed = ConsumerError::from_kernel_revealing(kernel, true);
+
+        match &revealed {
+            ConsumerError::Kernel(rows) => {
+                assert_eq!(rows.len(), 1);
+                assert_eq!(rows[0].field, "template");
+                assert_eq!(rows[0].code, code::RENDER);
+                assert_eq!(
+                    rows[0].message, DETAIL,
+                    "reveal=true must surface detail verbatim"
+                );
+            }
+            other => panic!("expected ConsumerError::Kernel, got {other:?}"),
+        }
+    }
+
+    /// (c) reveal=true for Parse is identical to the scrubbing/from path (reveal does NOT
+    /// change Parse — parse detail is already preserved by the From impl).
+    #[test]
+    fn from_kernel_revealing_true_does_not_change_parse_arm() {
+        const DETAIL: &str = "syntax error: unexpected end of input";
+        let k = || KernelError::Parse {
+            detail: DETAIL.to_string(),
+        };
+
+        assert_eq!(
+            ConsumerError::from(k()),
+            ConsumerError::from_kernel_revealing(k(), true),
+            "reveal=true must not change the Parse arm (parse detail already preserved)"
+        );
+    }
+
+    /// reveal=true for ExcludedFeature is identical to the scrubbing default.
+    #[test]
+    fn from_kernel_revealing_true_does_not_change_excluded_feature() {
+        let k = || KernelError::ExcludedFeature {
+            detail: "{% include %}".to_string(),
+        };
+        assert_eq!(
+            ConsumerError::from(k()),
+            ConsumerError::from_kernel_revealing(k(), true),
+            "reveal=true must not change ExcludedFeature"
+        );
+    }
+
+    /// reveal=true for UnknownVariant is identical to the scrubbing default.
+    #[test]
+    fn from_kernel_revealing_true_does_not_change_unknown_variant() {
+        let k = || KernelError::UnknownVariant {
+            requested: "concise".to_string(),
+        };
+        assert_eq!(
+            ConsumerError::from(k()),
+            ConsumerError::from_kernel_revealing(k(), true),
+            "reveal=true must not change UnknownVariant"
+        );
+    }
+
+    /// reveal=true for UndefinedVariable is identical to the scrubbing default.
+    #[test]
+    fn from_kernel_revealing_true_does_not_change_undefined_variable() {
+        let k = || KernelError::UndefinedVariable {
+            name: "payload".to_string(),
+        };
+        assert_eq!(
+            ConsumerError::from(k()),
+            ConsumerError::from_kernel_revealing(k(), true),
+            "reveal=true must not change UndefinedVariable"
+        );
     }
 }

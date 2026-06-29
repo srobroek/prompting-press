@@ -61,7 +61,7 @@ fn single_validation_failure_blocks_render() {
     };
 
     let err = prompt
-        .render(&vars, None, &GuardConfig::default())
+        .render(&vars, None, &GuardConfig::default(), false)
         .expect_err("invalid vars must not render");
 
     match err {
@@ -84,7 +84,7 @@ fn multiple_validation_failures_all_reported() {
     };
 
     let err = prompt
-        .render(&vars, None, &GuardConfig::default())
+        .render(&vars, None, &GuardConfig::default(), false)
         .expect_err("invalid vars must not render");
 
     match err {
@@ -112,7 +112,7 @@ fn public_return_type_is_normalized() {
         n: 1,
     };
     let result: Result<RenderResult, ConsumerError> =
-        prompt.render(&vars, None, &GuardConfig::default());
+        prompt.render(&vars, None, &GuardConfig::default(), false);
     assert!(result.is_ok());
 }
 
@@ -151,7 +151,7 @@ fn misnamed_vars_field_surfaces_undefined_variable() {
     assert!(vars.validate().is_ok(), "garde must accept the valid value");
 
     let err = prompt
-        .render(&vars, None, &GuardConfig::default())
+        .render(&vars, None, &GuardConfig::default(), false)
         .expect_err("a name mismatch must surface loudly, not render empty");
 
     match err {

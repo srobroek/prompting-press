@@ -41,7 +41,7 @@ fn regenerate_marshaling_goldens() {
 
         // 3. Render via the REAL consumer render path (no engine logic here — C-01/C-02).
         let result = prompt
-            .render(&vars, fx.variant.as_deref(), &GuardConfig::default())
+            .render(&vars, fx.variant.as_deref(), &GuardConfig::default(), false)
             .unwrap_or_else(|e| panic!("{}: render failed: {e:?}", fx.case));
 
         // 4. Write the goldens back into the fixture JSON, preserving everything else.

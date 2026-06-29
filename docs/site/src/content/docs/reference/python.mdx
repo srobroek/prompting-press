@@ -166,20 +166,26 @@ source. # Errors [`PromptRenderError`](crate::error::PromptRenderError) — unkn
 #### `render`
 
 ```python
-render(self, /, model=None, *, data=None, variant=None, guard=None)
+render(self, /, model=None, *, data=None, variant=None, guard=None, unsafe_reveal_render_detail=False)
 ```
 
 Validate-then-render this prompt. Mirrors the current module-level `render(reg, name, vars, *, data, variant, guard)`
 signature, adapted for the object surface: ```python
-p.render(model, *, data=None, variant=None, guard=None)
+p.render(model, *, data=None, variant=None, guard=None, unsafe_reveal_render_detail=False)
 ``` - When `data` is provided, `model` is treated as a Pydantic model **class** and validated via `model.model_validate(data)`.
 - When `data` is `None`, `model` is treated as an already-constructed model **instance** and re-validated via `type(model).model_validate(model.model_dump(...))`.
 - When `model` is `None` (omitted), the bound `validators` class stored at construction is used as the model class (requires `data` to be provided in that case since we don't have an instance of a type we didn't pass). Validation is owned in Python (Q1 / FR-002), BEFORE any templating. On a
 `pydantic.ValidationError`, raises
 [`PromptValidationError`](crate::error::PromptValidationError) with one row per
 offending field — **the kernel is never reached** on validation failure. `variant = None` selects the default (root body) arm. `guard` is the opt-in
-[`GuardConfig`] plumbed straight through to the kernel. # Errors - [`PromptValidationError`](crate::error::PromptValidationError) — Pydantic rejected the vars. Raised **before** any templating.
-- [`PromptRenderError`](crate::error::PromptRenderError) — the kernel rejected the render (unknown variant, strict-undefined reference, parse/render failure). Detail scrubbed.
+[`GuardConfig`] plumbed straight through to the kernel. ## `unsafe_reveal_render_detail` — off-by-default render-error detail opt-in Default `False`. When `True`, the full underlying render-error detail is surfaced in
+the raised [`PromptRenderError`](crate::error::PromptRenderError)``.errors[0].message`
+instead of the fixed scrubbed string. **Risk:** enabling this may place **bound-value content** — untrusted input, PII,
+secrets — into the raised exception and into any log line or traceback derived from
+it. Use only in a controlled debug context with a trusted log destination and only
+after deliberately accepting that exposure. Never set `True` by default or via
+ambient configuration. # Errors - [`PromptValidationError`](crate::error::PromptValidationError) — Pydantic rejected the vars. Raised **before** any templating.
+- [`PromptRenderError`](crate::error::PromptRenderError) — the kernel rejected the render (unknown variant, strict-undefined reference, parse/render failure). `Render` detail scrubbed unless `unsafe_reveal_render_detail=True`. `Parse` detail always preserved (decision D2).
 
 ### `core_version`
 

@@ -195,7 +195,7 @@ fn corpus_secret_in_render_error_is_scrubbed() {
             name: String::new(), // always invalid
         };
         let err = prompt
-            .render(&vars, None, &no_guard())
+            .render(&vars, None, &no_guard(), false)
             .expect_err("empty name must fail validation");
         assert!(
             matches!(err, ConsumerError::Validation(_)),
@@ -260,8 +260,7 @@ proptest! {
         let _ = &secret; // ensure it's in scope but not passed to garde
         let vars = LeakyVars { name: String::new() }; // always invalid
         let err = prompt
-            .render(&vars, None, &no_guard())
-            .expect_err("invalid vars must fail");
+            .render(&vars, None, &no_guard(), false)            .expect_err("invalid vars must fail");
 
         // Confirm it's a Validation error (not a Kernel error — the kernel was never reached).
         prop_assert!(
@@ -311,6 +310,79 @@ proptest! {
     }
 }
 
+// ── spec 013 T008: no-implicit-enable proof ───────────────────────────────────
+
+/// SC-003 / FR-003: a default `render(…, false)` call (the only safe default) produces
+/// the same scrubbed output as `ConsumerError::from`. There is NO global/ambient/default-true
+/// path that enables `reveal_render_detail`. The only enabling mechanism is the explicit
+/// per-call `reveal_render_detail = true` argument.
+///
+/// This test confirms:
+/// 1. `render(…, false)` is scrubbed (default-safe).
+/// 2. `from_kernel_revealing(err, false)` ≡ `ConsumerError::from(err)` (the seam is
+///    transparent when the flag is off — verified at unit level in error.rs; confirmed
+///    here at the integration level via a real prompt render).
+#[test]
+fn default_render_false_scrubs_render_path() {
+    use prompting_press::error::code;
+    use prompting_press::{ConsumerError, Prompt};
+    use prompting_press_core::GuardConfig;
+
+    // Build a prompt with an unknown Jinja filter in the body — triggers a KernelError::Render
+    // at render time (past the agreement check, which only checks variable references).
+    // The filter name is template source, not bound-value content, but the important thing
+    // is that a Render error is produced at render time.
+    //
+    // A reliable non-filter path: render a prompt where a declared variable is given a value
+    // that causes a MiniJinja runtime failure. We use the `| upper` filter on an integer,
+    // which MiniJinja raises as a Render error.
+    let prompt = Prompt::from_json(
+        r#"{
+            "name": "fail",
+            "role": "user",
+            "body": "{{ name | nonexistent_filter_abc }}",
+            "variables": {
+                "name": { "type": "string", "origin": "trusted" }
+            }
+        }"#,
+    )
+    .expect("valid prompt shape must construct");
+
+    // Render with reveal=false (the ONLY production-safe default).
+    #[derive(serde::Serialize, garde::Validate)]
+    struct V {
+        #[garde(length(min = 1))]
+        name: String,
+    }
+
+    let err = prompt
+        .render(
+            &V {
+                name: "test-value".to_string(),
+            },
+            None,
+            &GuardConfig::default(),
+            false, // the default — must scrub
+        )
+        .expect_err("nonexistent filter must cause a render error");
+
+    match &err {
+        ConsumerError::Kernel(rows) => {
+            assert_eq!(rows[0].code, code::RENDER);
+            assert_eq!(
+                rows[0].message, "render error",
+                "reveal=false must produce the fixed scrubbed message (SC-003)"
+            );
+            // The bound value must not appear in the scrubbed message.
+            assert!(
+                !rows[0].message.contains("test-value"),
+                "SEC-004: bound value must not leak: {:?}",
+                rows[0].message
+            );
+        }
+        other => panic!("expected ConsumerError::Kernel, got {other:?}"),
+    }
+}
 // ── secret-shaped string strategy ────────────────────────────────────────────
 
 /// A proptest strategy generating strings that look like real secrets (API keys, tokens,

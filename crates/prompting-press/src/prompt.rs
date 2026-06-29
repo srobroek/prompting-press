@@ -212,23 +212,39 @@ impl Prompt {
     /// The kernel path is identical to the pre-reshape `render(reg, name, …)` path. The
     /// `RenderResult` hashes are therefore byte-identical.
     ///
+    /// ## `reveal_render_detail` — unsafe, off-by-default render-error detail opt-in
+    ///
+    /// Pass `false` in all production call sites (the default). When `true`, the full
+    /// underlying render-error detail is surfaced in the returned
+    /// [`ConsumerError::Kernel`] message instead of the fixed scrubbed string.
+    ///
+    /// **Risk:** enabling this may place **bound-value content** — untrusted input, PII,
+    /// secrets — into the returned error message and into any log line or stack trace
+    /// derived from it. Use only in a controlled debug context where you own the log
+    /// destination and deliberately accept that exposure. Never set `true` by default or
+    /// in ambient/global configuration (FR-003 / SEC-004 carve-out D3).
+    ///
     /// # Errors
     ///
     /// - [`ConsumerError::Validation`] — garde rejected `vars`.
     /// - [`ConsumerError::Kernel`] — the kernel rejected the render (unknown variant,
-    ///   strict-undefined reference, parse/render failure). `Parse`/`Render` detail scrubbed
-    ///   (FR-015).
+    ///   strict-undefined reference, parse/render failure). `Render` detail scrubbed
+    ///   unless `reveal_render_detail = true` (SEC-004 / decision D3). `Parse` detail
+    ///   always preserved (decision D2).
     pub fn render<V>(
         &self,
         vars: &V,
         variant: Option<&str>,
         guard: &GuardConfig,
+        reveal_render_detail: bool,
     ) -> Result<RenderResult, ConsumerError>
     where
         V: Serialize + Validate,
         V::Context: Default,
     {
         // 1. Validate once, BEFORE any templating (FR-002).
+        //    Validation errors use the plain From scrubber — never from_kernel_revealing
+        //    (validation is not a kernel render error; SEC-004 applies to Render detail only).
         vars.validate().map_err(ConsumerError::from)?;
 
         // 2. Bridge the validated struct to the kernel's value type (FR-003a).
@@ -236,10 +252,12 @@ impl Prompt {
         //    surface downstream as a strict-undefined kernel error, never silently here.
         let values = minijinja::Value::from_serialize(vars);
 
-        // 3. Delegate to the kernel; normalize KernelError → ConsumerError::Kernel.
+        // 3. Delegate to the kernel; normalize KernelError via the per-call opt-in.
+        //    When reveal_render_detail=false this is byte-for-byte the same as From.
         //    The kernel receives ONLY already-validated values (FR-003); the consumer adds
         //    no render/agreement/variant/hash logic of its own (FR-011).
-        prompting_press_core::render(&self.def, variant, values, guard).map_err(ConsumerError::from)
+        prompting_press_core::render(&self.def, variant, values, guard)
+            .map_err(|e| ConsumerError::from_kernel_revealing(e, reveal_render_detail))
     }
 
     /// Return a variant's unrendered template source (the exact string the kernel hashes
@@ -692,10 +710,10 @@ origin = "trusted"
         };
 
         let r1 = p
-            .render(&vars, None, &GuardConfig::default())
+            .render(&vars, None, &GuardConfig::default(), false)
             .expect("render 1");
         let r2 = p
-            .render(&vars, None, &GuardConfig::default())
+            .render(&vars, None, &GuardConfig::default(), false)
             .expect("render 2");
 
         assert_eq!(r1.text, r2.text, "text must be byte-identical");
@@ -741,5 +759,78 @@ origin = "trusted"
         let p = make_prompt();
         let src = p.get_source(None).expect("root source must resolve");
         assert_eq!(src, "Hi {{ name }}");
+    }
+
+    // ── spec 013 T002/T003: reveal_render_detail flag ─────────────────────────
+
+    /// T002 (a): flag on vs off produces byte-identical output on the SUCCESS path (SC-005).
+    /// Agreement is enforced at construction so post-construction render errors are rare;
+    /// the reveal seam is unit-tested in error.rs (T001). Here we confirm the flag has no
+    /// effect on the success path.
+    #[test]
+    fn reveal_flag_does_not_change_success_path() {
+        #[derive(serde::Serialize, garde::Validate)]
+        struct V {
+            #[garde(length(min = 1))]
+            name: String,
+        }
+        let vars = V {
+            name: "Ada".to_string(),
+        };
+        let p = make_prompt();
+
+        let r_false = p
+            .render(&vars, None, &GuardConfig::default(), false)
+            .expect("render with false must succeed");
+        let r_true = p
+            .render(&vars, None, &GuardConfig::default(), true)
+            .expect("render with true must succeed");
+
+        // SC-005: text and both hashes are byte-identical regardless of the flag.
+        assert_eq!(r_false.text, r_true.text, "text must be byte-identical");
+        assert_eq!(
+            r_false.template_hash, r_true.template_hash,
+            "template_hash must be byte-identical"
+        );
+        assert_eq!(
+            r_false.render_hash, r_true.render_hash,
+            "render_hash must be byte-identical"
+        );
+    }
+
+    /// T003: validation errors are unchanged by the reveal flag (validation uses
+    /// ConsumerError::from, not from_kernel_revealing — the kernel is never reached).
+    #[test]
+    fn reveal_flag_does_not_affect_validation_errors() {
+        #[derive(serde::Serialize, garde::Validate)]
+        struct V {
+            #[garde(length(min = 1))]
+            name: String,
+        }
+        let invalid_vars = V {
+            name: String::new(), // always fails garde length(min=1)
+        };
+        let p = make_prompt();
+
+        let err_false = p
+            .render(&invalid_vars, None, &GuardConfig::default(), false)
+            .expect_err("invalid vars must fail");
+        let err_true = p
+            .render(&invalid_vars, None, &GuardConfig::default(), true)
+            .expect_err("invalid vars must fail");
+
+        // Both must be Validation errors (the flag is irrelevant — kernel never reached).
+        assert!(
+            matches!(&err_false, ConsumerError::Validation(_)),
+            "flag=false must produce Validation, got {err_false:?}"
+        );
+        assert!(
+            matches!(&err_true, ConsumerError::Validation(_)),
+            "flag=true must produce Validation, got {err_true:?}"
+        );
+        assert_eq!(
+            err_false, err_true,
+            "validation errors must be identical regardless of the reveal flag"
+        );
     }
 }
