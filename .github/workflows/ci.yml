@@ -199,8 +199,9 @@ jobs:
 
       # Python is required for maturin develop (builds the prompting-press-py
       # extension into the hermetic venv in step 2 of conformance.sh).
-      # Using the same version as the `build` matrix for consistency; abi3-py39
-      # means any 3.9+ interpreter works — 3.12 matches the build job.
+      # Using the same version as the `build` matrix for consistency; abi3-py312
+      # means any 3.12+ interpreter works — 3.12 matches the build job (floor
+      # raised 3.10 -> 3.12 in spec 008).
       - name: Set up Python 3.12
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
@@ -243,7 +244,7 @@ jobs:
           fetch-depth: 0  # let moon resolve the base branch on pull_request events
 
       # Python is required before `cargo build` on Windows because pyo3's
-      # abi3-py39 build script must locate a CPython installation to resolve the
+      # abi3-py312 build script must locate a CPython installation to resolve the
       # Python import library for the cdylib link. On Linux/macOS the
       # `extension-module` feature + build.rs `-undefined dynamic_lookup` (macOS)
       # handle the link without a live Python interpreter, but Windows requires

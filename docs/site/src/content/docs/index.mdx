@@ -1,0 +1,64 @@
+---
+title: Prompting Press
+description: A typed, variant-aware prompt-template library for Rust, Python, and TypeScript.
+---
+
+**Prompting Press** is a typed, variant-aware prompt-template library for **Rust, Python, and TypeScript**.
+It parses, validates, and renders prompt text and returns content hashes for each render. All three languages
+bind one shared Rust engine, so a rendered prompt is byte-identical across them.
+
+## What it does
+
+### Templating
+
+- **A focused template language** (MiniJinja): interpolation (`{{ name }}`), conditionals (`{% if %}`), and
+  loops (`{% for %}`). Includes, macros, and inheritance are excluded so the agreement check stays sound. See
+  **[Template features](/prompting-press/templates/)**.
+- **Named variants.** A prompt can carry alternative bodies (`concise`, `formal`, …) that share the same
+  declared variables. A variant is selected by name at render (`variant: "formal"`); selection is caller-owned.
+  See **[Variants](/prompting-press/guides/variants/)**.
+
+### Typed, validated inputs
+
+- **Declared, typed variables.** Each prompt declares its variables with a `type` and an `origin` tag. The
+  shape is one JSON Schema, code-generated into a Rust struct, Pydantic model, and TypeScript type.
+- **Agreement check.** A template that references a variable the prompt never declared is rejected at
+  construction (and surfaced as a CI lint via `check()`) rather than rendering to a silent empty string.
+- **Native value validators.** Render values are validated by each language's own system — **garde** (Rust),
+  **Pydantic** (Python), **Zod** (TypeScript) — before any templating runs. A variable can be marked
+  `validation_required` to require that a validator covers it (enforced at construction in Python and
+  TypeScript, at compile time in Rust).
+
+### Origin tagging and content hashes
+
+- **`origin` tagging and an advisory guard.** A variable is tagged `trusted`, `untrusted`, or `external`.
+  Enabling the guard at render returns a separate advisory string naming the untrusted fields for the
+  downstream model. The guard is advisory text; it does not sanitize values. See
+  **[The advisory guard](/prompting-press/guides/guard/)**.
+- **Content hashes.** Every render returns a `template_hash` and a `render_hash` (SHA-256), so a trace can
+  identify which template produced which output. Both are byte-identical across the three languages.
+- **Opaque metadata.** A prompt and each variant carry an optional `metadata` map (model hints, tags, an
+  `output_model` reference, selection labels). The library stores and echoes metadata; it does not interpret it,
+  with one documented exception: the presence of a `guard` key suppresses the `check()` guard advisory.
+
+### The object model
+
+- **An immutable `Prompt`.** Construct it from a shape object or from YAML, JSON, or TOML text, then `render`,
+  read its source, or `check()` it. There are no setters; `derive` produces a new `Prompt` by shallow-replacing
+  a field and re-validating the whole. See **[Getting started](/prompting-press/getting-started/rust/)**.
+- **Multi-message composition.** Several `Prompt` objects (each with its own variables) compose into an ordered,
+  role-tagged `[{role, text}]` sequence. There is no registry; the objects are passed directly. See
+  **[Composition](/prompting-press/guides/composition/)**.
+- **One engine, three languages.** Rust, Python, and TypeScript bind the same Rust core, so rendering,
+  validation behavior, and hashes are identical across them. The idiom is native per language; the result is not.
+
+## What it does not do
+
+- It performs **no I/O**. The caller reads the prompt text (or fetches it) and passes it to `from_yaml`,
+  `from_json`, or `from_toml`; the library never touches the filesystem, a database, or the network.
+- It **never calls an LLM**, assembles a provider request body, counts tokens, or parses model output.
+- Its untrusted-input **guard is advisory text, not enforcement**. It names untrusted fields for the downstream
+  model; it does not sanitize values, and the library has no model of its own.
+
+See **[Getting started](/prompting-press/getting-started/rust/)** for a per-language walkthrough, or the
+**[API reference](/prompting-press/reference/prompt-definition/)**.

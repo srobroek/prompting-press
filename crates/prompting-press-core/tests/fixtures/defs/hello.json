@@ -5,7 +5,7 @@
   "variables": {
     "name": {
       "type": "string",
-      "provenance": "trusted",
+      "origin": "trusted",
       "description": "The name to greet."
     }
   }

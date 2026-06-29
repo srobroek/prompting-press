@@ -27,8 +27,9 @@ except ImportError:
 
 ROOT = pathlib.Path(__file__).parent.parent
 SCHEMA_PATH = ROOT / "prompt-definition.schema.json"
-VALID_DIR = ROOT / "fixtures" / "valid"
-INVALID_DIR = ROOT / "fixtures" / "invalid"
+# Fixtures live under tests/ (moved in spec 008 — the fixture-relocation bundle).
+VALID_DIR = ROOT / "tests" / "fixtures" / "valid"
+INVALID_DIR = ROOT / "tests" / "fixtures" / "invalid"
 
 # ANSI colours (kept minimal; no external deps)
 GREEN = "\033[32m"

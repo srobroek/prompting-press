@@ -20,7 +20,7 @@ npm i prompting-press   # or: pnpm add prompting-press
 
 ```ts
 import { z } from "zod";
-import { Registry, render, check, Composition, PromptValidationError } from "prompting-press";
+import { Prompt, Composition, PromptValidationError } from "prompting-press";
 
 // Define your prompt's variables as a Zod schema (with custom .refine() validators).
 const Greeting = z.object({
@@ -28,45 +28,51 @@ const Greeting = z.object({
   count: z.number().int().refine((n) => n >= 0, "count must be >= 0"),
 });
 
-const reg = new Registry();
-reg.loadYaml(`
+// Construct an immutable Prompt from text (fromYaml / fromJson / fromToml) or a shape object
+// (new Prompt({...})). Construction validates: an undeclared-variable reference or an
+// un-analyzable template throws here, never at render.
+const greet = Prompt.fromYaml(`
 name: greet
 role: user
 body: "Hi {{ name }}, you have {{ count }} messages"
 variables:
-  name:  { type: string,  provenance: trusted }
-  count: { type: integer, provenance: trusted }
+  name:  { type: string,  origin: trusted }
+  count: { type: integer, origin: trusted }
 `);
 
-const r = render(reg, "greet", Greeting, { name: "Ada", count: 3 });
+const r = greet.render(Greeting, { name: "Ada", count: 3 });
 r.text;          // "Hi Ada, you have 3 messages"
 r.templateHash;  // 64-hex SHA-256 of the template source
 r.renderHash;    // 64-hex SHA-256 of the rendered output
 ```
 
+- **Prompt is a first-class object**: `render` / `getSource` / `check` / `derive` live on the `Prompt`.
+  There is no registry — you hold and pass `Prompt` objects directly.
 - **Validate-then-render**: the Zod schema is `safeParse`d **before** any templating. Invalid input
   throws a `PromptValidationError` naming every offending field, and nothing renders. You can also pass
   already-typed plain data (no schema) — it's marshaled directly.
-- **Dual-input loader**: `reg.loadYaml(text)`, `reg.loadJson(text)`, or `reg.insert(obj)` — all three
-  normalize through the **one** Rust loader, so YAML/JSON/object render identically (parity is
-  structural, not re-tested here).
+- **Three text factories**: `Prompt.fromYaml(text)`, `Prompt.fromJson(text)`, `Prompt.fromToml(text)`, or
+  `new Prompt(obj)` — all normalize through the **one** Rust loader, so every form renders identically
+  (parity is structural, not re-tested here).
+- **Immutable**: a `Prompt` has read-only accessors and no setters. To vary one, use
+  `prompt.derive(overlay)` — it shallow-replaces the given top-level fields, re-validates the merged whole,
+  and returns a **new** `Prompt`; the original is untouched.
 - **`PromptDefinition`** (the prompt-definition shape) is re-exported, code-generated from the published
   JSON Schema — never hand-written.
 
-## The agreement + provenance lint (the headline differentiator)
+## The agreement lint (the headline differentiator)
 
-`check(reg)` is a **pure** analysis pass (never mutates, never renders) — the static guarantee no
-file-based prompt library provides. Wire it as a CI gate: it flags a template referencing an
-**undeclared variable**, and an `untrusted`/`external` field used **without a declared guard**, *before*
-anything renders.
+`prompt.check()` is a **pure** analysis pass (never mutates, never renders) — the static guarantee no
+file-based prompt library provides. The hard agreement invariants (a template referencing an
+**undeclared variable**, an un-analyzable template) are now caught at **construction**; `check()` surfaces
+the remaining advisory: an `untrusted`/`external` field used **without a declared guard**. Wire it as a CI
+gate over your prompts:
 
 ```ts
-import { check } from "prompting-press";
-
-const report = check(reg);
+const report = greet.check();
 if (!report.passed()) {
   for (const f of report.findings) {
-    // f.kind ∈ undeclared_variable | untrusted_without_guard | reserved_variant_name | analysis_error
+    // f.kind ∈ untrusted_without_guard | ...
     console.error(f.kind, f.prompt, f.variant, f.detail);
   }
   process.exit(1);
@@ -78,10 +84,11 @@ if (!report.passed()) {
 ```ts
 import { Composition } from "prompting-press";
 
+// Composition aggregates Prompt OBJECTS (not names) — no registry needed.
 const messages = Composition.fromMessages([
-  { name: "systemPreamble", schema: SysVars, data: sysData },
-  { name: "greet", schema: Greeting, data: { name: "Ada", count: 3 } },
-]).resolve(reg);
+  { prompt: systemPreamble, schema: SysVars, data: sysData },
+  { prompt: greet, schema: Greeting, data: { name: "Ada", count: 3 } },
+]).resolve();
 // messages: [{ role: "system", text: ... }, { role: "user", text: "Hi Ada, ..." }]
 ```
 
@@ -97,8 +104,7 @@ Every failure is a `PromptingPressError` subclass carrying `errors: { field, cod
 |-------|------|
 | `PromptValidationError` | Zod validation failed (before render) — `code: "validation"` |
 | `PromptRenderError` | the kernel rejected the render — `code`: `unknown_variant` / `undefined_variable` / `parse` / `render` / `excluded_feature` |
-| `UnknownPromptError` | the prompt name isn't in the registry |
-| `LoadError` | malformed YAML/JSON or shape-violating definition |
+| `LoadError` | malformed YAML/JSON/TOML or a shape-violating definition (at construction) |
 
 Native error types (`ZodError`, Rust errors) **never** appear on the public API — every error is
 normalized to the shared `{ field, code, message }` shape (identical across the Rust, Python, and TS
@@ -108,7 +114,8 @@ never the rejected value.
 
 > **Three-sets invariant**: your Zod field names must match the prompt's declared `variables`. A
 > mismatch is **not** silent — it surfaces as a loud `PromptRenderError` with `code: "undefined_variable"`,
-> never an empty render. `check()` catches the same class at lint time.
+> never an empty render. Construction also catches an undeclared-variable *reference in the template*
+> (the agreement check runs when the `Prompt` is built).
 
 ## Guard usage (the system-prompt addendum doctrine)
 

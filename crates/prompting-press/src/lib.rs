@@ -8,26 +8,26 @@
 //! Prompting Press turns *typed inputs + a prompt template* into *rendered text +
 //! provenance* — nothing else. It does **no** I/O, makes **no** model calls, and counts
 //! **no** tokens. The headline guarantee is the **sound agreement check**: a template that
-//! references a variable the prompt never declared is a caught error, not a silent empty
-//! render.
+//! references a variable the prompt never declared is a caught error at **construction time**,
+//! not a silent empty render.
 //!
 //! ## The four capabilities
 //!
-//! 1. **Registry + dual-input loader** ([`Registry`]) — a library-owned name →
-//!    [`PromptDefinition`] map. Populate it three equal-footing ways:
-//!    [`Registry::load_yaml`] / [`Registry::load_json`] (deserialize already-read text) or
-//!    [`Registry::insert`] (a constructed object). All three normalize into the **same**
-//!    `PromptDefinition` — there is no parallel shape (FR-005/006/008).
-//! 2. **Validate-then-render** ([`render`](render()) / [`get_source`]) — pass a prompt **name** plus a
-//!    typed Vars value; the vars are validated **once** (before any templating), serialized,
-//!    and handed to the kernel, which returns a [`RenderResult`] (text + provenance).
-//!    [`get_source`] returns a variant's unrendered template source.
-//! 3. **The agreement + provenance lint** ([`check`](check())) — a pure CI pass over a [`Registry`]
-//!    that reports undeclared-variable references and untrusted-input-without-guard prompts.
-//!    See the [CI-usage example](#checkregistry-as-a-ci-gate) below.
+//! 1. **Prompt** ([`Prompt`]) — an immutable, validating facade over a [`PromptDefinition`].
+//!    Construct from YAML, JSON, TOML, or a built object; every construction path enforces
+//!    shape validity, template parseability, and template↔variables agreement (FR-020 /
+//!    Principle IV). Post-reshape there is no Registry; prompts are self-contained values.
+//! 2. **Validate-then-render** ([`Prompt::render`]) — pass a typed Vars value to a `Prompt`;
+//!    the vars are validated **once** (before any templating), serialized, and handed to the
+//!    kernel, which returns a [`RenderResult`] (text + provenance hashes). Byte-identical
+//!    output to the pre-reshape path (FR-016).
+//! 3. **The agreement + origin lint** ([`Prompt::check`]) — a pure advisory pass on a single
+//!    `Prompt` that reports untrusted-input-without-guard findings. Agreement / parse /
+//!    reserved-name hard arms are enforced at construction; `check()` is advisory-only
+//!    post-reshape.
 //! 4. **Composition** ([`Composition`] / [`Message`]) — an explicit, ordered `Vec` of
-//!    `(prompt, vars, variant)` entries (`append`, never `.chain()`) that resolves to an
-//!    ordered list of `{role, text}` [`Message`]s (FR-012/013).
+//!    `(Prompt, vars, variant)` entries (`append`, never `.chain()`) that resolves to an
+//!    ordered list of `{role, text}` [`Message`]s (FR-012/013). No Registry needed.
 //!
 //! ## Error normalization boundary (roadmap decision C-06)
 //!
@@ -35,33 +35,30 @@
 //! common structured shape `[{field, code, message}]` ([`FieldError`]). The two **native**
 //! error sources — garde's `Report` and the kernel's `KernelError` — are normalized at this
 //! boundary and **never appear** on a public signature. The `code` field is drawn from a
-//! small, **closed vocabulary** (see [`error::code`]) — `validation`, `unknown_prompt`,
-//! `unknown_variant`, `undefined_variable`, `parse`, `render`, `excluded_feature`, `load` —
-//! so a consumer can `match` on `code` stably. Error messages are scrubbed: raw bound-value
-//! content (a value that triggered a kernel `Parse`/`Render` error) never reaches a message
-//! or a log derived from it (FR-014/015).
+//! small, **closed vocabulary** (see [`error::code`]) — `validation`, `unknown_variant`,
+//! `undefined_variable`, `parse`, `render`, `excluded_feature`, `load` — so a consumer can
+//! `match` on `code` stably. Error messages are scrubbed: raw bound-value content never
+//! reaches a message or a log derived from it (FR-014/015).
 //!
 //! ## This crate wraps the kernel — no logic is duplicated (roadmap decision C-01)
 //!
 //! Rendering, the agreement analysis, variant resolution, and SHA-256 hashing live **once**,
-//! in [`prompting_press_core`]; this crate adds **none** of them. [`render`](render()) delegates
-//! to the kernel's `render`; [`check`](check()) is set-arithmetic over the kernel's `required_roots` /
-//! `provenance_view`; [`get_source`] delegates to the kernel's `get_source`. What this crate
-//! adds is exactly what the kernel omits: the typed-Vars (garde) facade, the dual-input
-//! loader, the lint-as-CI-pass, idiomatic render/compose ergonomics, and error
-//! normalization. Cross-language byte-identity is therefore a structural property of the
-//! shared core, not something re-tested here (constitution Principle I).
+//! in [`prompting_press_core`]; this crate adds **none** of them. [`Prompt::render`] delegates
+//! to the kernel's `render`; [`Prompt::check`] uses the kernel's `origin_view`; [`Prompt::get_source`]
+//! delegates to the kernel's `get_source`. What this crate adds is exactly what the kernel
+//! omits: the typed-Vars (garde) facade, the text-format factories, the advisory lint,
+//! idiomatic render/compose ergonomics, and error normalization. Cross-language byte-identity
+//! is therefore a structural property of the shared core (constitution Principle I).
 //!
 //! ## Boundary: no I/O, no token counting, output-model is metadata only (roadmap decision C-03)
 //!
 //! - **No I/O.** The crate reads no files and opens no sockets. The caller hands in
-//!   already-read YAML/JSON **text** ([`Registry::load_yaml`] / [`load_json`](Registry::load_json))
-//!   or a constructed [`PromptDefinition`] ([`insert`](Registry::insert)) (FR-024).
+//!   already-read YAML/JSON/TOML **text** ([`Prompt::from_yaml`] / [`from_json`](Prompt::from_json) /
+//!   [`from_toml`](Prompt::from_toml)) or a constructed [`PromptDefinition`] ([`Prompt::new`]).
 //! - **`output_model` is carried as metadata only.** If a definition names an output model,
 //!   it is echoed through and **never parsed or resolved** by this crate.
-//! - **No token counting.** The token-count hook considered for this layer was **dropped**
-//!   (spec 003, F4) and deferred to a later spec; the crate ships no token counter and
-//!   exposes no token-count seam.
+//! - **No token counting.** The token-count hook was dropped (spec 003, F4) and deferred to
+//!   a later spec; the crate ships no token counter and exposes no token-count seam.
 //!
 //! ## The three-sets invariant (spec Assumptions / critique E1)
 //!
@@ -69,40 +66,37 @@
 //! keeping the **third** aligned with the first two:
 //!
 //! 1. the prompt's declared `variables` block (the lint's authority);
-//! 2. the template's referenced roots (computed by the kernel);
+//! 2. the template's referenced roots (computed by the kernel; checked at construction);
 //! 3. the caller's garde Vars struct field names.
 //!
-//! [`check`](check()) lints **(2) ⊆ (1)** — template-roots are a subset of declared `variables`.
-//! garde validates the *values* the struct **(3)** carries. But the **struct ↔ `variables`**
-//! field-name agreement — does your `Vars` struct actually name the fields the prompt
-//! declares? — is **the caller's responsibility**, not a check. It is **not silent**,
-//! though: a misnamed struct field (e.g. a field `usrname` where the template references
-//! `username`) serializes to a value map missing the referenced root, so the kernel's
-//! strict-undefined environment fires and the failure surfaces here as a loud
-//! [`ConsumerError::Kernel`] carrying an [`undefined_variable`](error::code::UNDEFINED_VARIABLE)
-//! row — never an empty render. Closing this gap in-library would require per-prompt type
-//! registration, which clarify Q3 deliberately rejected for v1; it is documented here and
-//! pinned by a test, not enforced by an extra check.
+//! [`Prompt::new`] enforces **(2) ⊆ (1)** at construction. garde validates the *values* the
+//! struct **(3)** carries. But the **struct ↔ `variables`** field-name agreement — does your
+//! `Vars` struct actually name the fields the prompt declares? — is **the caller's
+//! responsibility**. It is **not silent**, though: a misnamed struct field serializes to a
+//! value map missing the referenced root, so the kernel's strict-undefined environment fires
+//! and surfaces as a loud [`ConsumerError::Kernel`] carrying an
+//! [`undefined_variable`](error::code::UNDEFINED_VARIABLE) row — never an empty render.
+//! Closing this gap in-library would require per-prompt type registration, which clarify Q3
+//! deliberately rejected for v1.
 //!
-//! ## The `check()` provenance convention (roadmap decision C-09)
+//! ## The `check()` origin convention (roadmap decision C-09)
 //!
 //! A prompt that declares one or more `untrusted` / `external` variables is expected to
 //! carry a top-level `"guard"` key in its `meta` (or `metadata`) map. If such a prompt
-//! declares an untrusted/external field and **no** `"guard"` key is present, [`check`](check())
+//! declares an untrusted/external field and **no** `"guard"` key is present, [`Prompt::check`]
 //! emits an [`UntrustedWithoutGuard`](check::FindingKind::UntrustedWithoutGuard) finding naming
 //! the uncovered field. The lint reads `meta`/`metadata` read-only and checks only for the
-//! *presence* of the key (the contents are opaque to the library). See the [`check`](mod@crate::check)
-//! module docs for the full rationale.
+//! *presence* of the key (the contents are opaque to the library).
 //!
-//! ## `check(registry)` as a CI gate
+//! ## `prompt.check()` as a CI gate
 //!
-//! [`check`](check()) is pure analysis: it mutates nothing, renders nothing, and returns a
+//! [`Prompt::check`] is pure analysis: it mutates nothing, renders nothing, and returns a
 //! [`CheckReport`]. A **non-empty** [`CheckReport::findings`] means the gate should fail
-//! (exit non-zero). A CI entry point reads its prompts (as YAML/JSON it already has on disk),
-//! loads them into a [`Registry`], runs `check`, and exits on any finding:
+//! (exit non-zero). A CI entry point constructs its prompts, calls `check`, and exits on any
+//! finding:
 //!
 //! ```
-//! use prompting_press::{check, Registry};
+//! use prompting_press::{Prompt, CheckReport};
 //!
 //! // In CI, `prompt_doc` would be the text of a repo YAML file the caller already read
 //! // (this crate does no I/O — roadmap decision C-03). Here it is inline.
@@ -111,14 +105,12 @@
 //! role: user
 //! body: "Hi {{ name }}, you have {{ count }} messages"
 //! variables:
-//!   name:  { type: string,  provenance: trusted }
-//!   count: { type: integer, provenance: trusted }
+//!   name:  { type: string,  origin: trusted }
+//!   count: { type: integer, origin: trusted }
 //! "#;
 //!
-//! let mut registry = Registry::new();
-//! registry.load_yaml(prompt_doc).expect("well-formed prompt definition");
-//!
-//! let report = check(&registry);
+//! let prompt = Prompt::from_yaml(prompt_doc).expect("well-formed prompt definition");
+//! let report = prompt.check();
 //!
 //! // The CI gate: a non-empty findings list means fail (a real `main` would
 //! // `std::process::exit(1)` here instead of asserting).
@@ -128,15 +120,15 @@
 //!     }
 //!     // std::process::exit(1);
 //! }
-//! assert!(report.passed(), "this registry references only declared variables");
+//! assert!(report.passed(), "this prompt references only declared variables");
 //! ```
 //!
 //! ## Render: validate typed Vars, then render
 //!
 //! ```
 //! use garde::Validate;
-//! use prompting_press::{render, Registry};
-//! use prompting_press::core::GuardConfig;
+//! use prompting_press::Prompt;
+//! use prompting_press_core::GuardConfig;
 //! use serde::Serialize;
 //!
 //! // Typed Vars: derives BOTH `serde::Serialize` (for the kernel-value bridge) and
@@ -155,16 +147,15 @@
 //! role: user
 //! body: "Hi {{ name }}, you have {{ count }} messages"
 //! variables:
-//!   name:  { type: string,  provenance: trusted }
-//!   count: { type: integer, provenance: trusted }
+//!   name:  { type: string,  origin: trusted }
+//!   count: { type: integer, origin: trusted }
 //! "#;
 //!
-//! let mut registry = Registry::new();
-//! registry.load_yaml(prompt_doc).expect("well-formed prompt definition");
+//! let prompt = Prompt::from_yaml(prompt_doc).expect("well-formed prompt definition");
 //!
 //! let vars = Greeting { name: "Ada".to_string(), count: 3 };
 //! // No guard expansion here, so a default (disabled) GuardConfig.
-//! let result = render(&registry, "greet", &vars, None, &GuardConfig::default())
+//! let result = prompt.render(&vars, None, &GuardConfig::default())
 //!     .expect("valid vars render");
 //!
 //! assert_eq!(result.text, "Hi Ada, you have 3 messages");
@@ -180,7 +171,9 @@ pub use prompting_press_core as core;
 /// depending on the kernel directly. This crate re-exports but NEVER hand-edits the
 /// generated module (which lives in `prompting-press-core`).
 pub use prompting_press_core::generated::prompt_definition;
-pub use prompting_press_core::generated::prompt_definition::PromptDefinition;
+pub use prompting_press_core::generated::prompt_definition::{
+    PromptDefinition, PromptVariable, PromptVariant,
+};
 
 /// Re-export the kernel's `RenderResult` (library-owned render output; FR-009). The
 /// consumer surfaces it 1:1 rather than redefining a parallel shape (C-01).
@@ -191,31 +184,27 @@ pub use prompting_press_core::RenderResult;
 /// never leak (Principle VI / C-06; FR-014/FR-015).
 pub mod error;
 
-/// The prompt [`Registry`]: name → `PromptDefinition`. Backed by a `BTreeMap` for
-/// deterministic `check()` ordering (FR-008a).
-pub mod registry;
+/// Validate-then-render + `get_source` + advisory lint: all operations are methods on
+/// [`Prompt`] (spec 008 reshape). The free-fn entry points (`render`, `get_source`, `check`)
+/// and the `Registry` lookup table are removed; the `Prompt` is now the primary type.
+pub mod prompt;
 
-/// Validate-then-render + `get_source` wrappers over the kernel (FR-001..003a, FR-009/010).
-pub mod render;
-
-/// The agreement + provenance lint: a pure CI pass over the [`Registry`] that catches
-/// undeclared-variable references and untrusted-input-without-guard prompts (FR-016..020).
+/// The advisory lint types: [`CheckReport`], [`Finding`], [`FindingKind`]. The lint itself
+/// is [`Prompt::check`] (a method); this module contains the shared report types and the
+/// crate-internal agreement helpers.
 pub mod check;
 
-/// Multi-message composition: an explicit ordered `Vec` of `(prompt, vars, variant)` entries
-/// (`append_*`, never `.chain()`) resolving to `[{role, text}]` messages (FR-012/013).
+/// Multi-message composition: an explicit ordered `Vec` of `(Prompt, vars, variant)` entries
+/// (`append`, never `.chain()`) resolving to `[{role, text}]` messages (FR-012/013).
+/// No Registry — each entry holds an owned `Prompt`.
 pub mod compose;
 
 pub use error::{ConsumerError, FieldError};
-pub use registry::Registry;
+pub use prompt::{Prompt, PromptOverlay};
 
-/// Re-export the validate-then-render entry points at the crate root so applications reach
-/// them as `prompting_press::render` / `prompting_press::get_source`.
-pub use render::{get_source, render};
-
-/// Re-export the lint entry point + its report types at the crate root so applications reach
-/// them as `prompting_press::check` / `prompting_press::{CheckReport, Finding, FindingKind}`.
-pub use check::{check, CheckReport, Finding, FindingKind};
+/// Re-export the lint report types at the crate root so applications reach them as
+/// `prompting_press::{CheckReport, Finding, FindingKind}`.
+pub use check::{CheckReport, Finding, FindingKind};
 
 /// Re-export the composition types at the crate root so applications reach them as
 /// `prompting_press::{Composition, Message}`.

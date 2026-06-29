@@ -1,0 +1,52 @@
+{
+  "name": "product-description",
+  "role": "assistant",
+  "body": "Here is a professional product description for {{product_name}}:\n\n{{product_name}} is designed for {{target_audience}}. Key features include {{features}}.",
+  "variables": {
+    "product_name": {
+      "type": "string",
+      "origin": "trusted"
+    },
+    "target_audience": {
+      "type": "string",
+      "origin": "trusted",
+      "description": "Primary customer segment."
+    },
+    "features": {
+      "type": "array",
+      "origin": "trusted",
+      "description": "List of key product features."
+    },
+    "reviewer_notes": {
+      "type": "string",
+      "origin": "external",
+      "description": "Optional notes from an external content reviewer."
+    }
+  },
+  "variants": {
+    "seo-optimised": {
+      "body": "{{product_name}} — the top choice for {{target_audience}}. With features like {{features}}, it outperforms competitors.",
+      "metadata": {
+        "weight": 0.5,
+        "group": "seo-ab-test",
+        "tags": ["seo", "conversion"],
+        "notes": "Optimised for search ranking; avoid in brand-voice contexts."
+      }
+    },
+    "casual-tone": {
+      "body": "Looking for something great? {{product_name}} has everything {{target_audience}} needs: {{features}}!",
+      "metadata": {
+        "weight": 0.2,
+        "group": "tone-experiment",
+        "tags": ["casual", "b2c"]
+      }
+    }
+  },
+  "metadata": {
+    "weight": 0.3,
+    "group": "seo-ab-test",
+    "tags": ["formal", "default"],
+    "reviewed": true,
+    "locale": "en-US"
+  }
+}

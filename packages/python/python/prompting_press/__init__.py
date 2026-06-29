@@ -8,7 +8,7 @@ or analysis logic of its own (Principle II / roadmap decision C-02).
 The public API is re-exported here from the compiled Rust extension (the PyO3 binding crate
 ``crates/prompting-press-py``), built and merged into this package by maturin. In the mixed
 Rust/Python layout the extension lands as the submodule ``prompting_press.prompting_press``;
-this ``__init__`` re-exports its public names so callers use ``prompting_press.render`` etc.
+this ``__init__`` re-exports its public names so callers use ``prompting_press.Prompt`` etc.
 ``PromptDefinition`` is the Pydantic prompt-definition shape, code-generated from the published
 JSON Schema (decision C-07).
 
@@ -27,20 +27,16 @@ from .prompting_press import (  # the compiled extension submodule
     GuardConfig,
     LoadError,
     Message,
+    Prompt,
     PromptingPressError,
     PromptRenderError,
     PromptValidationError,
-    Registry,
     RenderResult,
-    UnknownPromptError,
-    check,
     core_version,
-    get_source,
-    render,
 )
 
-# The generated Pydantic prompt-definition shape (codegen'd from the JSON Schema — C-07).
-from .generated import PromptDefinition
+# The generated Pydantic prompt-definition shapes (codegen'd from the JSON Schema — C-07).
+from .generated import PromptDefinition, PromptVariable, PromptVariant
 
 try:
     # The PyPI distribution name is ``prompting-press`` (the import name is ``prompting_press``).
@@ -49,22 +45,28 @@ except PackageNotFoundError:  # pragma: no cover — editable / unbuilt source t
     __version__ = "0.0.0"
 
 __all__ = [
-    "Registry",
+    # Primary public type (spec 008 Phase 4).
+    "Prompt",
+    # Result + config types.
     "RenderResult",
     "GuardConfig",
+    # Structured error row.
     "FieldError",
+    # Lint report types.
     "CheckReport",
     "Finding",
+    # Multi-message composition.
     "Composition",
     "Message",
-    "render",
-    "get_source",
-    "check",
+    # Kernel version accessor.
     "core_version",
+    # Generated prompt-definition shapes.
     "PromptDefinition",
+    "PromptVariable",
+    "PromptVariant",
+    # Exception hierarchy.
     "PromptingPressError",
     "PromptValidationError",
     "PromptRenderError",
-    "UnknownPromptError",
     "LoadError",
 ]

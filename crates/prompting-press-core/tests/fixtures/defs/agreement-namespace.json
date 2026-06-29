@@ -5,7 +5,7 @@
   "variables": {
     "n": {
       "type": "integer",
-      "provenance": "trusted",
+      "origin": "trusted",
       "description": "An external root; `namespace` is an engine global (allowlisted out), `ns` is a set target."
     }
   }

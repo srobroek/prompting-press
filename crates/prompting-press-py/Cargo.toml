@@ -38,6 +38,14 @@ prompting-press = { path = "../prompting-press" }
 # Principle I). A value-type dependency, NOT engine logic: no rendering happens in this crate.
 minijinja = { workspace = true }
 
+# `serde` is the trait bound used in `prompt.rs`'s `map_to_pydict` helper (serializing
+# `HashMap<String, T>` to a Python dict via `serde_json::to_value`).
+serde = { workspace = true }
+
+# `serde_yaml_ng` is the YAML parser used by the backward-compat registry shim
+# (registry.rs `load_yaml`). Same version pin as the consumer crate.
+serde_yaml_ng = "0.10"
+
 # `serde_json` is the lossless serde intermediate for the marshaling bridge: a Python
 # object is `depythonize`d into a `serde_json::Value`, then re-serialized into a
 # `minijinja::Value` via `from_serialize` (the same primitive the Rust consumer uses).
@@ -52,13 +60,15 @@ serde_json = { workspace = true }
 version = "0.29"
 features = ["auto-initialize"]
 
-# `abi3-py310` targets the stable ABI (one wheel across CPython >= 3.10), which is the
-# intended distribution shape. `extension-module` is intentionally NOT listed here — it is the
-# opt-in `[features]` flag above, enabled only by the maturin wheel build, so `cargo test` can
-# link a dev libpython and run the `Python::attach` unit tests (T012/T025).
+# `abi3-py312` targets the stable ABI (one wheel across CPython >= 3.12), which is the
+# intended distribution shape. Floor raised 3.10 -> 3.12 in spec 008 (pre-publish; matches
+# pyproject `requires-python = ">=3.12"` and gives stdlib `tomllib`). `extension-module` is
+# intentionally NOT listed here — it is the opt-in `[features]` flag above, enabled only by the
+# maturin wheel build, so `cargo test` can link a dev libpython and run the `Python::attach`
+# unit tests (T012/T025).
 [dependencies.pyo3]
 version = "0.29"
-features = ["abi3-py310"]
+features = ["abi3-py312"]
 
 # `pythonize` is the serde bridge for marshaling Python values (via PyO3) into the
 # kernel's serde `Value` type. Version-matched to pyo3 0.29.

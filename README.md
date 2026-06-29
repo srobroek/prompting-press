@@ -1,63 +1,144 @@
 # Prompting Press
 
-A typed, versioned, variant-aware **prompt-template library** with one shared engine across
-languages. One prompt definition renders byte-identically in Python, TypeScript, and Rust — by
-construction (a single compiled Rust core), not by per-language reimplementation.
+A typed, variant-aware **prompt-template library** — the prompt analogue of a typed config
+system. It turns *typed inputs + a template* into *rendered text + content-addressed provenance*,
+across **Rust, Python, and TypeScript** from one shared compiled Rust engine. Byte-identical
+output across all three by construction (constitution Principle I), not by re-implementation.
 
-> **Status:** Specs 001–005 implemented — Foundations (001), the engine kernel (002), the Rust
-> consumer API (003), the **Python binding** (004, `prompting-press-py` via PyO3 + Pydantic), and the
-> **TypeScript binding** (005, `prompting-press-node` via napi-rs + Zod). Prompts render with
-> typed-input validation, the agreement/provenance lint, and composition from **Rust, Python, and
-> TypeScript** today — with byte-identical provenance hashes across all three (the shared-core
-> guarantee, Principle I). The conformance corpus (006) and the remaining specs (007–009) follow.
+**The headline feature:** the **sound agreement check** catches a template that references a
+variable the prompt never declared — at construction time and as a CI lint — never as a silent
+empty render.
 
-## What it is (and isn't)
+> **Status:** Specs 001–009 implemented. Prompts render with typed-input validation, the
+> agreement lint, content-addressed provenance, variants, and multi-message composition from
+> Rust, Python, and TypeScript today.
 
-It parses/validates/renders prompt text and stamps content-addressed provenance. It deliberately does
-**no** I/O, no LLM calls, no request-body assembly, no token counting, and no output parsing — it stays
-a drop-in alongside any call layer (constitution Principle III).
+## Documentation
+
+**[Full docs site →](https://srobroek.github.io/prompting-press/)**
+
+The docs site covers:
+- [Getting started](https://srobroek.github.io/prompting-press/getting-started/rust/) (Rust / Python / TypeScript)
+- [API reference](https://srobroek.github.io/prompting-press/reference/rust/) per language
+- [Template features](https://srobroek.github.io/prompting-press/templates/) (what MiniJinja features are supported)
+- [How-to guides](https://srobroek.github.io/prompting-press/guides/lint-in-ci/) (CI lint, variants, composition, guard)
+- [FAQ](https://srobroek.github.io/prompting-press/faq/)
+
+## Quick start
+
+### Rust
+
+```toml
+# Cargo.toml
+[dependencies]
+prompting-press = "0.0.0"
+garde = { version = "0.22", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+```
+
+```rust
+use prompting_press::Prompt;
+use garde::Validate;
+use serde::Serialize;
+use prompting_press_core::GuardConfig;
+
+#[derive(Serialize, Validate)]
+struct Vars { #[garde(length(min = 1))] name: String }
+
+let p = Prompt::from_yaml(r#"
+name: greet
+role: user
+body: "Hi {{ name }}"
+variables:
+  name: { type: string, origin: trusted }
+"#)?;
+
+let result = p.render(&Vars { name: "Ada".into() }, None, &GuardConfig::default())?;
+println!("{}", result.text);           // "Hi Ada"
+println!("{}", result.template_hash);  // 64-char SHA-256
+```
+
+### Python
+
+```bash
+pip install prompting-press
+```
+
+```python
+from prompting_press import Prompt
+from pydantic import BaseModel
+
+class Vars(BaseModel):
+    name: str
+
+p = Prompt.from_yaml("""
+name: greet
+role: user
+body: "Hi {{ name }}"
+variables:
+  name: { type: string, origin: trusted }
+""")
+
+result = p.render(Vars, data={"name": "Ada"})
+print(result.text)           # "Hi Ada"
+print(result.template_hash)  # 64-char SHA-256
+```
+
+### TypeScript
+
+```bash
+npm install prompting-press zod
+```
+
+```ts
+import { z } from "zod";
+import { Prompt } from "prompting-press";
+
+const Vars = z.object({ name: z.string() });
+
+const p = Prompt.fromYaml(`
+name: greet
+role: user
+body: "Hi {{ name }}"
+variables:
+  name: { type: string, origin: trusted }
+`);
+
+const result = p.render(Vars, { name: "Ada" });
+console.log(result.text);          // "Hi Ada"
+console.log(result.templateHash);  // 64-char SHA-256
+```
+
+## What it deliberately does not do
+
+- No I/O — you push prompt data in; the library never reads files, a database, or the network.
+- No LLM calls, no provider request-body assembly, no token counting, no output parsing.
+- The untrusted-input guard is advisory text, not enforcement.
 
 ## Architecture
 
 ```
 crates/
 ├── prompting-press-core/   # FFI-free engine kernel (the shared core)
-├── prompting-press/        # public Rust consumer API (re-exports generated types)
-├── prompting-press-py/     # PyO3 binding (cdylib) — the only crate that may use pyo3
-└── prompting-press-node/   # napi-rs binding (cdylib) — the only crate that may use napi
+├── prompting-press/        # public Rust consumer API
+├── prompting-press-py/     # PyO3 binding
+└── prompting-press-node/   # napi-rs binding
 packages/
-├── python/                 # maturin-built wheel wrapper
-├── typescript/             # napi-rs npm package wrapper
-└── go/                     # reserved placeholder (deferred; no toolchain)
-schemas/jsonschema/         # prompt-definition.schema.json — the SINGLE SOURCE OF TRUTH
+├── python/                 # maturin-built wheel
+└── typescript/             # napi-rs npm package
+schemas/jsonschema/         # prompt-definition.schema.json — single source of truth
+docs/site/                  # Astro + Starlight docs site
 ```
-
-The JSON Schema is authoritative; the per-language shapes (Pydantic v2 / TS types / Rust serde structs)
-are **code-generated** from it and committed, then freshness-gated in CI. FFI deps (`pyo3`/`napi`) are
-mechanically kept out of the kernel and consumer crates.
 
 ## Develop
 
-Toolchain is pinned via [`mise`](https://mise.jdx.dev) (`mise install`) and orchestrated with
-[`moon`](https://moonrepo.dev). Run tasks with `mise exec -- moon run <task>`:
+Toolchain pinned via [`mise`](https://mise.jdx.dev) (`mise install`), orchestrated with
+[`moon`](https://moonrepo.dev):
 
-| Task | What it does |
-|------|--------------|
-| `:build` | build all 4 crates |
-| `:codegen` | regenerate the 3 language shapes from the schema |
-| `schemas:check-schema` | meta-validate the schema (Draft 2020-12) |
-| `schemas:validate-fixtures` | accept/reject fixture suite |
-| `schemas:codegen-check` | codegen-freshness gate (regenerate → no diff) |
-| `ci:check-ffi` | FFI-isolation gate (no pyo3/napi in kernel/consumer) |
-| `ci:check-floating-versions` | reject floating dependency versions (SEC-003) |
-| `ci:check-advisories` | scan Rust deps for known CVEs (cargo-deny + RustSec) |
-| `ci:check-advisories-py` | scan Python deps for known CVEs (pip-audit + OSV) |
-| `ci:test-python` | build the `prompting-press-py` extension + run pytest & its cargo tests |
+```bash
+mise exec -- moon run :build        # build all crates
+mise exec -- moon run :codegen      # regenerate language shapes from the schema
+pnpm -C docs/site build             # build the docs site
+```
 
-Generated files under `**/generated/` are **never hand-edited** — regenerate and commit.
-
-## Governance
-
-Development follows a spec-driven workflow. The project [constitution](.specify/memory/constitution.md)
-(v1.1.0, Principles I–VII) and [spec roadmap](.specify/memory/roadmap.md) (specs 001–009, decisions
-C-01..C-11) are the artifacts of record. Licensed under Apache-2.0.
+Licensed under Apache-2.0.

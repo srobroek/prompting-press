@@ -1,0 +1,147 @@
+---
+title: "FAQ"
+description: "Frequently asked questions about Prompting Press."
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## General
+
+### What is Prompting Press?
+
+A typed, variant-aware **prompt-template library** — the prompt analogue of a typed config system.
+It turns typed inputs and a template into rendered text and content-addressed hashes, and nothing
+else. It works from Rust, Python, and TypeScript via one shared compiled Rust engine.
+
+### Does it call an LLM?
+
+No. The library performs no I/O, makes no LLM calls, assembles no provider request body, counts
+no tokens, and parses no model output. It sits alongside any call layer (LangChain, OpenRouter,
+the direct Anthropic/OpenAI API, etc.).
+
+### Is it a registry / prompt store?
+
+No. There is no `Registry` surface. `Prompt` objects are constructed from YAML/JSON/TOML text (or
+from a shape dict/object) and held directly — in a module-level constant, a DI container, a config
+struct, or wherever fits the application. Versioning and history are owned by git.
+
+---
+
+## The agreement check
+
+### What is the agreement check?
+
+The **sound agreement check**: a template's referenced variable names must be a subset of the
+prompt's declared `variables` map. If any referenced name is absent,
+construction fails with `undefined_variable` — never a silent empty render. This is a
+construction-time guarantee (not a CI-only optional).
+
+### Is the agreement check the same as `check()`?
+
+No. They cover different things:
+
+- **Agreement check** — enforced at `Prompt::new` / `from_yaml` / `from_json` / `from_toml`.
+  Catches `template references ⊄ declared variables`. Hard error; a `Prompt` that constructs
+  is always agreement-sound.
+- **`check()`** — pure advisory lint on a constructed `Prompt`. The only live finding it can
+  return is `untrusted_without_guard`: a declared `untrusted`/`external` variable without a
+  guard key. Advisory only — rendering still succeeds.
+
+---
+
+## Origin and types
+
+### Is `origin` enforced at runtime?
+
+**No.** The `origin` tag (`trusted` / `untrusted` / `external`) is **declarative metadata** —
+the rendering kernel does not gate, block, or alter rendering based on it. An `untrusted` field
+renders exactly as a `trusted` field. The tag drives:
+
+1. `check()` advisory — prompts with `untrusted`/`external` vars and no guard key produce an
+   advisory finding.
+2. The opt-in guard text — when `GuardConfig { enabled: true }` is passed to `render`, the
+   `RenderResult.guard` string names the untrusted/external fields.
+
+Neither of these is enforcement. Actual sanitization belongs in the application layer, before the
+vars are constructed.
+
+### Is `variables[].type` enforced at runtime?
+
+**No** — and that is intentional. The `type` field on a `PromptVariable` (e.g. `type: string`)
+declares the variable's logical type. The rendering kernel does not inspect it; runtime type
+enforcement is owned by the Vars model (garde / Pydantic / Zod). What `type` *does* is record the
+variable's shape in the language-neutral prompt definition, so a typed Vars model can be
+**generated** from it (`string` → `str` / `string` / `String`, `integer` → `int` / `number` /
+`i64`, and so on) and then extended by hand. It is the one piece of per-variable metadata with a
+concrete consumer: the definition carries enough to scaffold the per-language Vars model, rather
+than each language re-declaring the field shape from scratch.
+
+### What is `validation_required`?
+
+`validation_required: true` on a `PromptVariable` signals that the calling code **must** supply a
+validator covering that variable at construction time. In Python and TypeScript, construction
+raises/throws if a `validation_required` variable is not covered by the supplied `validators`
+class/schema. In Rust, coverage is structural — the generic `V` at the `render<V>()` call site
+must declare the field or the code won't compile.
+
+---
+
+## Content hashes
+
+### What is `template_hash` / `render_hash`?
+
+Every `RenderResult` carries two content-addressed SHA-256 hashes:
+
+- `template_hash` — `SHA256(resolved variant template source)`. The exact bytes the kernel
+  renders against.
+- `render_hash` — `SHA256(rendered output text)`.
+
+They are returned as data on the render result — nothing is sent anywhere (no telemetry, no OTel
+coupling). Storing them in a trace pins exactly which template produced which output. Because all
+three bindings share the same Rust engine, the hashes are **byte-identical** across Rust, Python,
+and TypeScript for the same inputs.
+
+### Is `template_hash` / `render_hash` the same as the per-variable `origin` tag?
+
+No. They are different concepts:
+
+- **`origin`** — a per-variable trust classification (`trusted` / `untrusted` / `external`).
+  Set in the prompt definition. Declarative metadata.
+- **`template_hash` / `render_hash`** — content-addressed fingerprints of the template source
+  and the rendered output. Computed at render time and returned on the result.
+
+---
+
+## Guard
+
+### Is the advisory guard a sanitizer?
+
+No. The guard text **names** the untrusted/external fields in an advisory instruction; it does
+not inspect, escape, or rewrite any bound value. Enabling the guard does not change `result.text`
+at all — the rendered body is byte-for-byte identical with or without a guard.
+
+### How do I actually protect against prompt injection?
+
+The library's scope is narrow. Prompt-injection protection is the application's responsibility:
+apply sanitization in the application layer before building the vars, and route the guard text as
+a system-prompt addendum that instructs the downstream model. The library's role is to name which
+fields are untrusted (via `origin`) and to surface that advisory in the guard text — it does not
+provide the protection itself.
+
+---
+
+## API surface
+
+### Why is there no `.chain()` on `Composition`?
+
+A fluent `.chain()` cannot cross the PyO3/napi FFI boundary (the bindings cannot return `Self`
+through FFI), and it would collide with `Iterator::chain` in Rust. The builder pattern is
+`new() + append()` — `append` returns `Result<(), ConsumerError>` / `void` / raises, not `Self`,
+so it is intentionally not chainable.
+
+### Why does `Composition` use no guard expansion?
+
+Composition renders each entry against a default `GuardConfig` (opt-out). The guard text is
+per-render, not per-composition. To obtain the guard for entries in a multi-message sequence,
+render each entry individually with `prompt.render(...)` and route the guard text as a separate
+system message.

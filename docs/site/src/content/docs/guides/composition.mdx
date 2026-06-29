@@ -1,0 +1,227 @@
+---
+title: "Compose multi-message prompts"
+description: "Use Composition to build an ordered sequence of (Prompt, vars, variant?) entries that resolves to a list of role-tagged messages."
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+`Composition` is an **explicit, ordered** sequence of `(Prompt, vars, variant?)` entries that
+resolves to a `Vec<Message>` / `list[Message]` / `Message[]` in append order. It is the
+few-shot / system+user sequence builder.
+
+There is **no registry** — each entry holds a `Prompt` object directly. There is deliberately
+**no fluent `.chain()` API** (it cannot cross the PyO3/napi FFI boundary and collides with
+`Iterator::chain` in Rust / standard JS idiom).
+
+An entry is `(prompt, vars, variant?)` everywhere; only its **spelling** differs by language idiom:
+Rust and Python pass them as positional args to `append` (Python also accepts `(prompt, vars[,
+variant])` tuples in `from_messages`), while TypeScript takes a single `CompositionEntry` object
+(`{ prompt, schema?, data, variant? }`) — matching how `render` is shaped in each language.
+
+## The validate-then-render guarantee
+
+Validation is **eager** — at `append` time in Rust/Python, at `append`/`fromMessages` time in
+TypeScript. An invalid entry is rejected immediately and nothing is stored. `resolve()` therefore
+only ever sees fully-validated entries. If any entry fails at `resolve` (unknown variant,
+strict-undefined reference), the whole call fails and no partial result is returned.
+
+## Building a composition
+
+<Tabs syncKey="construct">
+<TabItem label="Rust">
+```rust
+use prompting_press::{Composition, Prompt, PromptDefinition};
+use garde::Validate;
+use serde::Serialize;
+
+#[derive(Serialize, Validate)]
+struct SysVars {
+    #[garde(length(min = 1))]
+    instructions: String,
+}
+
+#[derive(Serialize, Validate)]
+struct UserVars {
+    #[garde(length(min = 1))]
+    query: String,
+}
+
+// Build the two prompts inline from their shape, so the content is explicit.
+let sys_def: PromptDefinition = serde_json::from_value(serde_json::json!({
+    "name": "system-preamble",
+    "role": "system",
+    "body": "{{ instructions }}",
+    "variables": { "instructions": { "type": "string", "origin": "trusted" } }
+}))?;
+let user_def: PromptDefinition = serde_json::from_value(serde_json::json!({
+    "name": "user-turn",
+    "role": "user",
+    "body": "{{ query }}",
+    "variables": { "query": { "type": "string", "origin": "untrusted" } }
+}))?;
+
+let sys = Prompt::new(sys_def)?;
+let user = Prompt::new(user_def)?;
+
+let mut comp = Composition::new();
+comp.append(
+    &sys,
+    &SysVars { instructions: "Be concise.".into() },
+    None,   // variant = None → default arm
+)?;
+comp.append(
+    &user,
+    &UserVars { query: "What is Rust?".into() },
+    None,
+)?;
+
+let messages = comp.resolve()?;
+for m in &messages {
+    println!("{}: {}", m.role, m.text);
+    // "system: Be concise."
+    // "user: What is Rust?"
+}
+```
+
+`Composition::append<V>(&mut self, prompt: &Prompt, vars: &V, variant: Option<&str>)` returns
+`Result<(), ConsumerError>`. On a garde failure the entry is NOT stored.
+
+`Composition::resolve(&self)` returns `Result<Vec<Message>, ConsumerError>`. Each `Message`
+carries `role: String` and `text: String`.
+</TabItem>
+<TabItem label="Python">
+```python
+from prompting_press import Composition, Prompt
+from pydantic import BaseModel
+
+class SysVars(BaseModel):
+    instructions: str
+
+class UserVars(BaseModel):
+    query: str
+
+# Build the two prompts inline from their shape, so the content is explicit.
+sys_prompt = Prompt({
+    "name": "system-preamble",
+    "role": "system",
+    "body": "{{ instructions }}",
+    "variables": {"instructions": {"type": "string", "origin": "trusted"}},
+})
+user_prompt = Prompt({
+    "name": "user-turn",
+    "role": "user",
+    "body": "{{ query }}",
+    "variables": {"query": {"type": "string", "origin": "untrusted"}},
+})
+
+comp = Composition()
+comp.append(sys_prompt, SysVars(instructions="Be concise."))
+comp.append(user_prompt, UserVars(query="What is Rust?"))
+
+messages = comp.resolve()
+for m in messages:
+    print(m.role, m.text)
+    # "system" "Be concise."
+    # "user"   "What is Rust?"
+```
+
+`append` accepts a Pydantic model **instance** (already-constructed). Validation happens eagerly;
+a `PromptValidationError` is raised and nothing is stored on failure.
+
+```python
+# Successful append — model instance passes Pydantic validation:
+comp = Composition()
+comp.append(sys_prompt, SysVars(instructions="Be concise."))
+
+# Failed append — Pydantic rejects the empty string; nothing is stored:
+from prompting_press import PromptValidationError
+
+class StrictVars(BaseModel):
+    query: str = Field(min_length=1)
+
+try:
+    comp.append(user_prompt, StrictVars(query=""))   # raises before storage
+except PromptValidationError as exc:
+    print(exc.errors[0].field)    # "query"
+    print(exc.errors[0].code)     # "string_too_short" (or similar)
+    # comp is unchanged — the failed entry was never stored
+```
+
+Build a composition from a list of `(prompt, vars)` or `(prompt, vars, variant)` tuples:
+
+```python
+comp = Composition.from_messages([
+    (sys_prompt,  SysVars(instructions="Be concise.")),
+    (user_prompt, UserVars(query="What is Rust?"), "detailed"),
+])
+messages = comp.resolve()
+```
+</TabItem>
+<TabItem label="TypeScript">
+```ts
+import { z } from "zod";
+import { Composition, Prompt } from "prompting-press";
+
+const SysVars = z.object({ instructions: z.string().min(1) });
+const UserVars = z.object({ query: z.string().min(1) });
+
+// Build the two prompts inline from their shape, so the content is explicit.
+const sysPrompt = new Prompt({
+  name: "system-preamble",
+  role: "system",
+  body: "{{ instructions }}",
+  variables: { instructions: { type: "string", origin: "trusted" } },
+});
+const userPrompt = new Prompt({
+  name: "user-turn",
+  role: "user",
+  body: "{{ query }}",
+  variables: { query: { type: "string", origin: "untrusted" } },
+});
+
+// fromMessages: all validation runs before any Composition state is created.
+const comp = Composition.fromMessages([
+  { prompt: sysPrompt,  schema: SysVars, data: { instructions: "Be concise." } },
+  { prompt: userPrompt, schema: UserVars, data: { query: "What is Rust?" } },
+]);
+
+const messages = comp.resolve();
+for (const m of messages) {
+  console.log(m.role, m.text);
+  // "system" "Be concise."
+  // "user"   "What is Rust?"
+}
+```
+
+In TypeScript an entry is a `CompositionEntry` object (the analogue of Rust/Python's positional
+args):
+```ts
+{
+  prompt: Prompt;
+  schema?: ZodLikeSchema;  // optional — present → safeParse(data) runs at append
+  data: unknown;
+  variant?: string;
+}
+```
+
+`append(entry)` → `void` (not chainable).
+`Composition.fromMessages(entries)` → `Composition` (all validation runs before any state is
+created; the first failure aborts).
+</TabItem>
+</Tabs>
+
+## Message shape
+
+```
+{ role: string, text: string }
+```
+
+`role` is taken from the `Prompt`'s definition (`"system"` / `"user"` / `"assistant"`).
+`text` is the rendered body. Composition uses no guard expansion — the `RenderResult.guard` field
+is not accessible from composition; use individual `Prompt.render` calls to access the guard.
+
+<Aside type="note">
+**No partial results.** If any entry fails at `resolve` (unknown variant, strict-undefined
+variable), the whole `resolve()` call fails and the partial list built so far is discarded. An
+empty composition resolves to an empty list (`[]` / `Ok(vec![])`) — not an error.
+</Aside>

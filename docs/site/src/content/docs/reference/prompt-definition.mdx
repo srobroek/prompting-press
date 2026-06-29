@@ -1,0 +1,98 @@
+---
+# AUTO-GENERATED — do not edit by hand.
+# Source: schemas/jsonschema/prompt-definition.schema.json
+# Regenerate: pnpm -C docs/site build  (runs scripts/gen-shape-table.mjs as prebuild).
+title: "Prompt Definition"
+description: "Complete field reference for the prompt-definition document."
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+<Aside type="note">
+Automatically generated from the prompt-definition JSON Schema.
+</Aside>
+
+A prompt definition is a YAML, JSON, or TOML document that the `Prompt` object is constructed from.
+The shape is defined **once** as a JSON Schema; the per-language typed forms (Pydantic v2, TypeScript
+types, Rust serde structs) are **code-generated** from it at build time and never hand-maintained.
+
+---
+
+## Top-level fields
+
+`name`, `role`, and `body` are **required**. All other fields are optional.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | `string` | Yes | Logical prompt name; the caller's reference key. |
+| `role` | `"system" \| "user" \| "assistant"` | Yes | Conversational role; first-class metadata the caller reads. Shared across all variants. |
+| `body` | `string` | Yes | The DEFAULT variant's template source. The root body IS the default arm; surfaced under reserved name 'default' with is_default=true. |
+| `variables` | `object` | No | Declared input variables, shared across all variants. Each entry declares the variable's type and input-trust origin. Default: `{}`. |
+| `variants` | `object` | No | Named alternative arms. Absent => the prompt has only the default (root body) arm. Each arm differs ONLY in body (+ optional opaque metadata). |
+| `output_model` | `string` | No | Optional OPAQUE reference to the caller's output model (e.g. 'NodeOutput'). Stored and echoed; never resolved, loaded, or parsed. Shared across variants. |
+| `metadata` | `object` | No | Arbitrary prompt-level metadata; library-OPAQUE (may include uninterpreted model/param hints, selection labels like weight/group/tags, or a `guard` key). Stored and echoed; never interpreted by the library. The prompt and each variant each carry exactly one `metadata` bag. |
+
+---
+
+## `variables[*]` — PromptVariable
+
+Each entry in the `variables` map is a `PromptVariable`. The `type` and `origin` fields are required.
+The optional `description` field is a human-readable annotation; validation constraints belong in the
+per-language validator (Zod / Pydantic / garde) and are not part of this shape.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | `"string" \| "integer" \| "number" \| "boolean" \| "array" \| "object" \| array` | Yes | JSON-Schema type keyword(s) for the variable. |
+| `origin` | `"trusted" \| "untrusted" \| "external"` | Yes | Per-field input-trust tag. DECLARATIVE METADATA ONLY — the library does not enforce this tag at render time; it is not a security guard by itself. Use `check()` to detect `untrusted`/`external` variables that lack a declared guard, and enable the opt-in guard to receive advisory guard text. This per-variable trust tag is distinct from the render-result content hashes (`template_hash`/`render_hash`). |
+| `validation_required` | `boolean` | No | When true, a validator covering this variable MUST be supplied when the Prompt is constructed. Orthogonal to `origin` — it MAY mark any variable, not only untrusted/external ones. Declarative metadata; enforcement is per-language: TypeScript (Zod) and Python (Pydantic) introspect the supplied validator and throw/raise at construction if this variable is uncovered, while Rust guarantees coverage structurally at compile time. The kernel never reads this field (validation-blind). Default: `false`. |
+| `description` | `string` | No | Optional human-readable description of the variable. |
+
+### `origin` values
+
+The `origin` field is the **per-variable input-trust tag**.
+It is **declarative metadata** — the kernel does not enforce it at render time. Use `check()` to
+detect untrusted variables that lack a declared guard.
+
+- `"trusted"`
+- `"untrusted"`
+- `"external"`
+
+<Aside type="caution">
+**`origin` ≠ render-result content hashes.** The per-variable `origin` tag (trust classification)
+is distinct from the render-result hashes (`template_hash` / `render_hash`). The hashes are
+content-addressed fingerprints of the template source and the rendered output; `origin` is a
+per-field trust annotation. The two are not the same thing.
+</Aside>
+
+---
+
+## `variants[*]` — PromptVariant
+
+Each entry in the `variants` map is a named alternative arm. A variant carries only a `body` (its
+own template source) and an optional `metadata` map. Role, variables, and output model are shared
+across all variants.
+
+The name `"default"` is **reserved** for the root body; declaring a variant with that name is
+rejected at construction.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `body` | `string` | Yes | The variant's template source — the only field that differs per variant. |
+| `metadata` | `object` | No | Library-OPAQUE per-variant metadata (selection labels like weight/group/tags, or a `guard` key). Stored + exposed; never interpreted by the library (caller selects). No schema-enforced selection semantics. Mirrors the prompt-level `metadata` bag. |
+
+---
+
+## Content hashes (render-result)
+
+Every call to `render` returns a `RenderResult` that carries two content-addressed hashes (in
+addition to the rendered `text`):
+
+| Field | What it hashes |
+|-------|----------------|
+| `template_hash` (`templateHash` in TS) | `SHA256(resolved variant template source)` |
+| `render_hash` (`renderHash` in TS) | `SHA256(rendered output text)` |
+
+These hashes are **not** the same as the per-variable `origin` tag. They are content-addressed
+fingerprints that can be stored in a trace to pin exactly which template produced which output —
+and because all three bindings share the same Rust engine, the hashes are **byte-identical** across
+Rust, Python, and TypeScript for the same inputs.

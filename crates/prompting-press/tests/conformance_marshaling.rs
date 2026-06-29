@@ -11,7 +11,7 @@
 mod common;
 
 use common::{build_vars, load_marshaling_fixtures, RawVars};
-use prompting_press::{render, Registry};
+use prompting_press::Prompt;
 use prompting_press_core::{GuardConfig, PromptDefinition};
 
 #[test]
@@ -24,19 +24,13 @@ fn marshaling_fixtures_match_golden() {
     for (path, fx) in &fixtures {
         let def: PromptDefinition = serde_json::from_value(fx.definition.clone())
             .unwrap_or_else(|e| panic!("{}: invalid prompt definition: {e}", fx.case));
-        let name = def.name.clone();
-        let mut reg = Registry::new();
-        reg.insert(def);
+        let prompt =
+            Prompt::new(def).unwrap_or_else(|e| panic!("{}: Prompt::new failed: {e:?}", fx.case));
 
         let vars = RawVars(build_vars(&fx.input));
-        let result = render(
-            &reg,
-            &name,
-            &vars,
-            fx.variant.as_deref(),
-            &GuardConfig::default(),
-        )
-        .unwrap_or_else(|e| panic!("{} ({}): render failed: {e:?}", fx.case, path.display()));
+        let result = prompt
+            .render(&vars, fx.variant.as_deref(), &GuardConfig::default())
+            .unwrap_or_else(|e| panic!("{} ({}): render failed: {e:?}", fx.case, path.display()));
 
         // Guard against an un-regenerated fixture: an empty golden means T006 was never run.
         assert!(

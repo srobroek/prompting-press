@@ -6,8 +6,7 @@ body: "You are a helpful assistant. Today is {{date}}."
 variables:
   date:
     type: string
-    provenance: trusted
-    format: date
+    origin: trusted
     description: The current date injected by the server.
 output_model: GreetingOutput
 metadata:

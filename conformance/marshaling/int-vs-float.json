@@ -7,12 +7,12 @@
     "variables": {
       "count": {
         "description": "An integer count.",
-        "provenance": "trusted",
+        "origin": "trusted",
         "type": "integer"
       },
       "ratio": {
         "description": "A fractional float.",
-        "provenance": "trusted",
+        "origin": "trusted",
         "type": "number"
       }
     }

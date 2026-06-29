@@ -1,34 +1,23 @@
-"""US3 agreement + provenance lint tests for the PyO3 binding (`prompting_press`) — spec 004, T016.
+"""Agreement + provenance lint tests for the PyO3 binding — spec 008 Phase 4.
 
-US3 surfaces the shared core's pure analysis pass to Python as `prompting_press.check(reg)`.
-The lint is performed **once, in Rust** (Principle I / IV); the binding re-derives nothing and
-only converts the consumer's `CheckReport` into the Python pyclass, preserving the consumer's
-**deterministic finding order**. These tests prove every documented finding `kind` is reachable
-from Python, that the report's collection protocol behaves (`passed` / `is_empty` / `len` / `bool`),
-and — critically — that `check` is **pure**: it never mutates the registry and never renders
-(FR-019).
+The spec 008 reshape moves the lint from `check(reg)` (registry-keyed free function)
+to `prompt.check()` (per-Prompt method). These tests prove every documented finding
+`kind` is reachable from Python via `prompt.check()`, that `CheckReport` collection
+protocol works (`passed` / `is_empty` / `len` / `bool`), and that construction-time
+invariants (undeclared variables, reserved variant names, excluded features) are caught
+at `Prompt(...)` construction, not deferred to a lint pass.
 
-Observed `check` / `CheckReport` / `Finding` API (inspected from the built extension before
-asserting — not assumed):
+Key behavioral changes from the pre-reshape suite:
+- `undeclared_variable` and `reserved_variant_name` findings are now CONSTRUCTION
+  errors (Prompt(...) raises) — they are no longer lint findings. Only
+  `untrusted_without_guard` is a post-construction advisory from `prompt.check()`.
+- `analysis_error` (excluded template feature like `{% include %}`) is also a
+  CONSTRUCTION error post-reshape.
+- `check()` on a constructed Prompt returns at most `untrusted_without_guard` findings.
+- Multiple-prompt determinism: iterate a list of Prompt objects and collect findings.
 
-- `check(reg) -> CheckReport`. Pure analysis; an empty registry yields an empty, passing report.
-- `CheckReport`: `.findings` (a `list[Finding]`), `.passed() -> bool` (True iff no findings),
-  `.is_empty() -> bool`, `len(report)` == number of findings, `bool(report)` truthy iff there are
-  findings (so `bool` is the inverse of `passed()`), `repr` == `CheckReport(findings=N)`.
-- `Finding`: **read-only** `.prompt: str`, `.variant: str | None`, `.kind: str`, `.detail: str`.
-  `.kind` is one of the stable strings asserted below.
-
-Observed `kind` / `.variant` facts that shaped these assertions:
-
-- `undeclared_variable`   → `.variant == "default"` (per-variant; the implicit root arm is "default").
-- `untrusted_without_guard` → `.variant is None` (a **prompt-level** finding, not per-variant).
-- `reserved_variant_name` → `.variant == "default"` (the offending variant key).
-- `analysis_error`        → `.variant == "default"`; reachable via an excluded template feature
-  (e.g. `{% include %}`), which loads fine as a definition but cannot be statically analyzed —
-  `check` surfaces a finding rather than crashing.
-
-The provenance lint is satisfied by the mere **presence** of a `guard` key under either `meta` or
-`metadata`; both are asserted to clear the finding.
+Observed `kind` strings:
+- `untrusted_without_guard` → `.variant is None` (a prompt-level finding).
 """
 
 from __future__ import annotations
@@ -37,17 +26,14 @@ import pytest
 from pydantic import BaseModel
 
 import prompting_press
-from prompting_press import Registry, check, render
+from prompting_press import Prompt, PromptingPressError, PromptRenderError, PromptValidationError
 
 # --------------------------------------------------------------------------------------
 # The stable finding `kind` strings (the binding's public vocabulary). Asserted by value
 # so a rename in the core is caught here.
 # --------------------------------------------------------------------------------------
 
-KIND_UNDECLARED = "undeclared_variable"
 KIND_UNTRUSTED = "untrusted_without_guard"
-KIND_ANALYSIS = "analysis_error"
-KIND_RESERVED = "reserved_variant_name"
 
 
 def _kinds(report) -> list[str]:
@@ -60,28 +46,26 @@ def _signature(report) -> list[tuple[str, str, str | None]]:
 
 
 # --------------------------------------------------------------------------------------
-# 1. Clean registry passes — the no-findings contract (FR-016/FR-019 baseline)
+# 1. Clean prompt passes — the no-findings contract (FR-019 baseline)
 # --------------------------------------------------------------------------------------
 
 
-def test_clean_registry_passes_with_empty_report() -> None:
+def test_clean_prompt_passes_with_empty_report() -> None:
     """A well-formed prompt — every referenced var declared, no untrusted-without-guard,
     no reserved variant — produces no findings. The report's whole collection protocol
     agrees: passed / empty / len 0 / falsy."""
-    reg = Registry()
-    reg.insert(
+    p = Prompt(
         {
             "name": "greet",
             "role": "user",
             "body": "Hi {{ name }}, you have {{ count }} messages",
             "variables": {
-                "name": {"type": "string", "provenance": "trusted"},
-                "count": {"type": "integer", "provenance": "trusted"},
+                "name": {"type": "string", "origin": "trusted"},
+                "count": {"type": "integer", "origin": "trusted"},
             },
         }
     )
-
-    report = check(reg)
+    report = p.check()
 
     assert report.passed() is True
     assert report.is_empty() is True
@@ -90,59 +74,50 @@ def test_clean_registry_passes_with_empty_report() -> None:
     assert not bool(report)  # empty ⇒ falsy (inverse of passed())
 
 
-def test_empty_registry_passes() -> None:
-    """An empty registry yields an empty, passing report (documented `check` behavior)."""
-    report = check(Registry())
-
+def test_prompt_with_no_variables_passes() -> None:
+    """A prompt with no variables and no body references passes with an empty report."""
+    p = Prompt({"name": "bare", "role": "user", "body": "Hello, world!"})
+    report = p.check()
     assert report.passed() is True
     assert len(report) == 0
-    assert not report
 
 
 # --------------------------------------------------------------------------------------
-# 2. Undeclared variable — SC-004 / FR-016 (the headline agreement check)
+# 2. Undeclared variable — caught at construction (spec 008 Phase 4 invariant)
 # --------------------------------------------------------------------------------------
 
 
-def test_undeclared_variable_is_flagged_naming_the_variable() -> None:
-    """A body referencing `{{ ghost }}`, absent from the declared `variables`, is the
-    sound-agreement violation: a single `undeclared_variable` finding on the implicit
-    `default` arm, naming the prompt and the offending variable in `.detail`."""
-    reg = Registry()
-    reg.insert(
-        {
-            "name": "ghosty",
-            "role": "user",
-            "body": "Hi {{ name }} and {{ ghost }}",
-            "variables": {"name": {"type": "string", "provenance": "trusted"}},
-        }
-    )
-
-    report = check(reg)
-
-    assert not report.passed()
-    assert _kinds(report) == [KIND_UNDECLARED]
-
-    finding = report.findings[0]
-    assert finding.kind == KIND_UNDECLARED
-    assert finding.prompt == "ghosty"
-    assert finding.variant == "default"  # the implicit root arm is named "default"
-    assert "ghost" in finding.detail  # detail names the undeclared variable
+def test_undeclared_variable_is_a_construction_error() -> None:
+    """A body referencing `{{ ghost }}`, absent from the declared `variables`, is
+    caught at Prompt construction as a hard error — not a lint finding."""
+    with pytest.raises(PromptingPressError):
+        Prompt(
+            {
+                "name": "ghosty",
+                "role": "user",
+                "body": "Hi {{ name }} and {{ ghost }}",
+                "variables": {"name": {"type": "string", "origin": "trusted"}},
+            }
+        )
 
 
 def test_finding_attributes_are_read_only() -> None:
-    """`Finding` is an immutable view of the core's report — its fields cannot be set
-    from Python (reinforces the purity / no-mutation contract at the object level)."""
-    reg = Registry()
-    reg.insert({"name": "g", "role": "user", "body": "{{ ghost }}", "variables": {}})
-    finding = check(reg).findings[0]
-
+    """`Finding` is an immutable view — its fields cannot be set from Python."""
+    p = Prompt(
+        {
+            "name": "search",
+            "role": "user",
+            "body": "Query: {{ q }}",
+            "variables": {"q": {"type": "string", "origin": "untrusted"}},
+        }
+    )
+    finding = p.check().findings[0]
     with pytest.raises(AttributeError):
         finding.kind = "tampered"  # type: ignore[misc]
 
 
 # --------------------------------------------------------------------------------------
-# 3. Untrusted without guard — SC-005 / FR-017 (the provenance lint)
+# 3. Untrusted without guard — SC-005 / FR-017 (the provenance lint advisory)
 # --------------------------------------------------------------------------------------
 
 
@@ -151,17 +126,15 @@ def test_untrusted_variable_without_guard_is_flagged() -> None:
 
     This is a **prompt-level** finding, so `.variant is None` (it is not tied to a single
     rendered arm), and `.detail` names the offending field `q`."""
-    reg = Registry()
-    reg.insert(
+    p = Prompt(
         {
             "name": "search",
             "role": "user",
             "body": "Query: {{ q }}",
-            "variables": {"q": {"type": "string", "provenance": "untrusted"}},
+            "variables": {"q": {"type": "string", "origin": "untrusted"}},
         }
     )
-
-    report = check(reg)
+    report = p.check()
 
     assert _kinds(report) == [KIND_UNTRUSTED]
     finding = report.findings[0]
@@ -171,75 +144,53 @@ def test_untrusted_variable_without_guard_is_flagged() -> None:
     assert "q" in finding.detail
 
 
-@pytest.mark.parametrize("guard_key", ["meta", "metadata"])
-def test_guard_presence_under_meta_or_metadata_clears_the_finding(guard_key: str) -> None:
+def test_guard_presence_under_metadata_clears_the_finding() -> None:
     """The provenance lint is satisfied by the mere PRESENCE of a `guard` key under
-    either `meta` or `metadata`; the same untrusted prompt that was flagged above no
-    longer produces an `untrusted_without_guard` finding once a guard is declared."""
-    reg = Registry()
-    reg.insert(
+    `metadata`."""
+    p = Prompt(
         {
             "name": "search",
             "role": "user",
             "body": "Query: {{ q }}",
-            "variables": {"q": {"type": "string", "provenance": "untrusted"}},
-            guard_key: {"guard": "sanitized upstream"},
+            "variables": {"q": {"type": "string", "origin": "untrusted"}},
+            "metadata": {"guard": "sanitized upstream"},
         }
     )
-
-    report = check(reg)
-
-    assert report.passed(), f"a `guard` under `{guard_key}` should satisfy the lint"
+    report = p.check()
+    assert report.passed(), "a `guard` under `metadata` should satisfy the lint"
     assert KIND_UNTRUSTED not in _kinds(report)
 
 
 # --------------------------------------------------------------------------------------
-# 4. Reserved variant name — FR-018 (a variants map keyed literally `default`)
+# 4. Reserved variant name — caught at construction (spec 008 Phase 4 invariant)
 # --------------------------------------------------------------------------------------
 
 
-def test_variant_named_default_is_flagged_as_reserved() -> None:
-    """A `variants` map containing a key literally named `default` shadows the root body
-    and is unreachable; `check` flags it as `reserved_variant_name` on that variant."""
-    reg = Registry()
-    reg.insert(
-        {
-            "name": "rv",
-            "role": "user",
-            "body": "Base {{ x }}",
-            "variables": {"x": {"type": "string", "provenance": "trusted"}},
-            "variants": {"default": {"body": "Variant {{ x }}"}},
-        }
-    )
-
-    report = check(reg)
-
-    assert KIND_RESERVED in _kinds(report)
-    reserved = next(f for f in report.findings if f.kind == KIND_RESERVED)
-    assert reserved.prompt == "rv"
-    assert reserved.variant == "default"
+def test_variant_named_default_is_a_construction_error() -> None:
+    """A `variants` map containing a key literally named `default` is caught at Prompt
+    construction as a hard error — not a lint finding."""
+    with pytest.raises(PromptingPressError):
+        Prompt(
+            {
+                "name": "rv",
+                "role": "user",
+                "body": "Base {{ x }}",
+                "variables": {"x": {"type": "string", "origin": "trusted"}},
+                "variants": {"default": {"body": "Variant {{ x }}"}},
+            }
+        )
 
 
 # --------------------------------------------------------------------------------------
-# 5. Analysis error — an excluded template feature surfaces a finding, never a crash
+# 5. Excluded template feature — caught at construction (spec 008 Phase 4 invariant)
 # --------------------------------------------------------------------------------------
 
 
-def test_excluded_feature_surfaces_analysis_error_not_a_crash() -> None:
-    """A body using an excluded feature (`{% include %}`) is a valid prompt *definition*
-    (it loads) but cannot be statically analyzed for agreement. `check` must surface an
-    `analysis_error` finding rather than raise — the un-analyzable template is reported,
-    not fatal. (The consumer crate exercises this kind end-to-end; here we confirm it is
-    reachable from the Python surface and does not crash the binding.)"""
-    reg = Registry()
-    reg.insert({"name": "ae", "role": "user", "body": '{% include "x" %}'})
-
-    report = check(reg)  # must not raise
-
-    assert KIND_ANALYSIS in _kinds(report)
-    analysis = next(f for f in report.findings if f.kind == KIND_ANALYSIS)
-    assert analysis.prompt == "ae"
-    assert analysis.variant == "default"
+def test_excluded_feature_is_a_construction_error() -> None:
+    """A body using an excluded feature (`{% include %}`) is caught at Prompt
+    construction as a hard error (parse or excluded_feature error)."""
+    with pytest.raises(PromptingPressError):
+        Prompt({"name": "ae", "role": "user", "body": '{% include "x" %}'})
 
 
 # --------------------------------------------------------------------------------------
@@ -251,36 +202,24 @@ class _Greeting(BaseModel):
     name: str
 
 
-def test_check_is_pure_render_is_unchanged_and_repeated_checks_are_equal() -> None:
-    """`check` is pure analysis (FR-019): it must not mutate the registry or render.
-
-    Observable proof:
-    - a render is byte-identical (text AND both provenance hashes) before vs. after
-      `check`, so the registry the render reads was untouched;
-    - calling `check` twice yields equal findings, so analysis has no accumulating
-      side effect.
-    """
-    reg = Registry()
-    reg.insert(
+def test_check_is_pure_and_repeated_checks_are_equal() -> None:
+    """`check()` is pure analysis (FR-019): it must not mutate the Prompt and must
+    return the same result on repeated calls."""
+    p = Prompt(
         {
             "name": "greet",
             "role": "user",
             "body": "Hi {{ name }}",
-            "variables": {"name": {"type": "string", "provenance": "trusted"}},
+            "variables": {"name": {"type": "string", "origin": "trusted"}},
         }
     )
 
-    before = render(reg, "greet", _Greeting, data={"name": "Ada"})
+    report_a = p.check()
+    report_b = p.check()
 
-    report_a = check(reg)
-    report_b = check(reg)
-
-    after = render(reg, "greet", _Greeting, data={"name": "Ada"})
-
-    # Render is identical after check ⇒ check rendered nothing and mutated nothing.
-    assert after.text == before.text == "Hi Ada"
-    assert after.template_hash == before.template_hash
-    assert after.render_hash == before.render_hash
+    # Render is unaffected by check — check never renders.
+    result = p.render(_Greeting(name="Ada"))
+    assert result.text == "Hi Ada"
 
     # Repeated analysis is itself stable (no accumulating state).
     assert _signature(report_a) == _signature(report_b)
@@ -288,70 +227,79 @@ def test_check_is_pure_render_is_unchanged_and_repeated_checks_are_equal() -> No
 
 
 # --------------------------------------------------------------------------------------
-# 7. Multiple findings / determinism — the consumer's finding order is preserved
+# 7. Multiple prompts / determinism — check each Prompt individually
 # --------------------------------------------------------------------------------------
 
 
-def test_multiple_flagged_prompts_yield_deterministic_findings() -> None:
-    """A registry with three distinct violations produces one finding each, and the
-    finding order is identical across repeated `check` calls (the binding preserves the
-    consumer's deterministic order — Principle I; no per-call nondeterminism)."""
-    reg = Registry()
-    # Inserted in a deliberately non-sorted order to prove the report order is the core's,
-    # not insertion order.
-    reg.insert({"name": "zeta", "role": "user", "body": "X {{ ghost }}", "variables": {}})
-    reg.insert(
-        {
-            "name": "alpha",
-            "role": "user",
-            "body": "Q {{ q }}",
-            "variables": {"q": {"type": "string", "provenance": "untrusted"}},
-        }
-    )
-    reg.insert(
-        {
-            "name": "mid",
-            "role": "user",
-            "body": "M {{ x }}",
-            "variables": {"x": {"type": "string", "provenance": "trusted"}},
-            "variants": {"default": {"body": "V {{ x }}"}},
-        }
-    )
+def test_multiple_untrusted_prompts_yield_findings() -> None:
+    """Multiple prompts with untrusted variables each produce a finding when checked.
+    Collect findings by iterating each prompt individually."""
+    prompts = [
+        Prompt(
+            {
+                "name": "alpha",
+                "role": "user",
+                "body": "Q {{ q }}",
+                "variables": {"q": {"type": "string", "origin": "untrusted"}},
+            }
+        ),
+        Prompt(
+            {
+                "name": "beta",
+                "role": "user",
+                "body": "Q {{ q }}",
+                "variables": {"q": {"type": "string", "origin": "untrusted"}},
+            }
+        ),
+    ]
 
-    sig_1 = _signature(check(reg))
-    sig_2 = _signature(check(reg))
-    sig_3 = _signature(check(reg))
+    all_findings = []
+    for p in prompts:
+        all_findings.extend(p.check().findings)
 
-    # One finding per flagged prompt.
-    assert len(sig_1) == 3
+    assert len(all_findings) == 2
+    assert all(f.kind == KIND_UNTRUSTED for f in all_findings)
 
-    # The exact order is stable across calls — the determinism guarantee.
-    assert sig_1 == sig_2 == sig_3
-
-    # All three expected violations are present (asserted as a set so this test does not
-    # over-fit the core's particular ordering, which the equality above already pins).
-    assert set(sig_1) == {
-        (KIND_UNTRUSTED, "alpha", None),
-        (KIND_RESERVED, "mid", "default"),
-        (KIND_UNDECLARED, "zeta", "default"),
-    }
-
-    report = check(reg)
-    assert not report.passed()
-    assert bool(report)  # has findings ⇒ truthy
-    assert len(report) == 3
+    # Each repeated call returns the same findings (determinism).
+    for p in prompts:
+        assert _signature(p.check()) == _signature(p.check())
 
 
 # --------------------------------------------------------------------------------------
-# 8. Surface smoke — the US3 check API is exposed where the binding promises it
+# 8. Surface smoke — the check API is exposed where the binding promises it
 # --------------------------------------------------------------------------------------
 
 
-def test_module_exposes_us3_check_surface() -> None:
-    assert hasattr(prompting_press, "check")
+def test_module_exposes_check_surface() -> None:
     assert hasattr(prompting_press, "CheckReport")
     assert hasattr(prompting_press, "Finding")
     for attr in ("findings", "passed", "is_empty"):
         assert hasattr(prompting_press.CheckReport, attr)
     for attr in ("prompt", "variant", "kind", "detail"):
         assert hasattr(prompting_press.Finding, attr)
+
+
+def test_check_report_collection_protocol() -> None:
+    """CheckReport's collection protocol: passed / is_empty / len / bool truthy-iff-findings."""
+    p_clean = Prompt({"name": "clean", "role": "user", "body": "hi"})
+    p_untrusted = Prompt(
+        {
+            "name": "untrusted",
+            "role": "user",
+            "body": "{{ q }}",
+            "variables": {"q": {"type": "string", "origin": "untrusted"}},
+        }
+    )
+
+    clean = p_clean.check()
+    assert clean.passed() is True
+    assert clean.is_empty() is True
+    assert len(clean) == 0
+    assert not bool(clean)
+
+    flagged = p_untrusted.check()
+    assert flagged.passed() is False
+    assert flagged.is_empty() is False
+    assert len(flagged) == 1
+    assert bool(flagged)
+    assert repr(flagged) == "CheckReport(findings=1)"

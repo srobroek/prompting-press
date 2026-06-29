@@ -7,12 +7,12 @@
     "variables": {
       "created": {
         "description": "A calendar date.",
-        "provenance": "trusted",
+        "origin": "trusted",
         "type": "string"
       },
       "when": {
         "description": "An instant in time.",
-        "provenance": "trusted",
+        "origin": "trusted",
         "type": "string"
       }
     }

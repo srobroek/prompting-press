@@ -1,0 +1,12 @@
+{
+  "name": "bad-origin-example",
+  "role": "user",
+  "body": "Hello {{user_input}}",
+  "variables": {
+    "user_input": {
+      "type": "string",
+      "origin": "user-provided",
+      "description": "origin must be trusted|untrusted|external, not 'user-provided'."
+    }
+  }
+}

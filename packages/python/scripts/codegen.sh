@@ -40,7 +40,7 @@ uv run --project packages/python --group codegen --no-sync datamodel-codegen \
   --input "${SCHEMA}" \
   --input-file-type jsonschema \
   --output-model-type pydantic_v2.BaseModel \
-  --target-python-version 3.10 \
+  --target-python-version 3.12 \
   --use-annotated \
   --disable-future-imports \
   --disable-timestamp \

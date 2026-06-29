@@ -5,7 +5,7 @@
 //!
 //! 1. Loads `(template, values) -> expected` **render regression cases** from JSON
 //!    data files under `tests/fixtures/render/` ([`load_regression_case`]).
-//! 2. Loads **spec-001 schema fixtures** from `schemas/jsonschema/fixtures/valid/*.json`
+//! 2. Loads **spec-001 schema fixtures** from `schemas/jsonschema/tests/fixtures/valid/*.json`
 //!    and deserializes them into the kernel's [`PromptDefinition`]
 //!    ([`load_prompt_definition`]).
 //!
@@ -74,8 +74,9 @@ pub fn load_regression_case(name: &str) -> RegressionCase {
 }
 
 /// Load a spec-001 valid schema fixture by file stem from
-/// `schemas/jsonschema/fixtures/valid/<name>.json` and deserialize it into the
+/// `schemas/jsonschema/tests/fixtures/valid/<name>.json` and deserialize it into the
 /// kernel's [`PromptDefinition`] (FR-027 — the kernel consumes the spec-001 shape).
+/// (Fixtures relocated under `tests/` in spec 008.)
 ///
 /// # Panics
 /// Panics (a test-only contract) if the fixture is missing or does not deserialize
@@ -84,6 +85,7 @@ pub fn load_prompt_definition(name: &str) -> PromptDefinition {
     let path = repo_root()
         .join("schemas")
         .join("jsonschema")
+        .join("tests")
         .join("fixtures")
         .join("valid")
         .join(format!("{name}.json"));

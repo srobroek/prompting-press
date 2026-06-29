@@ -27,7 +27,7 @@ import { dirname, isAbsolute, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
-import { Registry, LoadError, PromptingPressError } from "prompting-press";
+import { Prompt, LoadError, PromptingPressError } from "prompting-press";
 
 // --------------------------------------------------------------------------------------
 // Repo-root discovery — walk up from this file's dir until a `conformance/` dir is found.
@@ -87,11 +87,10 @@ for (const entry of manifest.fixtures) {
   test(label, () => {
     const absPath = resolveContainedPath(relPath);
     const text = readFileSync(absPath, "utf8");
-    const reg = new Registry();
 
     const load = () => {
-      if (form === "json") reg.loadJson(text);
-      else if (form === "yaml") reg.loadYaml(text);
+      if (form === "json") Prompt.fromJson(text);
+      else if (form === "yaml") Prompt.fromYaml(text);
       else throw new Error(`unknown manifest form: ${JSON.stringify(form)}`);
     };
 

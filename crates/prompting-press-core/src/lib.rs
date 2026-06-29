@@ -33,8 +33,8 @@
 //!    `template_hash = SHA256(variant source)` and `render_hash = SHA256(rendered text)`,
 //!    as plain data on the return value — no telemetry sink, and there is no `vars_hash`
 //!    (Principle V).
-//! 4. **Var-provenance + opt-in guard** ([`provenance_view`], [`GuardConfig`],
-//!    [`ProvenanceView`]) — surfaces which fields are tagged `untrusted` / `external` and,
+//! 4. **Var-origin + opt-in guard** ([`origin_view`], [`GuardConfig`],
+//!    [`OriginView`]) — surfaces which fields are tagged `untrusted` / `external` and,
 //!    only when opted in per render, returns a separate guard instruction naming them.
 //!
 //! ## Invariants
@@ -65,8 +65,8 @@
 //!   Untrusted and external values pass through into the rendered `text` **byte-for-byte**;
 //!   enabling the guard does not change the rendered body at all (SC-005). The guard is a
 //!   *suggestion to the downstream model*, never a runtime filter.
-//! - **Provenance tags are declarative metadata with NO runtime enforcement.** The
-//!   `untrusted` / `external` / `trusted` tags on a field are surfaced ([`provenance_view`])
+//! - **Origin tags are declarative metadata with NO runtime enforcement.** The
+//!   `untrusted` / `external` / `trusted` tags on a field are surfaced ([`origin_view`])
 //!   and can drive an opt-in guard or a consumer-side lint, but the kernel does not gate,
 //!   block, or alter rendering based on them. A template that interpolates an `untrusted`
 //!   field renders exactly as one that interpolates a `trusted` field.
@@ -90,7 +90,7 @@
 //!         "role": "user",
 //!         "body": "Hello {{ name }}",
 //!         "variables": {
-//!             "name": { "type": "string", "provenance": "trusted" }
+//!             "name": { "type": "string", "origin": "trusted" }
 //!         }
 //!     }"#,
 //! )
@@ -137,17 +137,19 @@ mod hashing;
 /// minus an env-derived globals allowlist (research D2, FR-016..FR-020).
 pub mod agreement;
 
-/// Provenance exposure + the opt-in, additive guard expansion (`provenance_view`,
-/// `ProvenanceView`, `GuardConfig`): surfaces the `untrusted`/`external` field tags and,
+/// Origin exposure + the opt-in, additive guard expansion (`origin_view`,
+/// `OriginView`, `GuardConfig`): surfaces the `untrusted`/`external` field tags and,
 /// when opted in per render, names them in a separate guard instruction (constitution
 /// Principle IV / C-09; research F5, FR-021..FR-025). Pure analysis; never mutates the
 /// template, values, or rendered body, and never inspects or sanitizes a value.
-pub mod provenance;
+/// (The per-variable tag was named `provenance` through spec 006; renamed to `origin` in
+/// spec 008. Distinct from the render-result provenance hashes, which keep their name.)
+pub mod origin;
 
 pub use agreement::{required_roots, Agreement};
 pub use engine::{get_source, render, RenderResult};
 pub use error::KernelError;
-pub use provenance::{provenance_view, GuardConfig, ProvenanceView};
+pub use origin::{origin_view, GuardConfig, OriginView};
 
 /// Returns the kernel's package version, sourced from Cargo at compile time.
 ///

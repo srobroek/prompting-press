@@ -20,3 +20,10 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 minijinja = { workspace = true }
 sha2 = { workspace = true }
+
+[dev-dependencies]
+# Adversarial fuzzing suite (spec 009, T001). Exact pins; dev-only.
+# proptest/arbitrary are pure-Rust and do NOT introduce any FFI dependency —
+# `ci:check-ffi` stays green (constitution Principle II).
+proptest = "1.11.0"
+arbitrary = "1.4.2"

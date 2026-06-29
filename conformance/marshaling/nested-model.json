@@ -7,12 +7,12 @@
     "variables": {
       "roles": {
         "description": "A list of role objects.",
-        "provenance": "trusted",
+        "origin": "trusted",
         "type": "array"
       },
       "user": {
         "description": "A nested user object.",
-        "provenance": "trusted",
+        "origin": "trusted",
         "type": "object"
       }
     }

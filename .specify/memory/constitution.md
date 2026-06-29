@@ -1,5 +1,24 @@
 <!--
-SYNC IMPACT REPORT
+SYNC IMPACT REPORT (latest)
+==================
+Version change: 1.1.0 → 1.2.0 (MINOR — Principle VI materially expanded)
+Date: 2026-06-28
+Driver: spec 008 (Pre-publish API & schema reshape) clarify session; roadmap C-06 + C-11.
+Change: Principle VI gains three additive bullets — (a) validators MAY be bound to the
+  prompt object at construction (not only per render); (b) an optional per-variable
+  `validation_required` boolean, orthogonal to the `origin` trust tag; (c) enforcement of
+  that coverage is intentionally asymmetric — TS (Zod) / Python (Pydantic) introspect and
+  throw/raise at construction, while Rust keeps garde with compile-time/structural coverage
+  and treats `validation_required` as declarative (no runtime throw). Kernel stays
+  validation-blind (Principle III). No principle removed or redefined → MINOR.
+Templates checked:
+  ✅ .specify/memory/constitution.md (this file)
+  ✅ .specify/memory/DECISIONS.md (amendment recorded)
+  ⚠ .specify/templates/{plan,spec,tasks}-template.md — coding-idiom rule applied by reviewer;
+     no structural template change required (same as the v1.1.0 C-11 amendment).
+Migration: per-variable validators + construction-time binding land in spec 008.
+
+PRIOR REPORT (v1.0.0 baseline)
 ==================
 Version change: (template / unversioned) → 1.0.0
 Rationale: Initial ratification. First concrete constitution, replacing the
@@ -144,6 +163,24 @@ correct, not a defect.
 - Typed Vars and custom validators use each language's native system: **Pydantic** (Python), **Zod**
   (TypeScript), **garde** (Rust). Validators are attached to fields and run in one `validate()` at
   render. The library MUST NOT invent its own validation framework.
+- **Validators MAY be bound to the prompt object at construction** (not only supplied per render). A
+  first-class immutable prompt object MAY hold its validator(s) and reuse them at render. This is additive
+  to "run in one `validate()` at render" — render-time validation still happens; binding at construction is
+  where the validator is *attached*. (Adopted with the spec-008 prompt-as-object reshape.)
+- **A prompt MAY mandate validator coverage per variable** via an optional `validation_required` boolean on
+  a variable declaration, **orthogonal to the `origin` trust tag** (it MAY mark any variable, not only
+  `untrusted`/`external`). Enforcement of that mandate is **intentionally asymmetric across languages — and
+  the asymmetry is correct, not a defect** (it is the direct expression of this principle):
+  - **TypeScript (Zod) and Python (Pydantic)** introspect the supplied validator's per-field coverage and
+    **throw/raise at construction** when a `validation_required` variable is uncovered (runtime enforcement —
+    the native idiom in those ecosystems).
+  - **Rust keeps garde** as *the* idiomatic validator. garde rules are wired onto the Vars type at
+    **compile time** and garde exposes no runtime rule-introspection, so in Rust `validation_required` is
+    **declarative metadata** and coverage is guaranteed **structurally at compile time** — Rust MUST NOT
+    introduce a runtime coverage throw to mimic the dynamic languages. Surfacing such an error at compile
+    time rather than runtime is the idiomatic Rust expectation and is explicitly endorsed.
+  In all languages the kernel stays **validation-blind** (Principle III): per-variable validators and any
+  `validation_required` enforcement live only in the binding/consumer layer, never in `prompting-press-core`.
 - Composition of multi-message prompts is an **explicit ordered array** of `(prompt-ref, vars)`
   resolving to `[{role, text}, ...]`, with native construction sugar per language. A fluent
   `.chain()` MUST NOT be the API (it cannot cross PyO3/napi and collides with `Iterator::chain`).
@@ -245,4 +282,4 @@ after the first feature lands; major rewrites should be rare and recorded in
   output parsing, a managed version axis, or a new pluggable interface is presumed out of scope and
   requires an amendment (with rationale) before work begins.
 
-**Version**: 1.1.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-28
+**Version**: 1.2.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-28

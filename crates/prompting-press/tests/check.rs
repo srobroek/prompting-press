@@ -1,141 +1,66 @@
-//! US3 agreement + provenance lint contract (spec 003, T015; FR-016/017/018/020).
+//! Advisory lint contract (spec 008 reshape of spec 003, T015; FR-016/017/018/020).
 //!
-//! Exercises [`prompting_press::check`] over a [`Registry`] of constructed
-//! [`PromptDefinition`]s. The lint is the library's headline differentiator — it catches,
-//! *before* render, the class of bug where a template references a variable the prompt never
-//! declared (the agreement half, SC-004) and the class where a prompt declares an
-//! untrusted/external input but configures no guard for it (the reframed provenance half,
-//! SC-005).
+//! Post-reshape, the lint runs per-prompt via `Prompt::check()`. Construction enforces the
+//! hard invariants (agreement, parse, reserved name). `Prompt::check()` surfaces only the
+//! origin/guard advisory — `UntrustedWithoutGuard`.
 //!
 //! Vignettes:
-//! - **V3.1** a registry of well-formed prompts (every template root declared; the one
-//!   untrusted var carries a `meta.guard`) → `check()` passes (empty findings).
-//! - **V3.2** a prompt whose `body` references a var NOT in `variables` → one
-//!   `UndeclaredVariable` finding naming the prompt + variant (SC-004).
-//! - **V3.3** a prompt declaring an `untrusted` var with NO `guard` key in `meta`/`metadata`
+//! - **V3.1** a well-formed prompt (declared vars, guarded untrusted field) → `check()` passes.
+//! - **V3.2** agreement violations are **construction failures** post-reshape — tested in
+//!   `tests/prompt_construct.rs` and in `prompt.rs` unit tests; not tested here as a
+//!   `check()` advisory.
+//! - **V3.3** a prompt declaring an `untrusted` var with NO `guard` key in `metadata`
 //!   → one `UntrustedWithoutGuard` finding naming the prompt + field (SC-005).
-//! - **V3.5** a multi-variant prompt where ONE named variant's body references an undeclared
-//!   var → that variant flagged (confirms each variant is analyzed independently).
-//! - **EMPTY** an empty registry → empty `CheckReport` (pass — F7).
-//!
-//! Registries are built by `insert`ing constructed `PromptDefinition`s (deserialized from
-//! `serde_json::json!`), so `meta` / `variables` / `variants` are set exactly as each
-//! vignette needs; provenance tags live in `variables.*.provenance`.
+//! - **V3.5** each variant's agreement is enforced at construction — a multi-variant prompt
+//!   with an undeclared var in one variant fails `Prompt::new`, not `check()`.
+//! - **EMPTY** a trivially-declared prompt with no untrusted fields → empty report (pass).
 
 use prompting_press::check::FindingKind;
-use prompting_press::{check, PromptDefinition, Registry};
+use prompting_press::{CheckReport, Prompt};
 
-/// Deserialize a `PromptDefinition` from a JSON value (the constructed-object path — no
-/// loader, no I/O). Panics on a malformed fixture (a test-author error, not a lint concern).
-fn def(value: serde_json::Value) -> PromptDefinition {
-    serde_json::from_value(value).expect("valid prompt-definition fixture")
-}
-
-/// V3.1 — a registry whose prompts each reference only declared variables, and whose one
-/// untrusted-declaring prompt carries a `meta.guard`, passes clean (no findings).
+/// V3.1 — a well-formed prompt (all template roots declared; one untrusted var has a
+/// `metadata.guard`) → `check()` passes clean (no findings).
 #[test]
-fn well_formed_registry_passes() {
-    let mut reg = Registry::new();
-
-    // All roots declared; no untrusted/external fields → no provenance obligation.
-    reg.insert(def(serde_json::json!({
-        "name": "greet",
-        "role": "user",
-        "body": "Hi {{ name }}, you have {{ count }} messages",
-        "variables": {
-            "name":  { "type": "string",  "provenance": "trusted" },
-            "count": { "type": "integer", "provenance": "trusted" }
-        }
-    })));
-
-    // Declares an `untrusted` field BUT configures a guard via `meta.guard` → satisfied.
-    reg.insert(def(serde_json::json!({
+fn well_formed_prompt_passes() {
+    // All roots declared; untrusted field has a guard in metadata → no advisory.
+    let prompt = Prompt::from_json(
+        r#"{
         "name": "summarize",
         "role": "system",
         "body": "Summarize: {{ doc }}",
-        "meta": { "guard": { "enabled": true } },
+        "metadata": { "guard": { "enabled": true } },
         "variables": {
-            "doc": { "type": "string", "provenance": "untrusted" }
+            "doc": { "type": "string", "origin": "untrusted" }
         }
-    })));
+    }"#,
+    )
+    .expect("well-formed prompt must construct");
 
-    let report = check(&reg);
+    let report = prompt.check();
     assert!(
         report.passed(),
-        "well-formed registry must pass, got findings: {:?}",
+        "well-formed guarded prompt must pass check, got findings: {:?}",
         report.findings
-    );
-    assert!(report.findings.is_empty());
-}
-
-/// V3.2 (SC-004) — a prompt whose `body` references a variable absent from `variables`
-/// produces exactly one `UndeclaredVariable` finding, naming the prompt + variant + variable.
-#[test]
-fn undeclared_variable_is_flagged() {
-    let mut reg = Registry::new();
-    // `body` references `name` AND `secret`; only `name` is declared.
-    reg.insert(def(serde_json::json!({
-        "name": "leaky",
-        "role": "user",
-        "body": "Hello {{ name }} -- {{ secret }}",
-        "variables": {
-            "name": { "type": "string", "provenance": "trusted" }
-        }
-    })));
-
-    let report = check(&reg);
-    assert!(!report.passed(), "an undeclared var must fail the check");
-
-    let undeclared: Vec<_> = report
-        .findings
-        .iter()
-        .filter(|f| matches!(&f.kind, FindingKind::UndeclaredVariable { .. }))
-        .collect();
-    assert_eq!(
-        undeclared.len(),
-        1,
-        "exactly one undeclared-variable finding expected, got: {:?}",
-        report.findings
-    );
-
-    let finding = undeclared[0];
-    assert_eq!(finding.prompt, "leaky", "finding must name the prompt");
-    assert_eq!(
-        finding.variant.as_deref(),
-        Some("default"),
-        "finding must name the variant (the default arm)"
-    );
-    match &finding.kind {
-        FindingKind::UndeclaredVariable { name } => {
-            assert_eq!(name, "secret", "finding must name the undeclared variable");
-        }
-        other => panic!("expected UndeclaredVariable, got {other:?}"),
-    }
-    // `detail` is actionable (FR-020): it mentions the offending variable.
-    assert!(
-        finding.detail.contains("secret"),
-        "detail must be actionable: {:?}",
-        finding.detail
     );
 }
 
-/// V3.3 (SC-005) — a prompt declaring an `untrusted` variable with NO `guard` key in either
-/// `meta` or `metadata` produces one `UntrustedWithoutGuard` finding naming the prompt +
-/// field. (The agreement half is clean here: the template root is declared.)
+/// V3.3 (SC-005) — a prompt declaring an `untrusted` variable with NO `guard` key produces
+/// one `UntrustedWithoutGuard` finding per uncovered field.
 #[test]
 fn untrusted_without_guard_is_flagged() {
-    let mut reg = Registry::new();
-    reg.insert(def(serde_json::json!({
+    let prompt = Prompt::from_json(
+        r#"{
         "name": "unguarded",
         "role": "user",
         "body": "Process {{ payload }}",
-        // No `meta.guard` and no `metadata.guard` → the untrusted field is uncovered.
         "variables": {
-            "payload": { "type": "string", "provenance": "untrusted" }
+            "payload": { "type": "string", "origin": "untrusted" }
         }
-    })));
+    }"#,
+    )
+    .expect("valid shape must construct");
 
-    let report = check(&reg);
+    let report = prompt.check();
     assert!(!report.passed(), "untrusted-without-guard must fail");
 
     let prov: Vec<_> = report
@@ -152,17 +77,13 @@ fn untrusted_without_guard_is_flagged() {
 
     let finding = prov[0];
     assert_eq!(finding.prompt, "unguarded", "finding must name the prompt");
-    // The provenance lint is a prompt-level obligation, not per-variant.
+    // The origin advisory is prompt-level (no variant).
     assert_eq!(
         finding.variant, None,
-        "the provenance finding is prompt-level (no variant)"
+        "origin finding is prompt-level (no variant)"
     );
-    match &finding.kind {
-        FindingKind::UntrustedWithoutGuard { field } => {
-            assert_eq!(field, "payload", "finding must name the uncovered field");
-        }
-        other => panic!("expected UntrustedWithoutGuard, got {other:?}"),
-    }
+    let FindingKind::UntrustedWithoutGuard { field } = &finding.kind;
+    assert_eq!(field, "payload", "finding must name the uncovered field");
     assert!(
         finding.detail.contains("payload"),
         "detail must name the field: {:?}",
@@ -170,185 +91,83 @@ fn untrusted_without_guard_is_flagged() {
     );
 }
 
-/// An `external`-tagged field counts toward the provenance obligation exactly like
-/// `untrusted` (the lint flags the union untrusted ∪ external — FR-018). A `guard` key in
-/// `metadata` (not just `meta`) satisfies it.
+/// An `external`-tagged field triggers the guard obligation exactly like `untrusted`. A
+/// `guard` key in `metadata` satisfies it.
 #[test]
 fn external_field_obligation_and_metadata_guard_satisfaction() {
     // External field, NO guard anywhere → flagged.
-    let mut flagged = Registry::new();
-    flagged.insert(def(serde_json::json!({
+    let no_guard = Prompt::from_json(
+        r#"{
         "name": "ext",
         "role": "user",
         "body": "{{ feed }}",
-        "variables": { "feed": { "type": "string", "provenance": "external" } }
-    })));
-    let report = check(&flagged);
+        "variables": { "feed": { "type": "string", "origin": "external" } }
+    }"#,
+    )
+    .expect("valid shape must construct");
+    let report = no_guard.check();
     let prov: Vec<_> = report
         .findings
         .iter()
         .filter(|f| matches!(&f.kind, FindingKind::UntrustedWithoutGuard { .. }))
         .collect();
     assert_eq!(prov.len(), 1, "external field must carry the obligation");
-    match &prov[0].kind {
-        FindingKind::UntrustedWithoutGuard { field } => assert_eq!(field, "feed"),
-        other => panic!("expected UntrustedWithoutGuard, got {other:?}"),
-    }
+    let FindingKind::UntrustedWithoutGuard { field } = &prov[0].kind;
+    assert_eq!(field, "feed");
 
     // Same prompt but with a `metadata.guard` key → satisfied (no provenance finding).
-    let mut satisfied = Registry::new();
-    satisfied.insert(def(serde_json::json!({
+    let with_guard = Prompt::from_json(
+        r#"{
         "name": "ext",
         "role": "user",
         "body": "{{ feed }}",
         "metadata": { "guard": "configured-elsewhere" },
-        "variables": { "feed": { "type": "string", "provenance": "external" } }
-    })));
+        "variables": { "feed": { "type": "string", "origin": "external" } }
+    }"#,
+    )
+    .expect("valid shape must construct");
     assert!(
-        check(&satisfied).passed(),
+        with_guard.check().passed(),
         "a `metadata.guard` key must satisfy the provenance obligation"
     );
 }
 
-/// V3.5 — a multi-variant prompt where ONE named variant references an undeclared var: that
-/// variant (and only that variant) is flagged, confirming each variant is analyzed against
-/// the shared declared `variables`.
+/// A prompt with no untrusted/external variables → `check()` returns an empty report (pass).
 #[test]
-fn each_variant_is_analyzed_independently() {
-    let mut reg = Registry::new();
-    reg.insert(def(serde_json::json!({
-        "name": "multi",
+fn trusted_only_prompt_passes_check() {
+    let prompt = Prompt::from_json(
+        r#"{
+        "name": "greet",
         "role": "user",
-        // default + `terse` reference only declared `topic`; `verbose` references `extra`.
-        "body": "Tell me about {{ topic }}",
-        "variants": {
-            "terse":   { "body": "{{ topic }}?" },
-            "verbose": { "body": "Elaborate on {{ topic }} and {{ extra }}" }
-        },
+        "body": "Hi {{ name }}, you have {{ count }} messages",
         "variables": {
-            "topic": { "type": "string", "provenance": "trusted" }
+            "name":  { "type": "string",  "origin": "trusted" },
+            "count": { "type": "integer", "origin": "trusted" }
         }
-    })));
+    }"#,
+    )
+    .expect("valid prompt must construct");
 
-    let report = check(&reg);
-    assert!(!report.passed(), "the verbose variant must be flagged");
-
-    let undeclared: Vec<_> = report
-        .findings
-        .iter()
-        .filter(|f| matches!(&f.kind, FindingKind::UndeclaredVariable { .. }))
-        .collect();
-    assert_eq!(
-        undeclared.len(),
-        1,
-        "only the verbose variant should fail, got: {:?}",
-        report.findings
-    );
-
-    let finding = undeclared[0];
-    assert_eq!(finding.prompt, "multi");
-    assert_eq!(
-        finding.variant.as_deref(),
-        Some("verbose"),
-        "the finding must name the offending variant"
-    );
-    match &finding.kind {
-        FindingKind::UndeclaredVariable { name } => assert_eq!(name, "extra"),
-        other => panic!("expected UndeclaredVariable, got {other:?}"),
-    }
-}
-
-/// CR-1 — a prompt declaring a variant literally named `"default"` (the kernel's reserved
-/// name for the root body) is flagged with exactly one `ReservedVariantName` finding, and the
-/// default arm is analyzed exactly ONCE (no duplicate `default`-arm analysis). The declared
-/// `variants["default"]` arm is unreachable (shadowed by the root body) and is never analyzed.
-#[test]
-fn reserved_default_variant_is_flagged_and_not_double_analyzed() {
-    let mut reg = Registry::new();
-    // The root body references only declared `topic`. The declared `variants["default"]` arm
-    // references an UNDECLARED `shadowed` var — but since that arm is unreachable, it must
-    // NOT be analyzed (so no `UndeclaredVariable { name: "shadowed" }` finding may appear).
-    reg.insert(def(serde_json::json!({
-        "name": "reserved",
-        "role": "user",
-        "body": "Tell me about {{ topic }}",
-        "variants": {
-            "default": { "body": "{{ shadowed }} -- unreachable arm" }
-        },
-        "variables": {
-            "topic": { "type": "string", "provenance": "trusted" }
-        }
-    })));
-
-    let report = check(&reg);
+    let report = prompt.check();
     assert!(
-        !report.passed(),
-        "a reserved `default` variant must fail the check"
-    );
-
-    // Exactly one ReservedVariantName finding, naming the prompt + the reserved name.
-    let reserved: Vec<_> = report
-        .findings
-        .iter()
-        .filter(|f| matches!(&f.kind, FindingKind::ReservedVariantName { .. }))
-        .collect();
-    assert_eq!(
-        reserved.len(),
-        1,
-        "exactly one ReservedVariantName finding expected, got: {:?}",
+        report.passed(),
+        "all-trusted prompt must pass check, findings: {:?}",
         report.findings
     );
-    let finding = reserved[0];
-    assert_eq!(finding.prompt, "reserved", "finding must name the prompt");
-    assert_eq!(
-        finding.variant.as_deref(),
-        Some("default"),
-        "finding must name the reserved variant"
-    );
-    match &finding.kind {
-        FindingKind::ReservedVariantName { name } => {
-            assert_eq!(
-                name, "default",
-                "finding must name the reserved variant name"
-            );
-        }
-        other => panic!("expected ReservedVariantName, got {other:?}"),
-    }
-    assert!(
-        finding.detail.contains("unreachable") || finding.detail.contains("shadowed"),
-        "detail must explain the arm is unreachable/shadowed: {:?}",
-        finding.detail
-    );
-
-    // The default arm is analyzed EXACTLY ONCE: the root body declares only `topic`, so there
-    // is NO undeclared-variable finding. Critically, the unreachable `variants["default"]` arm
-    // (which references `shadowed`) must NOT have been analyzed.
-    let undeclared: Vec<_> = report
-        .findings
-        .iter()
-        .filter(|f| matches!(&f.kind, FindingKind::UndeclaredVariable { .. }))
-        .collect();
-    assert!(
-        undeclared.is_empty(),
-        "the unreachable declared `default` arm must NOT be analyzed (no undeclared-var \
-         finding from it), got: {:?}",
-        report.findings
-    );
-
-    // And no analysis-error noise: the report's only finding is the ReservedVariantName.
-    assert_eq!(
-        report.findings.len(),
-        1,
-        "the only finding must be the ReservedVariantName, got: {:?}",
-        report.findings
-    );
-}
-
-/// EMPTY registry → empty `CheckReport` (pass — F7), never a panic.
-#[test]
-fn empty_registry_passes() {
-    let reg = Registry::new();
-    let report = check(&reg);
-    assert!(report.passed(), "empty registry must pass");
     assert!(report.findings.is_empty());
+}
+
+/// The `CheckReport` type is correctly accessible at the crate root.
+#[test]
+fn check_report_type_is_accessible() {
+    let prompt = Prompt::from_json(
+        r#"{
+        "name": "t",
+        "role": "user",
+        "body": "{{ x }}",
+        "variables": { "x": { "type": "string", "origin": "trusted" } }
+    }"#,
+    )
+    .expect("valid");
+    let _report: CheckReport = prompt.check();
 }

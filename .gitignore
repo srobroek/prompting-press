@@ -332,6 +332,9 @@ dist/
 .ruff_cache/
 .mypy_cache/
 
+# Astro docs site: generated types + content cache (regenerable; never committed).
+docs/site/.astro/
+
 # Node / TypeScript
 node_modules/
 packages/*/node_modules/

@@ -28,7 +28,7 @@ tasks:
     inputs:
       - 'jsonschema/prompt-definition.schema.json'
       - 'jsonschema/scripts/validate_fixtures.py'
-      - 'jsonschema/fixtures/**/*'
+      - 'jsonschema/tests/fixtures/**/*'
 
   codegen-check:
     description: 'T027 — Determinism gate (SC-003): regenerate all three artifacts and assert git diff is clean.'

@@ -75,9 +75,9 @@ impl From<ConsumerFieldError> for FieldErrorPayload {
 /// The full structured payload encoded into the [`napi::Error`] `reason` (research D4).
 ///
 /// `code` is the **top-level** discriminant the TS facade switches on to pick the `Error`
-/// subclass (`validation` → `PromptValidationError`, `unknown_prompt` → `UnknownPromptError`,
-/// `load` → `LoadError`, and any kernel code → `PromptRenderError`); `errors` is the structured
-/// row array exposed as `exc.errors` on the JS side. Both are already scrubbed.
+/// subclass (`validation` → `PromptValidationError`, `load` → `LoadError`, and any kernel
+/// code → `PromptRenderError`); `errors` is the structured row array exposed as `exc.errors`
+/// on the JS side. Both are already scrubbed.
 #[derive(Debug, Serialize)]
 struct ErrorPayload {
     /// The top-level discriminant code (the subclass selector — see [`top_level_code`]).
@@ -108,16 +108,6 @@ pub fn consumer_error_to_napi_err(err: ConsumerError) -> NapiError {
                 kernel_top_code(&r.code)
             });
             (top, rows)
-        }
-        ConsumerError::UnknownPrompt(name) => {
-            // A caller-supplied identifier (the key looked up), not bound-value content — safe to
-            // surface, matching the Rust consumer's `Display`.
-            let row = ConsumerFieldError {
-                field: "name".to_string(),
-                code: code::UNKNOWN_PROMPT.to_string(),
-                message: format!("unknown prompt: `{name}`"),
-            };
-            (code::UNKNOWN_PROMPT, vec![row])
         }
         ConsumerError::Load(detail) => {
             // Loader serde detail is parse-location text (line/column / "missing field"), not
@@ -221,22 +211,26 @@ mod tests {
         );
     }
 
-    /// SEC-004: a `Parse` detail secret is likewise scrubbed; the row carries the `parse` code.
+    /// `Parse` detail is PRESERVED (not scrubbed): parsing happens before any value is
+    /// bound, so the detail is template-syntax context (line/column, the offending
+    /// construct) — never a bound value — and surfacing it makes a syntax error debuggable.
     #[test]
-    fn parse_kernel_detail_secret_is_scrubbed() {
-        const SECRET: &str = "PASSWORD=hunter2";
+    fn parse_kernel_detail_is_preserved() {
+        const DETAIL: &str = "syntax error: unexpected end of input (in kernel:1)";
         let kernel = KernelError::Parse {
-            detail: format!("syntax error near {SECRET}"),
+            detail: DETAIL.to_string(),
         };
         let err = kernel_error_to_napi_err(kernel);
-        assert!(
-            !err.reason.contains(SECRET),
-            "reason leaked: {}",
-            err.reason
-        );
         let payload = payload_of(&err);
         assert_eq!(payload["code"], code::PARSE);
         assert_eq!(payload["errors"][0]["code"], code::PARSE);
+        let message = payload["errors"][0]["message"]
+            .as_str()
+            .expect("message string");
+        assert!(
+            message.contains(DETAIL),
+            "parse detail must be preserved: {message}"
+        );
     }
 
     /// `ExcludedFeature` maps to the stable `excluded_feature` code and does not leak the raw
@@ -286,17 +280,6 @@ mod tests {
         assert_eq!(payload["code"], code::UNDEFINED_VARIABLE);
         assert_eq!(payload["errors"][0]["field"], "article");
         assert_eq!(payload["errors"][0]["code"], code::UNDEFINED_VARIABLE);
-    }
-
-    /// An `UnknownPrompt` consumer error maps to the `unknown_prompt` code and carries the name.
-    #[test]
-    fn unknown_prompt_maps_with_name() {
-        let err = consumer_error_to_napi_err(ConsumerError::UnknownPrompt("greet".to_string()));
-        let payload = payload_of(&err);
-        assert_eq!(payload["code"], code::UNKNOWN_PROMPT);
-        assert_eq!(payload["errors"][0]["code"], code::UNKNOWN_PROMPT);
-        let message = payload["errors"][0]["message"].as_str().unwrap();
-        assert!(message.contains("greet"), "names the prompt: {message}");
     }
 
     /// A `Load` consumer error maps to the `load` code.

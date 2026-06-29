@@ -23,14 +23,14 @@
     },
     "variables": {
       "type": "object",
-      "description": "Declared input variables, shared across all variants. Rich enough to generate-then-extend a typed Vars model in a later spec.",
-      "additionalProperties": { "$ref": "#/$defs/VariableDecl" },
+      "description": "Declared input variables, shared across all variants. Each entry declares the variable's type and input-trust origin.",
+      "additionalProperties": { "$ref": "#/$defs/PromptVariable" },
       "default": {}
     },
     "variants": {
       "type": "object",
-      "description": "Named alternative arms. Absent => the prompt has only the default (root body) arm. Each arm differs ONLY in body (+ optional opaque meta).",
-      "additionalProperties": { "$ref": "#/$defs/Variant" },
+      "description": "Named alternative arms. Absent => the prompt has only the default (root body) arm. Each arm differs ONLY in body (+ optional opaque metadata).",
+      "additionalProperties": { "$ref": "#/$defs/PromptVariant" },
       "propertyNames": {
         "not": { "const": "default" },
         "description": "A variants entry named 'default' is rejected (FR-011b): it collides with the structural default arm (the root body)."
@@ -42,20 +42,15 @@
     },
     "metadata": {
       "type": "object",
-      "description": "Arbitrary prompt-level metadata; library-OPAQUE (may include uninterpreted model/param hints). Never interpreted by the library.",
-      "additionalProperties": true
-    },
-    "meta": {
-      "type": "object",
-      "description": "The default (root) arm's selection metadata; library-opaque (weight, group, tags, ...). Symmetric with Variant.meta.",
+      "description": "Arbitrary prompt-level metadata; library-OPAQUE (may include uninterpreted model/param hints, selection labels like weight/group/tags, or a `guard` key). Stored and echoed; never interpreted by the library. The prompt and each variant each carry exactly one `metadata` bag.",
       "additionalProperties": true
     }
   },
   "$defs": {
-    "VariableDecl": {
+    "PromptVariable": {
       "type": "object",
-      "description": "A declared input variable: type + provenance + optional JSON-Schema validation constraints (carried for generate-then-extend).",
-      "required": ["type", "provenance"],
+      "description": "A declared input variable: type, origin, and an optional human-readable description. Validation constraints belong in the per-language validator (Zod/Pydantic/garde); the kernel is validation-blind.",
+      "required": ["type", "origin"],
       "properties": {
         "type": {
           "oneOf": [
@@ -64,34 +59,35 @@
           ],
           "description": "JSON-Schema type keyword(s) for the variable."
         },
-        "provenance": {
+        "origin": {
           "type": "string",
           "enum": ["trusted", "untrusted", "external"],
-          "description": "Per-field provenance tag (FR-010a). DECLARATIVE METADATA ONLY — there is NO runtime enforcement of this tag in the current library version; it is not a security guard by itself. Untrusted-input guarding (the opt-in, additive guard expansion + lint) is introduced in a later spec per roadmap decision C-09 (deriving from constitution Principle IV). Do not assume the library protects `untrusted`/`external` fields until that version."
+          "description": "Per-field input-trust tag. DECLARATIVE METADATA ONLY — the library does not enforce this tag at render time; it is not a security guard by itself. Use `check()` to detect `untrusted`/`external` variables that lack a declared guard, and enable the opt-in guard to receive advisory guard text. This per-variable trust tag is distinct from the render-result content hashes (`template_hash`/`render_hash`)."
         },
-        "format": { "type": "string" },
-        "pattern": { "type": "string" },
-        "enum": { "type": "array" },
-        "minimum": { "type": "number" },
-        "maximum": { "type": "number" },
-        "minLength": { "type": "integer", "minimum": 0 },
-        "maxLength": { "type": "integer", "minimum": 0 },
-        "description": { "type": "string" }
+        "validation_required": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, a validator covering this variable MUST be supplied when the Prompt is constructed (spec 008). Orthogonal to `origin` — it MAY mark any variable, not only untrusted/external ones. Declarative metadata; enforcement is per-language (constitution Principle VI v1.2.0): TypeScript (Zod) and Python (Pydantic) introspect the supplied validator and throw/raise at construction if this variable is uncovered, while Rust guarantees coverage structurally at compile time. The kernel never reads this field (validation-blind)."
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional human-readable description of the variable."
+        }
       },
       "additionalProperties": false
     },
-    "Variant": {
+    "PromptVariant": {
       "type": "object",
-      "description": "A named alternative arm. May carry ONLY body and meta; redefining role/variables/output_model is rejected (FR-011a).",
+      "description": "A named alternative arm. May carry ONLY body and metadata; redefining role/variables/output_model is rejected (FR-011a).",
       "required": ["body"],
       "properties": {
         "body": {
           "type": "string",
           "description": "The variant's template source — the only field that differs per variant."
         },
-        "meta": {
+        "metadata": {
           "type": "object",
-          "description": "Library-OPAQUE selection metadata (weight, group, tags, ...). Stored + exposed; never interpreted by the library (caller selects). No schema-enforced selection semantics (FR-011c).",
+          "description": "Library-OPAQUE per-variant metadata (selection labels like weight/group/tags, or a `guard` key). Stored + exposed; never interpreted by the library (caller selects). No schema-enforced selection semantics (FR-011c). Mirrors the prompt-level `metadata` bag.",
           "additionalProperties": true
         }
       },

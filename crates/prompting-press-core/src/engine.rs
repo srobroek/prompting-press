@@ -29,7 +29,7 @@
 use crate::error::KernelError;
 use crate::generated::prompt_definition::PromptDefinition;
 use crate::hashing::sha256_hex;
-use crate::provenance::{build_guard_text, provenance_view, GuardConfig};
+use crate::origin::{build_guard_text, origin_view, GuardConfig};
 
 /// The reserved variant name that always resolves to the prompt's root `body`
 /// (FR-007/FR-010/FR-011). The generated shape does not encode this rule, so the kernel
@@ -138,7 +138,7 @@ pub struct RenderResult {
 ///
 /// Guard expansion is opt-in (US3, FR-022..FR-025): when `guard.enabled`, the result's
 /// [`RenderResult::guard`] carries an instruction *naming* the prompt's untrusted/external
-/// fields (computed by [`build_guard_text`] over [`provenance_view`]). It is a **separate**
+/// fields (computed by [`build_guard_text`] over [`origin_view`]). It is a **separate**
 /// field — never concatenated into `text` — and is purely additive: enabling it does not
 /// change `text`, the template, or the values (FR-023, SC-005), and it never inspects or
 /// sanitizes a value (FR-025). When `!guard.enabled`, `guard` is `None`.
@@ -173,9 +173,9 @@ pub fn render(
     let render_hash = sha256_hex(&text);
 
     // Opt-in, additive guard text — a SEPARATE field, computed from the declared
-    // provenance tags. `build_guard_text` returns `None` unless `guard.enabled` (and the
+    // origin tags. `build_guard_text` returns `None` unless `guard.enabled` (and the
     // untrusted∪external union is non-empty), and never touches `text`/values (FR-022..25).
-    let guard = build_guard_text(&provenance_view(def), guard);
+    let guard = build_guard_text(&origin_view(def), guard);
 
     Ok(RenderResult {
         text,

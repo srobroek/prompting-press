@@ -76,7 +76,9 @@ VENV_DIR="$(mktemp -d /tmp/pp-conformance-XXXXXX)"
 trap 'rm -rf "${VENV_DIR}"' EXIT
 
 echo "==> uv venv + build extension (maturin develop) into ${VENV_DIR}"
-uv venv "${VENV_DIR}" --python 3.10
+# Python 3.12 floor (raised from 3.10 in spec 008; matches pyo3 abi3-py312 — a 3.10
+# venv cannot install the abi3-py312 wheel maturin builds).
+uv venv "${VENV_DIR}" --python 3.12
 VIRTUAL_ENV="${VENV_DIR}" uv pip install --python "${VENV_DIR}/bin/python" pytest pydantic
 
 # maturin develop must run from packages/python (resolves [tool.maturin] module-name).

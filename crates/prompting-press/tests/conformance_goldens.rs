@@ -14,7 +14,7 @@
 mod common;
 
 use common::{build_vars, load_marshaling_fixtures, RawVars};
-use prompting_press::{render, Registry};
+use prompting_press::Prompt;
 use prompting_press_core::GuardConfig;
 
 /// Regenerate the goldens in every marshaling fixture. `#[ignore]`d: never runs in the conformance gate.
@@ -28,26 +28,21 @@ fn regenerate_marshaling_goldens() {
     );
 
     for (path, fx) in &fixtures {
-        // 1. Load the prompt definition into a fresh registry (the constructed-object path: definition
-        //    JSON -> PromptDefinition via serde, then insert).
+        // 1. Load the prompt definition into a Prompt (the constructed-object path: definition
+        //    JSON -> PromptDefinition via serde, then Prompt::new).
         let def: prompting_press_core::PromptDefinition =
             serde_json::from_value(fx.definition.clone())
                 .unwrap_or_else(|e| panic!("{}: invalid prompt definition: {e}", fx.case));
-        let mut reg = Registry::new();
-        reg.insert(def);
+        let prompt =
+            Prompt::new(def).unwrap_or_else(|e| panic!("{}: Prompt::new failed: {e:?}", fx.case));
 
         // 2. Build the Vars value from the typed `input` (Rust arm of the D2 mapping; absent => dropped).
         let vars = RawVars(build_vars(&fx.input));
 
         // 3. Render via the REAL consumer render path (no engine logic here — C-01/C-02).
-        let result = render(
-            &reg,
-            &fx_name(&fx.definition),
-            &vars,
-            fx.variant.as_deref(),
-            &GuardConfig::default(),
-        )
-        .unwrap_or_else(|e| panic!("{}: render failed: {e:?}", fx.case));
+        let result = prompt
+            .render(&vars, fx.variant.as_deref(), &GuardConfig::default())
+            .unwrap_or_else(|e| panic!("{}: render failed: {e:?}", fx.case));
 
         // 4. Write the goldens back into the fixture JSON, preserving everything else.
         let mut doc: serde_json::Value =
@@ -79,13 +74,4 @@ fn regenerate_marshaling_goldens() {
             fx.case, result.template_hash, result.render_hash
         );
     }
-}
-
-/// Pull the prompt `name` out of the definition JSON (the registry key to render by).
-fn fx_name(definition: &serde_json::Value) -> String {
-    definition
-        .get("name")
-        .and_then(|v| v.as_str())
-        .expect("definition has a string `name`")
-        .to_string()
 }

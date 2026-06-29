@@ -3,6 +3,46 @@
 Records constitution amendments per the Governance section's amendment policy (written rationale +
 version bump + propagation). Newest first.
 
+## 2026-06-28 — v1.1.0 → v1.2.0 (MINOR): Principle VI gains construction-time validator binding + per-variable `validation_required`
+
+**Change**: Added three bullets to **Principle VI (Per-Language Idiom Over Forced Uniformity)**: (1) validators
+MAY be bound to the prompt object **at construction** (not only supplied per render) — a first-class immutable
+prompt holds its validator(s) and reuses them at render; (2) an optional per-variable **`validation_required`**
+boolean, **orthogonal to the `origin` trust tag**, lets a prompt mandate that a covering validator was supplied
+for that variable; (3) enforcement of that coverage is **intentionally asymmetric** across languages —
+TypeScript (Zod) and Python (Pydantic) introspect the supplied validator's per-field coverage and **throw/raise
+at construction** when a `validation_required` variable is uncovered, while **Rust keeps garde** with coverage
+guaranteed **structurally at compile time** and treats `validation_required` as **declarative metadata** (no
+runtime coverage throw — Rust surfaces such errors at compile time, the idiomatic expectation). The kernel stays
+validation-blind (Principle III): per-variable validators and `validation_required` enforcement live only in the
+binding/consumer layer.
+
+**Version bump**: MINOR (1.1.0 → 1.2.0) — a principle was *materially expanded* with new additive guidance, not
+removed or redefined (which would be MAJOR), and more than a clarification (PATCH). Per the Governance policy.
+
+**Rationale**: Surfaced at the spec-008 (Pre-publish API & schema reshape) clarify session. The prompt-as-object
+reshape introduces a first-class immutable `Prompt`; binding the validator onto that object (rather than only
+passing it at each render) is the natural ergonomic consequence. The user directed (verbatim) that "the
+constitution needs to be adjusted to what people would expect with rust; garde is the idiomatic way, and rust
+should not run into runtime errors when we can do compile time errors." That is the crux: TS/Python can
+runtime-introspect a Zod schema's `.shape` / a Pydantic model's `model_fields` to enforce per-variable coverage
+at construction, but garde derives rules on a compile-time struct and exposes **no** runtime rule-introspection.
+Forcing Rust to fake a runtime coverage throw would be the alien, non-idiomatic API this principle exists to
+prevent. Endorsing the asymmetry (runtime in the dynamic languages, compile-time/structural in Rust) IS
+"uniform capability, native idiom."
+
+**Propagation / migration**:
+- **Applied** in spec 008: the per-variable `validation_required` schema field, construction-time validator
+  binding, and the asymmetric coverage enforcement (FR-022..FR-025 of `specs/008-api-schema-reshape/spec.md`).
+- Dependent templates (plan/spec/tasks) need no structural change; like the v1.1.0 C-11 amendment, this is a
+  coding-idiom rule a reviewer applies, not a new workflow gate. The plan's Constitution Check verifies it.
+- Roadmap decisions C-06 (native validators; errors normalized) and C-11 (call-shape) are the lineage; no
+  roadmap-ledger renumber needed (this expands Principle VI, not a new C-NN).
+
+**Note**: Authored via `/speckit.constitution` under explicit user pre-authorization given at the spec-008
+clarify session (the user was stepping away and directed the amendment direction). Faithful to the amendment
+policy; trivially revertable (three additive bullets + version line + this record).
+
 ## 2026-06-28 — v1.0.0 → v1.1.0 (MINOR): Principle VI gains the options-object call-shape rule
 
 **Change**: Added a bullet to **Principle VI (Per-Language Idiom Over Forced Uniformity)** requiring

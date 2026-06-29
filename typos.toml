@@ -5,5 +5,10 @@
 # `{{ name }}` to prove a field-name mismatch surfaces as a loud `undefined_variable`
 # render error, never a silent empty render (spec 004/005, the `Misnamed` model).
 # It is not a typo; allowlist it so the typos pre-commit hook does not flag the fixtures.
+#
+# `mis` is the prefix in "mis-derives" (a comment in scripts/ci/test-python.sh describing how
+# maturin mis-derives the module name from a hyphenated crate name run from the repo root). It
+# is correct English, not a typo; allowlist the prefix so the hook does not flag the comment.
 [default.extend-words]
 nam = "nam"
+mis = "mis"

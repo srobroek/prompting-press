@@ -41,47 +41,58 @@ Per Principle III (roadmap decision C-03), the library:
 - ships **no token counter** (there is no `count_tokens` surface at all);
 - carries `output_model` as a **metadata reference only** — it never parses against it.
 
-## Registry + the dual-input loader
+## Prompt — the primary object
 
-A `Registry` is a name → definition map. Four input forms all normalize to one internal
-representation (decision C-07) and route through the same core loader:
+A `Prompt` is an **immutable, fully-validated** prompt object. There is no registry — you
+construct a `Prompt` once and hold or pass it directly. Four construction forms all normalize
+through the same Rust loader (decision C-07):
 
 ```python
-from prompting_press import Registry
+from prompting_press import Prompt
 from prompting_press.generated import PromptDefinition
 
-GREET = {
+# From a plain dict or a validated PromptDefinition instance:
+greet = Prompt({
     "name": "greet",
     "role": "user",
     "body": "Hi {{ name }}, you have {{ count }} messages",
     "variables": {
-        "name": {"type": "string", "provenance": "trusted"},
-        "count": {"type": "integer", "provenance": "trusted"},
+        "name":  {"type": "string",  "origin": "trusted"},
+        "count": {"type": "integer", "origin": "trusted"},
     },
-}
+})
 
-reg = Registry()
-reg.insert(GREET)                                    # a plain dict / Mapping
-reg.insert(PromptDefinition.model_validate(GREET))   # a validated Pydantic instance
-reg.load_json('{"name": "...", "role": "user", "body": "..."}')   # a JSON document
-reg.load_yaml("name: ...\nrole: user\nbody: \"...\"\n")           # a YAML 1.2 document
+# From already-read YAML, JSON, or TOML text — the library does no file I/O:
+greet = Prompt.from_yaml("""
+name: greet
+role: user
+body: "Hi {{ name }}, you have {{ count }} messages"
+variables:
+  name:  { type: string,  origin: trusted }
+  count: { type: integer, origin: trusted }
+""")
+
+greet = Prompt.from_json('{"name": "greet", "role": "user", "body": "..."}')
+greet = Prompt.from_toml('name = "greet"\nrole = "user"\nbody = "..."')
 ```
 
-- `insert`, `load_json`, `load_yaml` each return `None` and key the entry by its `name`.
-- A malformed document or shape violation raises `LoadError` and inserts **nothing** (atomic;
-  a failed re-load never corrupts an existing entry).
-- The core's YAML loader is **YAML 1.2 / Norway-safe** — unquoted `no` / `off` / `yes` stay
-  strings, never booleans.
+**Construction validates.** An undeclared-variable reference, a template syntax error, an
+un-analyzable template (e.g. `{% include %}`), or a reserved variant name raises
+`PromptValidationError` (or `LoadError` for a malformed document) **here at construction** —
+never silently deferred to render.
+
+All constructors accept an optional `validators` keyword argument (a Pydantic model class). If
+any variable in the definition has `validation_required = true`, a covering `validators` class
+**must** be supplied at construction or construction raises.
 
 ## Validate, then render
 
-Define a typed Vars model in your own language's idiom — for Python that is **Pydantic**
-(Principle VI / C-06). Validators run in Python; the validated values are then marshaled to the
-core, which renders and stamps provenance:
+Define a typed Vars model in Pydantic (Principle VI / C-06). Validators run in Python; the
+validated values are then marshaled to the core, which renders and stamps provenance:
 
 ```python
 from pydantic import BaseModel, field_validator
-from prompting_press import Registry, render
+from prompting_press import Prompt
 
 class Greeting(BaseModel):
     name: str
@@ -94,18 +105,16 @@ class Greeting(BaseModel):
             raise ValueError("count must be non-negative")
         return value
 
-reg = Registry()
-reg.insert({
-    "name": "greet",
-    "role": "user",
-    "body": "Hi {{ name }}, you have {{ count }} messages",
-    "variables": {
-        "name": {"type": "string", "provenance": "trusted"},
-        "count": {"type": "integer", "provenance": "trusted"},
-    },
-})
+greet = Prompt.from_yaml("""
+name: greet
+role: user
+body: "Hi {{ name }}, you have {{ count }} messages"
+variables:
+  name:  { type: string,  origin: trusted }
+  count: { type: integer, origin: trusted }
+""")
 
-result = render(reg, "greet", Greeting, data={"name": "Ada", "count": 3})
+result = greet.render(Greeting, data={"name": "Ada", "count": 3})
 
 result.text           # "Hi Ada, you have 3 messages"  (the rendered BODY only)
 result.name           # "greet"
@@ -115,45 +124,46 @@ result.render_hash    # SHA-256 of the rendered output (64-char hex)
 result.guard          # None  (no guard requested — see "Guard" below)
 ```
 
-`render(reg, name, vars, *, data=None, variant=None, guard=None)` accepts either a Vars **class**
-plus a `data` dict (validated for you, as above) or a pre-built Vars **instance**. `data`,
-`variant`, and `guard` are **keyword-only** (C-11). Select a named variant with
-`render(reg, name, Vars, data=..., variant="formal")`.
+`prompt.render(model=None, *, data=None, variant=None, guard=None)` accepts either a Vars
+**class** plus a `data` dict (validated for you, as above) or a pre-built Vars **instance**
+(pass it as `model` with no `data`). `data`, `variant`, and `guard` are **keyword-only** (C-11).
+Select a named variant with `greet.render(Greeting, data=..., variant="formal")`.
 
 ### The three-sets invariant (loud, never silent)
 
 The Vars field names must match the prompt's declared `variables`, which must cover the
 template's references. A mismatch — e.g. a Vars field `nam` against a template `{{ name }}` —
 is surfaced as a **loud** `PromptRenderError` (`code == "undefined_variable"`), never a silent
-empty render. (And the standing lint, below, catches the same class of gap before render.)
+empty render. (And the agreement check below catches the same class of gap before render.)
 
-## The agreement + provenance lint (the headline differentiator)
+## The agreement lint (the headline differentiator)
 
-`check(reg) -> CheckReport` is a **pure** analysis pass (it never mutates the registry and never
-renders) — the static guarantee no file-based prompt library provides (decisions C-04 / C-09).
-Wire it as a **CI gate**: it catches a template referencing an **undeclared variable**, and an
-`untrusted`/`external` field used **without a declared guard**, *before* anything renders.
+`prompt.check() -> CheckReport` is a **pure** analysis pass (it never mutates the prompt and
+never renders) — the static guarantee no file-based prompt library provides (decisions C-04 /
+C-09). Wire it as a **CI gate**: the hard invariants (a template referencing an **undeclared
+variable**, an un-analyzable template, a reserved variant name) are now enforced at
+**construction**; `check()` surfaces the remaining live advisory: an `untrusted`/`external`
+field used **without a declared guard**.
 
 ```python
-from prompting_press import Registry, check
+from prompting_press import Prompt
 
-reg = Registry()
-reg.insert({
+ghosty = Prompt({
     "name": "ghosty",
     "role": "user",
-    "body": "Hi {{ name }} and {{ ghost }}",          # `ghost` is never declared
-    "variables": {"name": {"type": "string", "provenance": "trusted"}},
+    "body": "Hi {{ name }}",
+    "variables": {"name": {"type": "string", "origin": "untrusted"}},
 })
 
-report = check(reg)
+report = ghosty.check()
 
-report.passed()      # False  (a clean registry → True)
+report.passed()      # False  (a clean prompt → True)
 report.is_empty()    # False  (alias for passed(): True iff there are no findings)
 bool(report)         # True   (truthy iff there ARE findings — the inverse of passed())
 len(report)          # 1      (number of findings)
 for f in report.findings:
     print(f.kind, f.prompt, f.variant, f.detail)
-    # -> "undeclared_variable" "ghosty" "default" "...ghost..."
+    # -> "untrusted_without_guard" "ghosty" "default" "..."
 ```
 
 Each `Finding` is read-only: `.prompt`, `.variant` (`str | None`), `.kind`, `.detail`. The
@@ -166,38 +176,58 @@ stable `kind` vocabulary is:
 | `reserved_variant_name`   | a variant key collides with the reserved `default` arm               |
 | `analysis_error`          | a template could not be statically analyzed (e.g. an excluded feature) |
 
+Note: `undeclared_variable`, `reserved_variant_name`, and `analysis_error` are enforced at
+construction and are therefore unreachable from a successfully-constructed `Prompt`. They
+appear in the table for completeness; `untrusted_without_guard` is the only live advisory
+`check()` returns.
+
+## Immutability and `derive`
+
+A `Prompt` has read-only properties (`name`, `role`, `body`, `variables`, `variants`,
+`output_model`, `metadata`, `meta`) and no setters. The sole mutator is `derive`:
+
+```python
+derived = greet.derive({"body": "Hey {{ name }}, you have {{ count }} items"})
+# greet is unchanged; derived is a new fully-validated Prompt.
+```
+
+`derive(overlay, *, validators=None)` shallow-replaces any subset of top-level fields, routes
+the merged definition through the Rust consumer's full re-validation (agreement, parse,
+reserved name), and returns a **new `Prompt`**. The original is untouched. Validators carry
+forward from the original by default; pass `validators=SomeModel` to override.
+
 ## Composition (multi-message)
 
-A `Composition` is an **explicit, ordered** sequence of `(prompt-name, vars, variant?)` entries
-that resolves to a `list[Message]` in append order (Principle VI / C-06). There is deliberately
-**no fluent `.chain()`** — it cannot cross the FFI boundary and collides with `Iterator::chain`.
+A `Composition` is an **explicit, ordered** sequence of `(prompt, vars, variant?)` entries
+that resolves to a `list[Message]` in append order (Principle VI / C-06). Entries reference
+**`Prompt` objects**, not names — there is no registry. There is deliberately **no fluent
+`.chain()`** — it cannot cross the FFI boundary and collides with `Iterator::chain`.
 
 ```python
 from prompting_press import Composition
 
 comp = Composition()
-comp.append("sys_preamble", SystemVars())          # variant defaults to "default"
-comp.append("greet", Greeting(name="Ada", count=3))
-comp.append("salute", Greeting(...), variant="formal")
+comp.append(sys_preamble, SystemVars())           # variant defaults to "default"
+comp.append(greet, Greeting(name="Ada", count=3))
+comp.append(salute, Greeting(...), variant="formal")
 
 # or build it all at once (2-tuples default the variant; 3-tuples select one):
 comp = Composition.from_messages([
-    ("sys_preamble", SystemVars()),
-    ("greet", Greeting(name="Ada", count=3)),
-    ("salute", Greeting(...), "formal"),
+    (sys_preamble, SystemVars()),
+    (greet,        Greeting(name="Ada", count=3)),
+    (salute,       Greeting(...), "formal"),
 ])
 
-messages = comp.resolve(reg)   # [Message(role, text), ...] in append order
+messages = comp.resolve()   # [Message(role, text), ...] in append order
 for m in messages:
     m.role   # "system" / "user" / "assistant" (the prompt definition's role)
     m.text   # that prompt rendered with the entry's own validated vars
 ```
 
-`append` eager-validates the vars (re-validated, so a `model_construct`-bypassed invalid
-instance is still caught) and stores **nothing** on failure — no partial state. Name resolution
-and rendering happen at `resolve`: an unknown name raises `UnknownPromptError` and an unknown
-variant raises `PromptRenderError`, returning no partial list either way. An empty composition
-resolves to `[]`.
+`append` eager-validates the vars (a Pydantic model **instance**) at append time and stores
+**nothing** on failure — no partial state. Rendering happens at `resolve`: a render failure
+(unknown variant, strict-undefined reference) propagates as the mapped Python exception and
+no partial list is returned. An empty composition resolves to `[]`.
 
 ## Guard usage doctrine — the system-prompt addendum
 
@@ -215,28 +245,27 @@ Route it as a **system-prompt addendum**:
   user turns.
 
 ```python
-from prompting_press import Registry, render, GuardConfig
+from prompting_press import Prompt, GuardConfig
 from pydantic import BaseModel
 
 class Ask(BaseModel):
     topic: str
 
-reg = Registry()
-reg.insert({
+ask = Prompt({
     "name": "ask",
     "role": "user",
     "body": "Tell me about {{ topic }}.",
-    "variables": {"topic": {"type": "string", "provenance": "untrusted"}},
+    "variables": {"topic": {"type": "string", "origin": "untrusted"}},
 })
 
-result = render(reg, "ask", Ask, data={"topic": "rivers"}, guard=GuardConfig(enabled=True))
+result = ask.render(Ask, data={"topic": "rivers"}, guard=GuardConfig(enabled=True))
 result.text    # "Tell me about rivers."   (body only — unchanged whether or not a guard is on)
 result.guard   # advisory guard instruction → route into YOUR system prompt
 
 # you assemble the request (the library never does):
 messages = [
     {"role": "system", "content": result.guard},
-    {"role": "user", "content": result.text},
+    {"role": "user",   "content": result.text},
 ]
 ```
 
@@ -255,14 +284,23 @@ PromptingPressError        # base; carries .errors -> list[FieldError]
 ├── PromptRenderError      # kernel render/source/analysis failure
 │                          #   (code in unknown_variant | undefined_variable | parse | render | excluded_feature)
 ├── UnknownPromptError      # a prompt name was absent from the registry  (code = "unknown_prompt")
-└── LoadError              # malformed YAML/JSON or a shape violation in the loader  (code = "load")
+└── LoadError              # malformed YAML/JSON/TOML or a shape violation at construction  (code = "load")
 ```
 
 ```python
-from prompting_press import PromptValidationError, render
+from prompting_press import Prompt, PromptValidationError
+
+greet = Prompt.from_yaml("""
+name: greet
+role: user
+body: "Hi {{ name }}, you have {{ count }} messages"
+variables:
+  name:  { type: string,  origin: trusted }
+  count: { type: integer, origin: trusted }
+""")
 
 try:
-    render(reg, "greet", Greeting, data={"name": "Ada", "count": -1})
+    greet.render(Greeting, data={"name": "Ada", "count": -1})
 except PromptValidationError as exc:
     for row in exc.errors:
         print(row.field, row.code, row.message)   # "count" "validation" "..."

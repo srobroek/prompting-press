@@ -1,15 +1,15 @@
 """Spec 006 — schema round-trip conformance corpus, Python binding (`prompting_press`).
 
 This is a TEST HARNESS, not engine logic. It drives the shared
-`conformance/schema/manifest.json` fixtures through the binding's **real** loaders
-(``Registry.load_json`` / ``Registry.load_yaml``) and asserts each reaches its
-manifest ``verdict`` — an ``accept`` doc loads cleanly; a ``reject`` doc raises the
-binding's normalized ``LoadError`` with no partial load and no crash.
+`conformance/schema/manifest.json` fixtures through the binding's **real** factories
+(``Prompt.from_json`` / ``Prompt.from_yaml``) and asserts each reaches its
+manifest ``verdict`` — an ``accept`` doc constructs cleanly; a ``reject`` doc raises
+the binding's normalized ``LoadError`` with no partial construction and no crash.
 
-What it guards (Principle VII): that the Python loader's accept/reject verdict for the
+What it guards (Principle VII): that the Python factory's accept/reject verdict for the
 spec-001 prompt-definition shape matches the other bindings' across both the JSON and the
-YAML input paths. Note (per the manifest's own description) the loaders do serde SHAPE
-deserialization, not full JSON-Schema validation — so this pins the *loader's* verdict
+YAML input paths. Note (per the manifest's own description) the factories do serde SHAPE
+deserialization, not full JSON-Schema validation — so this pins the *factory's* verdict
 (the binding-observable round-trip), which is intentionally looser than spec-001's
 `validate-fixtures` gate.
 
@@ -29,7 +29,7 @@ from typing import Any
 
 import pytest
 
-from prompting_press import LoadError, Registry
+from prompting_press import LoadError, Prompt
 
 
 def _repo_root() -> Path:
@@ -81,10 +81,10 @@ _FIXTURES = _load_manifest()
     ids=[f"{f['verdict']}-{f['form']}-{Path(f['path']).stem}" for f in _FIXTURES],
 )
 def test_schema_fixture_round_trips(fixture: dict[str, Any]) -> None:
-    """Each schema fixture reaches its manifest verdict through the matching loader.
+    """Each schema fixture reaches its manifest verdict through the matching factory.
 
-    `accept` ⇒ the loader does not raise; `reject` ⇒ the loader raises `LoadError`
-    (asserted on type only — SEC-002) and inserts nothing partial.
+    `accept` ⇒ the factory does not raise; `reject` ⇒ the factory raises `LoadError`
+    (asserted on type only — SEC-002) and no Prompt is constructed.
     """
     form = fixture["form"]
     verdict = fixture["verdict"]
@@ -94,13 +94,16 @@ def test_schema_fixture_round_trips(fixture: dict[str, Any]) -> None:
     doc_path = _safe_resolve(fixture["path"])
     text = doc_path.read_text(encoding="utf-8")
 
-    reg = Registry()  # a fresh registry per fixture — no cross-contamination
-    load = reg.load_json if form == "json" else reg.load_yaml
-
     if verdict == "accept":
         # Must NOT raise. Any exception (including LoadError) is a failure for an accept doc.
-        load(text)
+        if form == "json":
+            Prompt.from_json(text)
+        else:
+            Prompt.from_yaml(text)
     else:
         # Must raise the binding's normalized LoadError — assert on TYPE, never message (SEC-002).
         with pytest.raises(LoadError):
-            load(text)
+            if form == "json":
+                Prompt.from_json(text)
+            else:
+                Prompt.from_yaml(text)

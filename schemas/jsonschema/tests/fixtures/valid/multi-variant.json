@@ -1,0 +1,40 @@
+{
+  "name": "content-summariser",
+  "role": "user",
+  "body": "Summarise the following article in {{max_words}} words or fewer:\n\n{{article}}",
+  "variables": {
+    "article": {
+      "type": "string",
+      "origin": "untrusted",
+      "description": "Raw article text supplied by the end user."
+    },
+    "max_words": {
+      "type": "integer",
+      "origin": "trusted",
+      "description": "Maximum word count for the summary."
+    },
+    "style": {
+      "type": "string",
+      "origin": "trusted",
+      "description": "Output style preference."
+    }
+  },
+  "variants": {
+    "concise": {
+      "body": "In one sentence, summarise: {{article}}"
+    },
+    "structured": {
+      "body": "Produce a structured summary with a title, three bullet points, and a one-sentence conclusion for:\n\n{{article}}",
+      "metadata": {
+        "weight": 0.3,
+        "group": "experiment-2024-q4",
+        "tags": ["structured", "verbose"]
+      }
+    }
+  },
+  "output_model": "SummaryOutput",
+  "metadata": {
+    "model_hint": "claude-3-5-sonnet",
+    "max_tokens": 256
+  }
+}

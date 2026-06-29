@@ -1,0 +1,150 @@
+---
+title: "Lint prompts in CI"
+description: "Wire prompt.check() as a CI gate to catch untrusted variables without a declared guard."
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+`prompt.check()` is a **pure advisory lint** — it never renders, never mutates, and takes no
+vars. Wire it as a CI gate over every `Prompt` the application constructs.
+
+## What check() catches
+
+The hard construction invariants (undeclared-variable references, template syntax errors,
+un-analyzable templates, reserved variant names) are enforced **at construction** — a constructed
+`Prompt` is already free of them. The only live finding `check()` can return is:
+
+| Finding kind | Meaning |
+|---|---|
+| `untrusted_without_guard` | A variable is tagged `origin: untrusted` or `origin: external` but the prompt carries no `guard` key in its `metadata` map. |
+
+This is an advisory — the library does not block rendering when this finding is present. It is
+the CI gate that chooses to fail on it.
+
+<Aside type="note">
+The other finding kinds (`undeclared_variable`, `reserved_variant_name`, `analysis_error`) appear
+in the `FindingKind` / `finding.kind` vocabulary for completeness, but a successfully-constructed
+`Prompt` can never produce them from `check()` — they are enforced earlier.
+</Aside>
+
+## Write it as a test, not a script
+
+A CI gate is a **test that fails the build**. Place shipped prompts under version control, load
+each one, and assert `check()` returns no findings. When CI runs the normal test command
+(`cargo test` / `pytest` / `node --test`), a flagged prompt fails the run — no separate lint
+binary is required.
+
+Each example below loads every `*.yaml` under a `prompts/` directory and asserts a clean report,
+naming the offending prompt + finding on failure so the CI log is actionable.
+
+<Tabs syncKey="construct">
+<TabItem label="Rust">
+```rust
+// tests/prompts_lint.rs  — runs under `cargo test`
+use prompting_press::Prompt;
+use std::fs;
+
+#[test]
+fn shipped_prompts_pass_check() {
+    let mut failures = Vec::new();
+
+    for entry in fs::read_dir("prompts").expect("prompts/ dir") {
+        let path = entry.unwrap().path();
+        if path.extension().and_then(|e| e.to_str()) != Some("yaml") {
+            continue;
+        }
+        let text = fs::read_to_string(&path).unwrap();
+        // Construction itself enforces the hard invariants — surface a load/agreement
+        // failure as a test failure too, not a panic.
+        let prompt = match Prompt::from_yaml(&text) {
+            Ok(p) => p,
+            Err(e) => {
+                failures.push(format!("{}: construction failed: {e:?}", path.display()));
+                continue;
+            }
+        };
+        for f in &prompt.check().findings {
+            failures.push(format!("{}: {} — {}", path.display(), f.prompt, f.detail));
+        }
+    }
+
+    assert!(failures.is_empty(), "prompt lint findings:\n{}", failures.join("\n"));
+}
+```
+
+`CheckReport::passed()` returns `true` iff `findings` is empty (`is_empty()` is an alias); here the
+`findings` are collected directly so the assertion message lists every offender.
+</TabItem>
+<TabItem label="Python">
+```python
+# tests/test_prompts_lint.py  — runs under pytest
+from pathlib import Path
+
+import pytest
+from prompting_press import Prompt, PromptingPressError
+
+PROMPT_FILES = sorted(Path("prompts").glob("*.yaml"))
+
+@pytest.mark.parametrize("path", PROMPT_FILES, ids=lambda p: p.name)
+def test_shipped_prompt_passes_check(path: Path) -> None:
+    try:
+        prompt = Prompt.from_yaml(path.read_text())   # construction enforces hard invariants
+    except PromptingPressError as e:
+        pytest.fail(f"{path.name}: construction failed: {e}")
+
+    report = prompt.check()
+    findings = [f"{f.kind}: {f.detail}" for f in report.findings]
+    assert report.passed(), f"{path.name} lint findings:\n" + "\n".join(findings)
+```
+
+Parametrizing over the files gives one pass/fail per prompt in the pytest report. `report.passed()`
+→ `True` when there are no findings (`report.is_empty()` is an alias).
+</TabItem>
+<TabItem label="TypeScript">
+```ts
+// test/prompts-lint.test.mjs  — runs under `node --test`
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readdirSync, readFileSync } from "node:fs";
+import { Prompt } from "prompting-press";
+
+for (const file of readdirSync("prompts").filter((f) => f.endsWith(".yaml"))) {
+  test(`shipped prompt ${file} passes check`, () => {
+    // Construction throws on the hard invariants; let that fail the test directly.
+    const prompt = Prompt.fromYaml(readFileSync(`prompts/${file}`, "utf-8"));
+    const report = prompt.check();
+    const findings = report.findings.map((f) => `${f.kind}: ${f.detail}`);
+    assert.ok(report.passed(), `${file} lint findings:\n${findings.join("\n")}`);
+  });
+}
+```
+
+One `node:test` case per prompt file; the assertion message lists the findings. These tests need no
+network or model — `check()` is pure analysis — so they run in the same fast unit-test lane as the
+rest of the test suite.
+</TabItem>
+</Tabs>
+
+## Suppressing a finding (the guard key)
+
+To suppress `untrusted_without_guard`, add a `guard` key to the prompt's `metadata` map. The
+library checks only for the **presence** of the key, not its shape — any value (including `true`)
+is sufficient:
+
+```yaml
+name: ask
+role: user
+body: "Tell me about {{ topic }}."
+variables:
+  topic:
+    type: string
+    origin: untrusted
+metadata:
+  guard:
+    enabled: true
+```
+
+With the `guard` key present, `check()` returns a passing report. At render time, pass
+`guard=GuardConfig(enabled=True)` (Python) / `guard: { enabled: true }` (TypeScript) /
+`&GuardConfig { enabled: true, .. }` (Rust) to receive the advisory guard text in
+`RenderResult.guard`. See [The advisory guard](/prompting-press/guides/guard/).

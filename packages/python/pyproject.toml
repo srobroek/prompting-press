@@ -27,7 +27,10 @@ readme = "README.md"
 # Pydantic v2 target floor (US3 generates Pydantic v2 models). Decoupled from the
 # repo's pinned dev runtime (mise.toml python = 3.14.4) on purpose: the published
 # wheel must support the broader supported-Python range, not just the dev pin.
-requires-python = ">=3.10"
+# Floor raised 3.10 -> 3.12 in spec 008 (pre-publish): 3.10 nears EOL, 3.12 is the
+# CI-tested interpreter, and 3.12 gives stdlib `tomllib` for Prompt.from_toml (no
+# tomli backport dependency).
+requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Sjors Robroek" }]
 # Pydantic v2 is the typed-Vars facade and the generated shape (US3). The bounded
@@ -46,6 +49,12 @@ Repository = "https://github.com/srobroek/prompting-press"
 # CI install: `uv sync --project packages/python --group codegen --no-install-project --frozen`
 # (then run packages/python/scripts/codegen.sh).
 codegen = ["datamodel-code-generator==0.65.1"]
+
+# Property-based / adversarial fuzzing framework (spec 009 T008 — test-only;
+# MUST NOT enter the published wheel's runtime `[project.dependencies]`).
+# Exact pin per FR-009 / SEC-003 (no floating ranges in dev deps).
+# To lock after editing: `uv lock --project packages/python`.
+test = ["hypothesis==6.155.7"]
 
 [tool.maturin]
 # The binding crate lives OUTSIDE this package dir, at the repo's
