@@ -1,6 +1,6 @@
 ---
 title: "Getting started — TypeScript"
-description: "Install prompting-press and render your first prompt in TypeScript."
+description: "Install prompting-press and render a first prompt in TypeScript."
 ---
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
@@ -32,14 +32,14 @@ bun add prompting-press zod
 
 ESM-only · Node 20+ · ships as a native addon (per-platform binary).
 
-`zod` is a peer dependency for the typed-validation facade (you bring your own Zod version). You supply
-a Zod schema at render time; the library imports only the structural `safeParse` interface, not Zod's
-identity, so any object exposing `safeParse` works.
+`zod` is a peer dependency for the typed-validation facade (the consuming project supplies its own Zod
+version). A Zod schema is passed at render time; the library imports only the structural `safeParse`
+interface, not Zod's identity, so any object exposing `safeParse` works.
 
 ## Write a prompt definition
 
-A prompt definition is YAML, JSON, or TOML text — same shape, your choice of format. You read the text
-however suits your app and hand it to the `from*` factories; the library does no file I/O itself. The
+A prompt definition is YAML, JSON, or TOML text — the same shape in any of the three formats. The
+caller reads the text and hands it to the `from*` factories; the library does no file I/O. The
 `greet` definition used throughout this page:
 
 <Tabs syncKey="def-format">
@@ -100,7 +100,7 @@ Construct from text with a `from*` factory, or from a typed `PromptDefinition` o
 import { Prompt } from "prompting-press";
 import { readFileSync } from "node:fs";
 
-// You read the text however suits your app; the library does no file I/O itself.
+// The caller reads the text; the library does no file I/O itself.
 const greet = Prompt.fromYaml(readFileSync("greet.yaml", "utf-8")); // validates here, or throws
 // fromJson / fromToml parse the JSON / TOML forms into the same Prompt.
 // (TOML is parsed by Rust — no JS TOML dependency.)
@@ -113,8 +113,8 @@ greet.body; // => "Hi {{ name }}, you have {{ count }} messages."
 ```ts
 import { Prompt, type PromptDefinition } from "prompting-press";
 
-// The constructor takes a typed PromptDefinition — your editor type-checks the
-// shape (field names, the role enum, each variable's `origin`) as you write it.
+// The constructor takes a typed PromptDefinition — an editor type-checks the
+// shape (field names, the role enum, each variable's `origin`) at author time.
 const definition: PromptDefinition = {
   name: "greet",
   role: "user",
@@ -139,7 +139,7 @@ construction, never as a silent empty render.
 
 ### Step 2 — declare the typed Vars schema
 
-The values you render with are a Zod schema you own. Its keys match the prompt's `variables`
+The render values are a caller-owned Zod schema. Its keys match the prompt's `variables`
 (`name`, `count`), and `safeParse` runs before the kernel is touched:
 
 ```ts
@@ -244,12 +244,11 @@ PromptingPressError          # base; carries .errors: FieldError[]
 ├── PromptValidationError    # Zod validation failed      (code "validation")
 ├── PromptRenderError        # kernel render failure       (codes: unknown_variant,
 │                            #   undefined_variable, parse, render, excluded_feature)
-├── UnknownPromptError       # a prompt name lookup failed (code "unknown_prompt")
 └── LoadError                # malformed YAML/JSON/TOML   (code "load")
 ```
 
-Each `FieldError` carries `field`, `code`, and `message`. Sensitive rejected values are
-**never** echoed onto the error surface.
+Each `FieldError` carries `field`, `code`, and `message`. A rejected render value is **never**
+echoed onto the error surface; a parse error carries template-syntax detail (no bound values).
 
 ## Next steps
 

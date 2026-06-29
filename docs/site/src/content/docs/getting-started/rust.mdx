@@ -1,13 +1,13 @@
 ---
 title: "Getting started — Rust"
-description: "Install prompting-press and render your first prompt in Rust."
+description: "Install prompting-press and render a first prompt in Rust."
 ---
 
 import { Aside, Code, Tabs, TabItem } from '@astrojs/starlight/components';
 
 ## Install
 
-Add the crate to your `Cargo.toml`:
+Add the crate to `Cargo.toml`:
 
 ```toml
 [dependencies]
@@ -16,14 +16,14 @@ garde = { version = "0.23", features = ["derive", "serde"] }
 serde = { version = "1", features = ["derive"] }
 ```
 
-`garde` is the Rust validator crate; `serde` is required so your Vars struct can be serialized
+`garde` is the Rust validator crate; `serde` is required so the Vars struct can be serialized
 across the FFI bridge.
 
 ## Write a prompt definition
 
-A prompt definition is a YAML, JSON, or TOML document — same shape, your choice of format. You read
-the text however suits your app and hand it to the `from_*` factories; the library does no file I/O
-itself. The `greet` definition used throughout this page:
+A prompt definition is a YAML, JSON, or TOML document — the same shape in any of the three formats.
+The caller reads the text and hands it to the `from_*` factories; the library does no file I/O. The
+`greet` definition used throughout this page:
 
 <Tabs syncKey="def-format">
 <TabItem label="YAML">
@@ -75,7 +75,7 @@ origin = "trusted"
 ### Step 1 — construct a `Prompt` (and validate)
 
 Construct from text with a `from_*` factory, or from an already-built `PromptDefinition` value with
-`Prompt::new`. All four routes run the **same** validation immediately:
+`Prompt::new`. All routes run the **same** validation immediately:
 
 <Tabs syncKey="construct">
 <TabItem label="From text">
@@ -108,19 +108,19 @@ let def: PromptDefinition = serde_json::from_value(serde_json::json!({
 
 let greet = Prompt::new(def)?;   // same validation as the from_* factories
 ```
-For most code the `from_*` text factories are simpler; `Prompt::new` is the path when you already
-hold a `PromptDefinition` (e.g. one you built programmatically).
+The `from_*` text factories cover the common case; `Prompt::new` is the path for an
+already-constructed `PromptDefinition` (e.g. one built programmatically).
 </TabItem>
 </Tabs>
 
-Construction **validates immediately**. If the template referenced a variable that `variables` doesn't
-declare — say the body said `{{ usrname }}` — this would have returned `Err(ConsumerError::Kernel(..))`
-right here, **before any render**: a disagreement between the template and its declared variables is
-caught at construction, never as a silent empty render.
+Construction **validates immediately**. If the template referenced a variable that `variables` does not
+declare — say the body said `{{ usrname }}` — construction returns `Err(ConsumerError::Kernel(..))`
+**before any render**: a disagreement between the template and its declared variables is caught at
+construction, never as a silent empty render.
 
 ### Step 2 — declare the typed Vars
 
-The values you render with are a struct you own, validated by [`garde`](https://docs.rs/garde). Its
+The render values are a caller-owned struct, validated by [`garde`](https://docs.rs/garde). Its
 field names must match the prompt's `variables` (`name`, `count`); the `#[garde(..)]` rules run at
 render time, before the kernel is touched:
 
@@ -159,8 +159,8 @@ result.render_hash;   // => e.g. "1ab4…" (64-char lowercase-hex SHA-256 of res
 - `guard = &GuardConfig::default()` opts out of the advisory guard text (so `result.guard` is `None`).
 
 The generic `V` is resolved at the **call site**, so "this prompt has a validator for `count`" is a
-compile-time guarantee — no runtime validator object is stored on the `Prompt` (this is the Rust side
-of the per-language validator model).
+compile-time guarantee — no runtime validator object is stored on the `Prompt`. This is the Rust side
+of the per-language validator model.
 
 ### Complete example
 
@@ -208,7 +208,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```rust
 use prompting_press::{ConsumerError, error::code};
 
+// ConsumerError is a closed three-variant enum — the match is exhaustive.
 match greet.render(&vars, None, &GuardConfig::default()) {
+    Ok(result) => { /* ... */ }
     Err(ConsumerError::Validation(rows)) => {
         for row in &rows {
             eprintln!("{}: {} [{}]", row.field, row.message, row.code);
@@ -216,8 +218,6 @@ match greet.render(&vars, None, &GuardConfig::default()) {
     }
     Err(ConsumerError::Kernel(rows)) => { /* parse/render/agreement failure */ }
     Err(ConsumerError::Load(msg))    => { /* malformed YAML/JSON/TOML */ }
-    Ok(result) => { /* ... */ }
-    _ => {}
 }
 ```
 

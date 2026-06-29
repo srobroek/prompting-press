@@ -100,8 +100,8 @@ pub enum ConsumerError {
     Validation(Vec<FieldError>),
 
     /// The kernel rejected the render/source/analysis call. One [`FieldError`] per kernel
-    /// failure, carrying the mapped code from the [`code`] vocabulary. `Parse`/`Render`
-    /// details are scrubbed (FR-015).
+    /// failure, carrying the mapped code from the [`code`] vocabulary. `Render` detail is
+    /// scrubbed (FR-015); `Parse` detail is preserved (pre-binding template syntax).
     Kernel(Vec<FieldError>),
 
     /// Malformed input to the dual-input loader (bad YAML/JSON, or a deserialize error).

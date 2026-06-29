@@ -1,25 +1,23 @@
-//! The Node agreement + provenance lint — `check(registry)` plus the [`CheckReport`] and
-//! [`Finding`] napi types (spec 003 US3 / FR-016..020; constitution Principle IV / C-04/C-09; US3).
+//! The Node agreement + provenance lint — [`CheckReport`] and [`Finding`] napi types
+//! (spec 003 US3 / FR-016..020; constitution Principle IV / C-04/C-09; US3).
 //!
 //! ## Zero engine logic (C-01 / Principle I)
 //!
-//! [`check`] performs **no** analysis of its own. It marshals the binding [`Registry`] to the Rust
-//! consumer's [`prompting_press::check`] — which owns the registry walk, the agreement
-//! set-arithmetic, the provenance view, the reserved-`default` handling, and the analysis-error
-//! recording — and then surfaces the resulting [`CheckReport`] 1:1 to JS. The headline
-//! differentiator is therefore the *same* lint across Rust/Python/TS by construction: the binding
-//! re-derives nothing, so there is nothing to drift.
+//! The public lint path is `NapiPrompt::check_prompt` (see `prompt.rs`). It delegates to the
+//! consumer's `Prompt::check`, which owns the agreement set-arithmetic, the provenance view, and
+//! the analysis-error recording. This module only defines the shared report types and the
+//! `kind_discriminant` helper that `prompt.rs` uses when converting findings.
 //!
 //! ## Purity (FR-019)
 //!
-//! [`check`] takes `&Registry` (a shared borrow — mutation is impossible through the type system),
-//! never renders, and has no side effects. Its only output is a [`CheckReport`] of [`Finding`]s.
+//! `Prompt::check` never renders and has no side effects. Its only output is a
+//! [`prompting_press::CheckReport`], converted here to the JS-visible [`CheckReport`].
 //!
 //! ## Determinism preserved across the boundary
 //!
-//! The consumer emits findings in a stable order (registry iterated by name; variants sorted;
-//! roots/fields sorted — BTreeMap/BTreeSet backed). This binding copies that `Vec<Finding>` **in
-//! order**, so the JS-visible order is identical — reproducible for a CI gate.
+//! The consumer emits findings in a stable order (variants sorted; roots/fields sorted —
+//! BTreeMap/BTreeSet backed). This binding copies that `Vec<Finding>` **in order**, so the
+//! JS-visible order is identical — reproducible for a CI gate.
 //!
 //! ## The `kind` discriminant string (FR-020)
 //!
@@ -33,8 +31,6 @@
 use napi_derive::napi;
 
 use prompting_press::FindingKind;
-
-use crate::registry::Registry;
 
 /// The output of [`check`]: an ordered, read-only list of [`Finding`]s. Empty ⇒ the lint passed.
 ///
@@ -135,65 +131,32 @@ fn kind_discriminant(kind: &FindingKind) -> &'static str {
     }
 }
 
-/// Run the advisory origin/guard lint over each definition in `reg`.
-///
-/// **Not a `#[napi]` function** (SC-001 / T046): the registry-keyed `check(reg)` is gone from
-/// the public JS surface. Kept as a plain Rust function for `#[cfg(test)]` coverage only.
-///
-/// The public check path is `NapiPrompt::check_prompt` (see `prompt.rs`).
-#[must_use]
-pub fn check(reg: &Registry) -> CheckReport {
-    // Iterate in deterministic order; for each definition build a temporary Prompt handle
-    // and run the advisory check. The only live finding for a constructed Prompt is
-    // UntrustedWithoutGuard (construction enforces agreement/parse/reserved-name).
-    let mut findings: Vec<Finding> = Vec::new();
-    for (_, def) in reg.definitions() {
-        // Safety: the definition was already validated when it was loaded into the registry
-        // (via Prompt::from_yaml/from_json/from_json-via-insert), so this from_json call
-        // on a re-serialized def is infallible in practice. On the impossible error, skip.
-        let json = match serde_json::to_string(def) {
-            Ok(j) => j,
-            Err(_) => continue,
-        };
-        if let Ok(prompt) = prompting_press::Prompt::from_json(&json) {
-            let report = prompt.check();
-            findings.extend(report.findings.into_iter().map(Finding::from));
-        }
-    }
-    CheckReport { findings }
-}
-
 #[cfg(test)]
 mod tests {
     //! Lint coverage drivable in Rust WITHOUT the TS facade.
     //!
     //! Post-reshape, agreement / parse / reserved-name violations are enforced at construction
-    //! (Prompt::new), so `check(reg)` surfaces only the advisory `UntrustedWithoutGuard` finding
-    //! for prompts that declare untrusted/external variables without a configured guard. The
-    //! registry-level `check` iterates entries and calls `Prompt::check()` per entry.
+    //! (`Prompt::new`), so the advisory `UntrustedWithoutGuard` finding is the only live finding
+    //! class for a successfully constructed `Prompt`. Tests call `prompt.check()` directly —
+    //! no Registry seam needed (FR-019 / spec 008 removal).
 
     use super::*;
-    use prompting_press::PromptDefinition;
-
-    fn def_from_json(json: &str) -> PromptDefinition {
-        serde_json::from_str(json).expect("valid prompt definition")
-    }
 
     /// A prompt declaring an `untrusted` variable without a guard configured surfaces one
     /// `untrusted_without_guard` finding — the only LIVE finding class for a constructed Prompt.
     #[test]
     fn untrusted_without_guard_surfaces_with_discriminant_string() {
-        let def = def_from_json(
+        let prompt = prompting_press::Prompt::from_json(
             r#"{
                 "name": "ask",
                 "role": "user",
                 "body": "{{ topic }}",
                 "variables": { "topic": { "type": "string", "origin": "untrusted" } }
             }"#,
-        );
-        let reg = Registry::from_defs_for_test([def]);
+        )
+        .expect("valid prompt definition");
 
-        let report = check(&reg);
+        let report = CheckReport::from(prompt.check());
         assert!(
             !report.passed(),
             "unguarded untrusted var must fail the lint"
@@ -214,31 +177,38 @@ mod tests {
         );
     }
 
-    /// A clean registry — a prompt with trusted variables and no advisory issues — passes.
+    /// A prompt with only trusted variables produces no findings (the lint passes).
     #[test]
-    fn clean_registry_passes() {
-        let def = def_from_json(
+    fn trusted_only_prompt_passes() {
+        let prompt = prompting_press::Prompt::from_json(
             r#"{
                 "name": "greet",
                 "role": "user",
                 "body": "Hi {{ name }}",
                 "variables": { "name": { "type": "string", "origin": "trusted" } }
             }"#,
-        );
-        let reg = Registry::from_defs_for_test([def]);
+        )
+        .expect("valid prompt definition");
 
-        let report = check(&reg);
+        let report = CheckReport::from(prompt.check());
         assert!(report.passed(), "a trusted-only prompt passes the lint");
         assert!(report.is_empty(), "no findings ⇒ isEmpty()");
         assert!(report.findings.is_empty());
     }
 
-    /// An empty registry passes (no prompts ⇒ no findings) — the degenerate CI-gate case.
+    /// A prompt with no variables produces no findings — the degenerate case.
     #[test]
-    fn empty_registry_passes() {
-        let reg = Registry::from_defs_for_test(std::iter::empty::<PromptDefinition>());
-        let report = check(&reg);
-        assert!(report.passed(), "an empty registry has nothing to lint");
+    fn no_variables_prompt_passes() {
+        let prompt = prompting_press::Prompt::from_json(
+            r#"{ "name": "static", "role": "user", "body": "Hello world" }"#,
+        )
+        .expect("valid prompt definition");
+
+        let report = CheckReport::from(prompt.check());
+        assert!(
+            report.passed(),
+            "a prompt with no variables has nothing to lint"
+        );
         assert!(report.findings.is_empty());
     }
 }

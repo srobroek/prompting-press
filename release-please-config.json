@@ -1,0 +1,42 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+
+  "separate-pull-requests": false,
+
+  "packages": {
+    ".": {
+      "release-type": "rust",
+      "component": "prompting-press",
+      "package-name": "prompting-press",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "packages/python": {
+      "release-type": "python",
+      "component": "prompting-press-py",
+      "package-name": "prompting-press",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "packages/typescript": {
+      "release-type": "node",
+      "component": "prompting-press-ts",
+      "package-name": "prompting-press",
+      "changelog-path": "CHANGELOG.md"
+    }
+  },
+
+  "plugins": [
+    {
+      "type": "cargo-workspace",
+      "merge": false
+    },
+    {
+      "type": "linked-versions",
+      "groupName": "prompting-press",
+      "components": [
+        "prompting-press",
+        "prompting-press-py",
+        "prompting-press-ts"
+      ]
+    }
+  ]
+}

@@ -12,15 +12,19 @@
 //!   the facade's own `CompositionEntry` interface takes a `Prompt` object, not a name string).
 //! - The `#[cfg(test)]` suites below are kept in Rust so `cargo test -p prompting-press-node`
 //!   exercises the kernel-direct resolve path without a Node runtime.
+//! - `Composition::resolve` now takes a `&BTreeMap<String, PromptDefinition>` directly (FR-019
+//!   / spec 008 Registry removal); the `Registry` type is gone from this crate.
+
+use std::collections::BTreeMap;
 
 use napi_derive::napi;
 
 use prompting_press::ConsumerError;
+use prompting_press::PromptDefinition;
 use prompting_press_core::GuardConfig as KernelGuardConfig;
 
 use crate::error::{consumer_error_to_napi_err, kernel_error_to_napi_err};
 use crate::marshal::to_kernel_value;
-use crate::registry::Registry;
 
 /// One resolved message in a composition's output: a role-tagged rendered string.
 ///
@@ -109,15 +113,18 @@ impl Composition {
     /// Used by `#[cfg(test)]` suites; the public JS path is the TS facade's own `Composition`
     /// class (which calls `NapiPrompt::render_prompt` directly, no registry needed).
     ///
+    /// `defs` is a plain `BTreeMap<String, PromptDefinition>` — no `Registry` type (FR-019 /
+    /// spec 008 removal).
+    ///
     /// # Errors
-    /// - `load` — an entry's name is absent from `reg`.
+    /// - `load` — an entry's name is absent from `defs`.
     /// - kernel codes — the kernel rejected an entry's render.
-    pub fn resolve(&self, reg: &Registry) -> napi::Result<Vec<Message>> {
+    pub fn resolve(&self, defs: &BTreeMap<String, PromptDefinition>) -> napi::Result<Vec<Message>> {
         let mut messages = Vec::with_capacity(self.entries.len());
 
         for entry in &self.entries {
             // Resolve the prompt by name (absent ⇒ structured error, never a panic).
-            let Some(def) = reg.get(&entry.name) else {
+            let Some(def) = defs.get(&entry.name) else {
                 return Err(consumer_error_to_napi_err(ConsumerError::Load(format!(
                     "unknown prompt: `{}`",
                     entry.name
@@ -182,28 +189,38 @@ mod tests {
     //! no JS runtime: an empty composition resolves to `[]`; `append` then `resolve` renders in
     //! order with roles; an unknown-name entry surfaces as a `load`-coded error at `resolve`;
     //! and one entry's failure discards the partial result.
+    //!
+    //! `resolve` now takes `&BTreeMap<String, PromptDefinition>` directly; the test helper
+    //! `defs_map` builds that map from a slice of JSON strings (FR-019 / Registry removal).
 
     use super::*;
     use prompting_press::error::code;
-    use prompting_press::PromptDefinition;
 
-    fn def_from_json(json: &str) -> PromptDefinition {
-        serde_json::from_str(json).expect("valid prompt definition")
+    /// Build a `BTreeMap<String, PromptDefinition>` from a slice of JSON definition strings.
+    fn defs_map(jsons: &[&str]) -> BTreeMap<String, PromptDefinition> {
+        jsons
+            .iter()
+            .map(|json| {
+                let def: PromptDefinition =
+                    serde_json::from_str(json).expect("valid prompt definition");
+                (def.name.to_string(), def)
+            })
+            .collect()
     }
 
     fn payload_of(err: &napi::Error) -> serde_json::Value {
         serde_json::from_str(&err.reason).expect("napi error reason is the JSON payload")
     }
 
-    /// An empty composition resolves to an empty list (the `[]` edge case), with no registry
+    /// An empty composition resolves to an empty list (the `[]` edge case), with no definition
     /// lookups performed.
     #[test]
     fn empty_composition_resolves_to_empty() {
         let comp = Composition::new();
         assert_eq!(comp.length(), 0, "a fresh composition has no entries");
 
-        let reg = Registry::from_defs_for_test([]);
-        let messages = comp.resolve(&reg).expect("empty resolve");
+        let defs = defs_map(&[]);
+        let messages = comp.resolve(&defs).expect("empty resolve");
         assert!(messages.is_empty(), "empty composition ⇒ empty list");
     }
 
@@ -213,12 +230,10 @@ mod tests {
     /// T021.)
     #[test]
     fn append_then_resolve_renders_in_order_with_roles() {
-        let system = def_from_json(
+        let defs = defs_map(&[
             r#"{ "name": "sys", "role": "system", "body": "You are {{ persona }}." }"#,
-        );
-        let user =
-            def_from_json(r#"{ "name": "ask", "role": "user", "body": "Question: {{ q }}" }"#);
-        let reg = Registry::from_defs_for_test([system, user]);
+            r#"{ "name": "ask", "role": "user", "body": "Question: {{ q }}" }"#,
+        ]);
 
         let mut comp = Composition::new();
         comp.append(
@@ -229,7 +244,7 @@ mod tests {
         comp.append("ask".to_string(), serde_json::json!({ "q": "why?" }), None);
         assert_eq!(comp.length(), 2, "two appended entries");
 
-        let messages = comp.resolve(&reg).expect("resolve succeeds");
+        let messages = comp.resolve(&defs).expect("resolve succeeds");
         assert_eq!(messages.len(), 2, "one message per entry");
 
         // Append order is preserved (FR-012).
@@ -243,9 +258,7 @@ mod tests {
     /// constructor), resolving identically.
     #[test]
     fn from_messages_builds_ordered_composition() {
-        let user =
-            def_from_json(r#"{ "name": "ask", "role": "user", "body": "Question: {{ q }}" }"#);
-        let reg = Registry::from_defs_for_test([user]);
+        let defs = defs_map(&[r#"{ "name": "ask", "role": "user", "body": "Question: {{ q }}" }"#]);
 
         let comp = Composition::from_messages(vec![
             MessageEntry {
@@ -261,7 +274,7 @@ mod tests {
         ]);
         assert_eq!(comp.length(), 2);
 
-        let messages = comp.resolve(&reg).expect("resolve succeeds");
+        let messages = comp.resolve(&defs).expect("resolve succeeds");
         assert_eq!(messages[0].text, "Question: first?");
         assert_eq!(messages[1].text, "Question: second?");
     }
@@ -272,10 +285,10 @@ mod tests {
     /// kernel's strict-undefined path; the first entry alone would have succeeded.
     #[test]
     fn one_entry_failure_discards_partial_result() {
-        let ok = def_from_json(r#"{ "name": "ok", "role": "user", "body": "fine" }"#);
-        let needs =
-            def_from_json(r#"{ "name": "needs", "role": "user", "body": "Hello {{ missing }}!" }"#);
-        let reg = Registry::from_defs_for_test([ok, needs]);
+        let defs = defs_map(&[
+            r#"{ "name": "ok", "role": "user", "body": "fine" }"#,
+            r#"{ "name": "needs", "role": "user", "body": "Hello {{ missing }}!" }"#,
+        ]);
 
         let mut comp = Composition::new();
         comp.append("ok".to_string(), serde_json::json!({}), None);
@@ -283,7 +296,7 @@ mod tests {
         comp.append("needs".to_string(), serde_json::json!({}), None);
 
         let err = comp
-            .resolve(&reg)
+            .resolve(&defs)
             .expect_err("the second entry's strict-undefined render must fail the whole resolve");
         let payload = payload_of(&err);
         assert_eq!(

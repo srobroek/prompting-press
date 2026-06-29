@@ -14,11 +14,11 @@
 //! - [`marshal`] — the one FFI value bridge (JS value → `minijinja::Value`).
 //! - [`error`] — the `ConsumerError`/`KernelError` → `napi::Error` translation carrying a
 //!   structured, already-scrubbed payload the TS facade decodes (SEC-004 scrub preserved).
-//! - [`registry`] — the `Registry` `#[napi]` class (construct + insert + the US2 loaders).
 //!
 //! Later phases add the render/check/compose paths:
 //! - [`render`] — marshal → kernel-direct render + `getSource` (US1; validation is the TS facade's).
-//! - [`check`] — `check(registry)` + the `CheckReport` / `Finding` types (US3).
+//! - [`check`] — [`CheckReport`] / [`Finding`] napi types (US3); the live lint path is
+//!   `NapiPrompt::check_prompt` in [`prompt`].
 //! - [`compose`] — the binding-owned `Composition` / `Message` types: marshal each (already
 //!   TS-validated) entry, then a kernel-direct resolve loop (US4).
 //!
@@ -38,7 +38,6 @@ pub mod compose;
 pub mod error;
 pub mod marshal;
 pub mod prompt;
-pub mod registry;
 pub mod render;
 
 /// Returns the kernel version, reached through the Rust consumer surface.

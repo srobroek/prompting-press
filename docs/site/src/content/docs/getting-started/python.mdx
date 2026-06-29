@@ -1,6 +1,6 @@
 ---
 title: "Getting started — Python"
-description: "Install prompting-press and render your first prompt in Python."
+description: "Install prompting-press and render a first prompt in Python."
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -35,8 +35,8 @@ required (the wheel is `abi3-py312` — one wheel covers CPython 3.12 and up).
 
 ## Write a prompt definition
 
-A prompt definition is YAML, JSON, or TOML text — same shape, your choice of format. You read the text
-however suits your app and hand it to the `from_*` factories; the library does no file I/O itself. The
+A prompt definition is YAML, JSON, or TOML text — the same shape in any of the three formats. The
+caller reads the text and hands it to the `from_*` factories; the library does no file I/O. The
 `greet` definition used throughout this page:
 
 <Tabs syncKey="def-format">
@@ -96,7 +96,7 @@ typed `PromptDefinition` or a plain `dict`. Every route runs the **same** valida
 ```python
 from prompting_press import Prompt
 
-# You read the text however suits your app; the library does no file I/O itself.
+# The caller reads the text; the library does no file I/O itself.
 with open("greet.yaml") as f:
     greet = Prompt.from_yaml(f.read())     # validates here, or raises
 # from_json / from_toml parse the JSON / TOML forms into the same Prompt.
@@ -109,8 +109,8 @@ greet.body   # => "Hi {{ name }}, you have {{ count }} messages."
 ```python
 from prompting_press import Prompt, PromptDefinition
 
-# PromptDefinition is the generated Pydantic shape — your editor/type-checker
-# checks the fields, the role enum, and each variable's `origin` as you write it.
+# PromptDefinition is the generated Pydantic shape — an editor/type-checker
+# checks the fields, the role enum, and each variable's `origin` at author time.
 definition = PromptDefinition(
     name="greet",
     role="user",
@@ -129,8 +129,8 @@ greet.name   # => "greet"
 ```python
 from prompting_press import Prompt
 
-# A plain dict works too — convenient when the shape comes from config you already
-# parsed. The Rust loader validates the shape on the way in, the same as the typed form.
+# A plain dict works too — convenient when the shape comes from already-parsed
+# config. The Rust loader validates the shape on the way in, the same as the typed form.
 greet = Prompt({
     "name": "greet",
     "role": "user",
@@ -153,7 +153,7 @@ template/variable disagreement is caught at construction, never as a silent empt
 
 ### Step 2 — declare the typed Vars model
 
-The values you render with are a Pydantic model you own. Its fields match the prompt's `variables`
+The render values are a caller-owned Pydantic model. Its fields match the prompt's `variables`
 (`name`, `count`), and its validators run before the kernel is touched:
 
 ```python
@@ -255,12 +255,11 @@ PromptingPressError          # base; carries .errors -> list[FieldError]
 ├── PromptValidationError    # Pydantic validation failed   (code "validation")
 ├── PromptRenderError        # kernel render failure         (codes: unknown_variant,
 │                            #   undefined_variable, parse, render, excluded_feature)
-├── UnknownPromptError       # a prompt name lookup failed  (code "unknown_prompt")
 └── LoadError                # malformed YAML/JSON/TOML     (code "load")
 ```
 
-Each `FieldError` carries `.field`, `.code`, and `.message`. Sensitive rejected values are
-**never** echoed onto the error surface.
+Each `FieldError` carries `.field`, `.code`, and `.message`. A rejected render value is **never**
+echoed onto the error surface; a parse error carries template-syntax detail (no bound values).
 
 ## Next steps
 
