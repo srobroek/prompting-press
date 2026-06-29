@@ -129,14 +129,6 @@ impl NapiPrompt {
         })
     }
 
-    /// `prompt.meta` — the `meta` opaque map as a plain JSON object.
-    #[napi(getter)]
-    pub fn meta(&self) -> napi::Result<serde_json::Value> {
-        serde_json::to_value(self.inner.meta()).map_err(|e| {
-            consumer_error_to_napi_err(prompting_press::ConsumerError::Load(e.to_string()))
-        })
-    }
-
     // ── operations ────────────────────────────────────────────────────────────────────────
 
     /// `prompt.renderPrompt(value, variant?, guard?)` — render the prompt with the
@@ -495,7 +487,7 @@ mod tests {
             "role": "user",
             "body": "{{ payload }}",
             "variables": { "payload": { "type": "string", "origin": "untrusted" } },
-            "meta": { "guard": { "enabled": true } },
+            "metadata": { "guard": { "enabled": true } },
         });
         let p = prompt_new(shape).expect("valid shape");
         assert!(

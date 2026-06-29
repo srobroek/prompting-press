@@ -10,7 +10,7 @@
 //!
 //! - PyO3 extraction of the `shape` argument (Pydantic model OR dict → JSON → consumer
 //!   constructor, reusing the duck-typing path from `registry.rs`).
-//! - The `validators` coverage check (T036): if any `VariableDecl` carries
+//! - The `validators` coverage check (T036): if any `PromptVariable` carries
 //!   `validation_required = true`, the supplied Pydantic model class must declare that
 //!   field (introspected via `model.model_fields`). This is the Python-specific
 //!   runtime enforcement of Principle VI v1.2.0.
@@ -250,17 +250,17 @@ impl Prompt {
         self.inner.body()
     }
 
-    /// The declared variables map (`{ name: VariableDecl }`), as a Python `dict`.
+    /// The declared variables map (`{ name: PromptVariable }`), as a Python `dict`.
     ///
     /// Serialized via `serde_json` → `depythonize` path so Python receives a plain dict
-    /// matching the schema-generated `VariableDecl` shape. Read-only at the object level
+    /// matching the schema-generated `PromptVariable` shape. Read-only at the object level
     /// (returning a new dict each time prevents Python from mutating the inner state).
     #[getter]
     fn variables<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         map_to_pydict(py, self.inner.variables())
     }
 
-    /// The named variants map (`{ name: Variant }`), as a Python `dict`.
+    /// The named variants map (`{ name: PromptVariant }`), as a Python `dict`.
     ///
     /// Empty when the prompt has no named variants (only the implicit default arm).
     #[getter]
@@ -279,12 +279,6 @@ impl Prompt {
     #[getter]
     fn metadata<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         json_map_to_pydict(py, self.inner.metadata())
-    }
-
-    /// The `meta` opaque map (`dict | None`) — author-defined freeform annotations.
-    #[getter]
-    fn meta<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        json_map_to_pydict(py, self.inner.meta())
     }
 
     // ── operations ────────────────────────────────────────────────────────────
@@ -413,7 +407,7 @@ impl Prompt {
     /// ```
     ///
     /// `overlay` is a `dict` of top-level fields to replace (any subset of `name`, `role`,
-    /// `body`, `variables`, `variants`, `output_model`, `metadata`, `meta`). Fields absent
+    /// `body`, `variables`, `variants`, `output_model`, `metadata`). Fields absent
     /// from the dict are kept from the original. The merged definition is routed through the
     /// Rust consumer's `Prompt::derive` (full re-validation: agreement, parse, reserved name).
     ///
@@ -581,7 +575,7 @@ fn build_overlay(
     };
 
     use prompting_press_core::generated::prompt_definition::{
-        PromptDefinitionName, PromptDefinitionRole, VariableDecl, Variant,
+        PromptDefinitionName, PromptDefinitionRole, PromptVariable, PromptVariant,
     };
     use std::collections::HashMap;
 
@@ -604,14 +598,13 @@ fn build_overlay(
         name: overlay_field!("name", PromptDefinitionName),
         role: overlay_field!("role", PromptDefinitionRole),
         body: overlay_field!("body", String),
-        variables: overlay_field!("variables", HashMap<String, VariableDecl>),
-        variants: overlay_field!("variants", HashMap<String, Variant>),
+        variables: overlay_field!("variables", HashMap<String, PromptVariable>),
+        variants: overlay_field!("variants", HashMap<String, PromptVariant>),
         output_model: overlay_field!("output_model", Option<String>),
         metadata: overlay_field!(
             "metadata",
             serde_json::Map<String, serde_json::Value>
         ),
-        meta: overlay_field!("meta", serde_json::Map<String, serde_json::Value>),
     })
 }
 

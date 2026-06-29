@@ -6,20 +6,16 @@
     "article": {
       "type": "string",
       "origin": "untrusted",
-      "minLength": 1,
       "description": "Raw article text supplied by the end user."
     },
     "max_words": {
       "type": "integer",
       "origin": "trusted",
-      "minimum": 10,
-      "maximum": 500,
       "description": "Maximum word count for the summary."
     },
     "style": {
       "type": "string",
       "origin": "trusted",
-      "enum": ["bullet", "prose", "headline"],
       "description": "Output style preference."
     }
   },
@@ -29,7 +25,7 @@
     },
     "structured": {
       "body": "Produce a structured summary with a title, three bullet points, and a one-sentence conclusion for:\n\n{{article}}",
-      "meta": {
+      "metadata": {
         "weight": 0.3,
         "group": "experiment-2024-q4",
         "tags": ["structured", "verbose"]

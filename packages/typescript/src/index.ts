@@ -55,7 +55,8 @@ import {
 // The generated, freshness-gated prompt-definition shape (constitution C-07; never hand-edited).
 import type {
 	PromptDefinition,
-	VariableDecl,
+	PromptVariable,
+	PromptVariant,
 } from "./generated/prompt-definition.js";
 
 // --------------------------------------------------------------------------------------
@@ -357,7 +358,7 @@ function assertValidatorCoverage(
 		return; // no declared variables → nothing to check
 	}
 	for (const [fieldName, decl] of Object.entries(variables)) {
-		const variableDecl = decl as Partial<VariableDecl>;
+		const variableDecl = decl as Partial<PromptVariable>;
 		if (
 			variableDecl.validation_required === true &&
 			!(fieldName in validators.shape)
@@ -583,7 +584,7 @@ export class Prompt {
 	}
 
 	/**
-	 * The declared variables map (`{ [name]: VariableDecl }`). Read-only metadata. Each entry
+	 * The declared variables map (`{ [name]: PromptVariable }`). Read-only metadata. Each entry
 	 * carries the variable's `type`, `origin`, and optional `validation_required`.
 	 */
 	get variables(): PromptDefinition["variables"] {
@@ -591,7 +592,7 @@ export class Prompt {
 	}
 
 	/**
-	 * The named variants map (`{ [name]: Variant }`). Empty object when the prompt has no named
+	 * The named variants map (`{ [name]: PromptVariant }`). Empty object when the prompt has no named
 	 * variants (only the implicit `default` arm).
 	 */
 	get variants(): PromptDefinition["variants"] {
@@ -611,13 +612,6 @@ export class Prompt {
 	 */
 	get metadata(): Record<string, unknown> {
 		return (this.#handle.metadata as Record<string, unknown>) ?? {};
-	}
-
-	/**
-	 * The `meta` opaque map (author-defined freeform annotations, if any).
-	 */
-	get meta(): Record<string, unknown> {
-		return (this.#handle.meta as Record<string, unknown>) ?? {};
 	}
 
 	// ── operations ────────────────────────────────────────────────────────────────────────────
@@ -884,7 +878,14 @@ export class Composition {
 // `coreVersion` is a trivial callable with no error path.)
 // ─────────────────────────────────────────────────────────────────────────────────────────
 
-export type { Finding, GuardConfig, Message, PromptDefinition };
+export type {
+	Finding,
+	GuardConfig,
+	Message,
+	PromptDefinition,
+	PromptVariable,
+	PromptVariant,
+};
 export {
 	CheckReport,
 	coreVersion,

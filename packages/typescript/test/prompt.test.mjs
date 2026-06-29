@@ -381,7 +381,7 @@ test("T044: check() passes when guard is configured", () => {
     role: "user",
     body: "{{ payload }}",
     variables: { payload: { type: "string", origin: "untrusted" } },
-    meta: { guard: { enabled: true } },
+    metadata: { guard: { enabled: true } },
   };
   const p = new Prompt(shape);
   assert.ok(p.check().passed(), "guard configured → check must pass");

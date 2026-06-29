@@ -69,7 +69,6 @@ variables:
   date:
     type: string
     origin: trusted
-    format: date
     description: \"The current date injected by the server.\"
 output_model: GreetingOutput
 metadata:
@@ -87,7 +86,6 @@ metadata:
             "date": {
                 "type": "string",
                 "origin": "trusted",
-                "format": "date",
                 "description": "The current date injected by the server."
             }
         },
@@ -128,20 +126,16 @@ fn yaml_and_json_parse_to_equal_definitions_multi_variant() {
             "article": {
                 "type": "string",
                 "origin": "untrusted",
-                "minLength": 1,
                 "description": "Raw article text supplied by the end user."
             },
             "max_words": {
                 "type": "integer",
                 "origin": "trusted",
-                "minimum": 10,
-                "maximum": 500,
                 "description": "Maximum word count for the summary."
             },
             "style": {
                 "type": "string",
                 "origin": "trusted",
-                "enum": ["bullet", "prose", "headline"],
                 "description": "Output style preference."
             }
         },
@@ -151,7 +145,7 @@ fn yaml_and_json_parse_to_equal_definitions_multi_variant() {
             },
             "structured": {
                 "body": "Produce a structured summary with a title, three bullet points, and a one-sentence conclusion for:\n\n{{article}}",
-                "meta": {
+                "metadata": {
                     "weight": 0.3,
                     "group": "experiment-2024-q4",
                     "tags": ["structured", "verbose"]
@@ -173,7 +167,7 @@ fn yaml_and_json_parse_to_equal_definitions_multi_variant() {
         as_value(&equiv_def),
         as_value(&json_def),
         "SC-003: multi-variant equivalent JSON and fixture JSON must parse to structurally \
-         identical PromptDefinitions (variants, nested meta, int/array types)"
+         identical PromptDefinitions (variants, nested metadata, int/array types)"
     );
 }
 

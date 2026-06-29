@@ -9,7 +9,7 @@
 //! - **V3.2** agreement violations are **construction failures** post-reshape — tested in
 //!   `tests/prompt_construct.rs` and in `prompt.rs` unit tests; not tested here as a
 //!   `check()` advisory.
-//! - **V3.3** a prompt declaring an `untrusted` var with NO `guard` key in `meta`/`metadata`
+//! - **V3.3** a prompt declaring an `untrusted` var with NO `guard` key in `metadata`
 //!   → one `UntrustedWithoutGuard` finding naming the prompt + field (SC-005).
 //! - **V3.5** each variant's agreement is enforced at construction — a multi-variant prompt
 //!   with an undeclared var in one variant fails `Prompt::new`, not `check()`.
@@ -19,16 +19,16 @@ use prompting_press::check::FindingKind;
 use prompting_press::{CheckReport, Prompt};
 
 /// V3.1 — a well-formed prompt (all template roots declared; one untrusted var has a
-/// `meta.guard`) → `check()` passes clean (no findings).
+/// `metadata.guard`) → `check()` passes clean (no findings).
 #[test]
 fn well_formed_prompt_passes() {
-    // All roots declared; untrusted field has a guard in meta → no advisory.
+    // All roots declared; untrusted field has a guard in metadata → no advisory.
     let prompt = Prompt::from_json(
         r#"{
         "name": "summarize",
         "role": "system",
         "body": "Summarize: {{ doc }}",
-        "meta": { "guard": { "enabled": true } },
+        "metadata": { "guard": { "enabled": true } },
         "variables": {
             "doc": { "type": "string", "origin": "untrusted" }
         }
@@ -82,12 +82,8 @@ fn untrusted_without_guard_is_flagged() {
         finding.variant, None,
         "origin finding is prompt-level (no variant)"
     );
-    match &finding.kind {
-        FindingKind::UntrustedWithoutGuard { field } => {
-            assert_eq!(field, "payload", "finding must name the uncovered field");
-        }
-        other => panic!("expected UntrustedWithoutGuard, got {other:?}"),
-    }
+    let FindingKind::UntrustedWithoutGuard { field } = &finding.kind;
+    assert_eq!(field, "payload", "finding must name the uncovered field");
     assert!(
         finding.detail.contains("payload"),
         "detail must name the field: {:?}",
@@ -96,7 +92,7 @@ fn untrusted_without_guard_is_flagged() {
 }
 
 /// An `external`-tagged field triggers the guard obligation exactly like `untrusted`. A
-/// `guard` key in `metadata` (not just `meta`) satisfies it.
+/// `guard` key in `metadata` satisfies it.
 #[test]
 fn external_field_obligation_and_metadata_guard_satisfaction() {
     // External field, NO guard anywhere → flagged.
@@ -116,10 +112,8 @@ fn external_field_obligation_and_metadata_guard_satisfaction() {
         .filter(|f| matches!(&f.kind, FindingKind::UntrustedWithoutGuard { .. }))
         .collect();
     assert_eq!(prov.len(), 1, "external field must carry the obligation");
-    match &prov[0].kind {
-        FindingKind::UntrustedWithoutGuard { field } => assert_eq!(field, "feed"),
-        other => panic!("expected UntrustedWithoutGuard, got {other:?}"),
-    }
+    let FindingKind::UntrustedWithoutGuard { field } = &prov[0].kind;
+    assert_eq!(field, "feed");
 
     // Same prompt but with a `metadata.guard` key → satisfied (no provenance finding).
     let with_guard = Prompt::from_json(

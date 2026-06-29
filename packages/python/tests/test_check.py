@@ -144,21 +144,20 @@ def test_untrusted_variable_without_guard_is_flagged() -> None:
     assert "q" in finding.detail
 
 
-@pytest.mark.parametrize("guard_key", ["meta", "metadata"])
-def test_guard_presence_under_meta_or_metadata_clears_the_finding(guard_key: str) -> None:
+def test_guard_presence_under_metadata_clears_the_finding() -> None:
     """The provenance lint is satisfied by the mere PRESENCE of a `guard` key under
-    either `meta` or `metadata`."""
+    `metadata`."""
     p = Prompt(
         {
             "name": "search",
             "role": "user",
             "body": "Query: {{ q }}",
             "variables": {"q": {"type": "string", "origin": "untrusted"}},
-            guard_key: {"guard": "sanitized upstream"},
+            "metadata": {"guard": "sanitized upstream"},
         }
     )
     report = p.check()
-    assert report.passed(), f"a `guard` under `{guard_key}` should satisfy the lint"
+    assert report.passed(), "a `guard` under `metadata` should satisfy the lint"
     assert KIND_UNTRUSTED not in _kinds(report)
 
 

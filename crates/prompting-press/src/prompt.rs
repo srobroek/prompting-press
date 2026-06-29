@@ -11,7 +11,7 @@
 //! 3. **Agreement-sound** — every variable a variant template references is declared in
 //!    `variables`; a referenced-but-undeclared variable is a construction failure (FR-020 /
 //!    Principle IV). The agreement check therefore moves ONTO construction; a constructed
-//!    `Prompt` carries zero `UndeclaredVariable` agreements.
+//!    `Prompt` carries no undeclared-variable agreements.
 //! 4. **Reserved-name clean** — no variant is literally named `"default"` (the kernel's
 //!    reserved root-body alias); that is a construction failure (CR-1).
 //!
@@ -44,7 +44,7 @@ use crate::check::{has_guard_configured, CheckReport, Finding, FindingKind};
 use crate::error::code;
 use crate::{ConsumerError, FieldError};
 use prompting_press_core::generated::prompt_definition::{
-    PromptDefinition, PromptDefinitionName, PromptDefinitionRole, VariableDecl, Variant,
+    PromptDefinition, PromptDefinitionName, PromptDefinitionRole, PromptVariable, PromptVariant,
 };
 
 // ─── constants ───────────────────────────────────────────────────────────────
@@ -161,16 +161,16 @@ impl Prompt {
         &self.def.body
     }
 
-    /// The declared variables map (`name → VariableDecl`).
+    /// The declared variables map (`name → PromptVariable`).
     #[must_use]
-    pub fn variables(&self) -> &HashMap<String, VariableDecl> {
+    pub fn variables(&self) -> &HashMap<String, PromptVariable> {
         &self.def.variables
     }
 
-    /// The named variants map (`name → Variant`). Empty when the prompt has no named
+    /// The named variants map (`name → PromptVariant`). Empty when the prompt has no named
     /// variants (only the implicit default arm).
     #[must_use]
-    pub fn variants(&self) -> &HashMap<String, Variant> {
+    pub fn variants(&self) -> &HashMap<String, PromptVariant> {
         &self.def.variants
     }
 
@@ -185,12 +185,6 @@ impl Prompt {
     #[must_use]
     pub fn metadata(&self) -> &serde_json::Map<String, serde_json::Value> {
         &self.def.metadata
-    }
-
-    /// The `meta` opaque map (author-defined freeform annotations, if any).
-    #[must_use]
-    pub fn meta(&self) -> &serde_json::Map<String, serde_json::Value> {
-        &self.def.meta
     }
 
     // ── operations ───────────────────────────────────────────────────────────
@@ -266,7 +260,7 @@ impl Prompt {
     /// Construction already enforces agreement, parse, and reserved-name invariants, so those
     /// arms are structurally unreachable for a constructed `Prompt`. The only LIVE finding
     /// `check()` can surface is [`FindingKind::UntrustedWithoutGuard`] — a prompt declaring
-    /// `untrusted`/`external` vars but carrying no `"guard"` key in `meta` or `metadata`.
+    /// `untrusted`/`external` vars but carrying no `"guard"` key in `metadata`.
     ///
     /// Pure: takes `&self`, never renders, never mutates (FR-019).
     #[must_use]
@@ -319,9 +313,6 @@ impl Prompt {
         if let Some(metadata) = overlay.metadata {
             merged.metadata = metadata;
         }
-        if let Some(meta) = overlay.meta {
-            merged.meta = meta;
-        }
 
         // Re-validate the merged whole through the same construction path.
         Self::new(merged)
@@ -363,15 +354,13 @@ pub struct PromptOverlay {
     /// Replace the root body template source.
     pub body: Option<String>,
     /// Replace the full `variables` map.
-    pub variables: Option<HashMap<String, VariableDecl>>,
+    pub variables: Option<HashMap<String, PromptVariable>>,
     /// Replace the full `variants` map.
-    pub variants: Option<HashMap<String, Variant>>,
+    pub variants: Option<HashMap<String, PromptVariant>>,
     /// Replace (or clear) the `output_model` reference.
     pub output_model: Option<Option<String>>,
     /// Replace the `metadata` opaque map.
     pub metadata: Option<serde_json::Map<String, serde_json::Value>>,
-    /// Replace the `meta` opaque map.
-    pub meta: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
 // ─── internal helpers ────────────────────────────────────────────────────────
@@ -467,7 +456,7 @@ fn kernel_analysis_error_to_field(err: &KernelError) -> (&'static str, String, &
 /// constructed `Prompt`).
 ///
 /// A prompt declaring `untrusted`/`external` variables that carry no `"guard"` key in
-/// `meta` or `metadata` gets one [`FindingKind::UntrustedWithoutGuard`] per uncovered field.
+/// `metadata` gets one [`FindingKind::UntrustedWithoutGuard`] per uncovered field.
 /// This mirrors `check::check_provenance` but operates on a single `Prompt`, not a registry.
 pub(crate) fn check_origin_advisory(
     name: &str,
@@ -501,7 +490,7 @@ pub(crate) fn check_origin_advisory(
             },
             detail: format!(
                 "field `{field}` is declared untrusted/external but the prompt configures \
-                 no guard (add a `guard` key under the prompt's `meta` or `metadata`)"
+                 no guard (add a `guard` key under the prompt's `metadata`)"
             ),
         });
     }
@@ -740,7 +729,7 @@ origin = "trusted"
 
     #[test]
     fn check_passes_for_guarded_untrusted_field() {
-        let json = r#"{"name":"guarded","role":"user","body":"{{ payload }}","variables":{"payload":{"type":"string","origin":"untrusted"}},"meta":{"guard":{"enabled":true}}}"#;
+        let json = r#"{"name":"guarded","role":"user","body":"{{ payload }}","variables":{"payload":{"type":"string","origin":"untrusted"}},"metadata":{"guard":{"enabled":true}}}"#;
         let p = Prompt::from_json(json).expect("valid shape");
         assert!(p.check().passed(), "guard configured → check must pass");
     }

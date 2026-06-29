@@ -18,7 +18,7 @@
 
 use std::collections::BTreeSet;
 
-use crate::generated::prompt_definition::{PromptDefinition, VariableDeclOrigin};
+use crate::generated::prompt_definition::{PromptDefinition, PromptVariableOrigin};
 
 /// The kernel's default guard instruction template (FR-024).
 ///
@@ -97,13 +97,13 @@ pub fn origin_view(def: &PromptDefinition) -> OriginView {
 
     for (field, decl) in &def.variables {
         match decl.origin {
-            VariableDeclOrigin::Untrusted => {
+            PromptVariableOrigin::Untrusted => {
                 untrusted.insert(field.clone());
             }
-            VariableDeclOrigin::External => {
+            PromptVariableOrigin::External => {
                 external.insert(field.clone());
             }
-            VariableDeclOrigin::Trusted => {}
+            PromptVariableOrigin::Trusted => {}
         }
     }
 

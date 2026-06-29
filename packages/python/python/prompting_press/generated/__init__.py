@@ -10,15 +10,15 @@
 from prompting_press.generated.prompt_definition import (
     Origin,
     PromptDefinition,
+    PromptVariable,
+    PromptVariant,
     Role,
-    VariableDecl,
-    Variant,
 )
 
 __all__ = [
     "Origin",
     "PromptDefinition",
+    "PromptVariable",
+    "PromptVariant",
     "Role",
-    "VariableDecl",
-    "Variant",
 ]

@@ -171,7 +171,9 @@ pub use prompting_press_core as core;
 /// depending on the kernel directly. This crate re-exports but NEVER hand-edits the
 /// generated module (which lives in `prompting-press-core`).
 pub use prompting_press_core::generated::prompt_definition;
-pub use prompting_press_core::generated::prompt_definition::PromptDefinition;
+pub use prompting_press_core::generated::prompt_definition::{
+    PromptDefinition, PromptVariable, PromptVariant,
+};
 
 /// Re-export the kernel's `RenderResult` (library-owned render output; FR-009). The
 /// consumer surfaces it 1:1 rather than redefining a parallel shape (C-01).

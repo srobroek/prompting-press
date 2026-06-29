@@ -5,9 +5,7 @@
   "variables": {
     "product_name": {
       "type": "string",
-      "origin": "trusted",
-      "minLength": 1,
-      "maxLength": 120
+      "origin": "trusted"
     },
     "target_audience": {
       "type": "string",
@@ -28,7 +26,7 @@
   "variants": {
     "seo-optimised": {
       "body": "{{product_name}} — the top choice for {{target_audience}}. With features like {{features}}, it outperforms competitors.",
-      "meta": {
+      "metadata": {
         "weight": 0.5,
         "group": "seo-ab-test",
         "tags": ["seo", "conversion"],
@@ -37,19 +35,17 @@
     },
     "casual-tone": {
       "body": "Looking for something great? {{product_name}} has everything {{target_audience}} needs: {{features}}!",
-      "meta": {
+      "metadata": {
         "weight": 0.2,
         "group": "tone-experiment",
         "tags": ["casual", "b2c"]
       }
     }
   },
-  "meta": {
+  "metadata": {
     "weight": 0.3,
     "group": "seo-ab-test",
-    "tags": ["formal", "default"]
-  },
-  "metadata": {
+    "tags": ["formal", "default"],
     "reviewed": true,
     "locale": "en-US"
   }

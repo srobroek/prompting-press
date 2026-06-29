@@ -68,14 +68,14 @@ before constructing the vars.
 
 ### Is `variables[].type` enforced at runtime?
 
-**No.** The `type` field on a `VariableDecl` (e.g. `type: string`) is **carried metadata** — it
+**No.** The `type` field on a `PromptVariable` (e.g. `type: string`) is **carried metadata** — it
 is not inspected by the rendering kernel. It is intended to drive code-generated typed Vars
 models (the generate-then-extend pattern) and serves as documentation. Runtime type enforcement
 is owned by your Vars model (garde / Pydantic / Zod) — not by the library.
 
 ### What is `validation_required`?
 
-`validation_required: true` on a `VariableDecl` signals that the calling code **must** supply a
+`validation_required: true` on a `PromptVariable` signals that the calling code **must** supply a
 validator covering that variable at construction time. In Python and TypeScript, construction
 raises/throws if a `validation_required` variable is not covered by the supplied `validators`
 class/schema. In Rust, coverage is structural — the generic `V` at the `render<V>()` call site

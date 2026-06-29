@@ -44,7 +44,7 @@ class Origin(StrEnum):
     external = 'external'
 
 
-class VariableDecl(BaseModel):
+class PromptVariable(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
     )
@@ -55,7 +55,7 @@ class VariableDecl(BaseModel):
     origin: Annotated[
         Origin,
         Field(
-            description='Per-field origin (input-trust) tag (FR-010a; renamed from `provenance` in spec 008). DECLARATIVE METADATA ONLY — there is NO runtime enforcement of this tag in the current library version; it is not a security guard by itself. Untrusted-input guarding (the opt-in, additive guard expansion + lint) is introduced in a later spec per roadmap decision C-09 (deriving from constitution Principle IV). Do not assume the library protects `untrusted`/`external` fields until that version. NOTE: this is the per-VARIABLE trust tag, distinct from the render-result provenance (template_hash/render_hash) which is unchanged.'
+            description='Per-field input-trust tag. DECLARATIVE METADATA ONLY — the library does not enforce this tag at render time; it is not a security guard by itself. Use `check()` to detect `untrusted`/`external` variables that lack a declared guard, and enable the opt-in guard to receive advisory guard text. This per-variable trust tag is distinct from the render-result content hashes (`template_hash`/`render_hash`).'
         ),
     ]
     validation_required: Annotated[
@@ -64,17 +64,13 @@ class VariableDecl(BaseModel):
             description='When true, a validator covering this variable MUST be supplied when the Prompt is constructed (spec 008). Orthogonal to `origin` — it MAY mark any variable, not only untrusted/external ones. Declarative metadata; enforcement is per-language (constitution Principle VI v1.2.0): TypeScript (Zod) and Python (Pydantic) introspect the supplied validator and throw/raise at construction if this variable is uncovered, while Rust guarantees coverage structurally at compile time. The kernel never reads this field (validation-blind).'
         ),
     ] = False
-    format: str | None = None
-    pattern: str | None = None
-    enum: list[Any] | None = None
-    minimum: float | None = None
-    maximum: float | None = None
-    minLength: Annotated[int | None, Field(ge=0)] = None
-    maxLength: Annotated[int | None, Field(ge=0)] = None
-    description: str | None = None
+    description: Annotated[
+        str | None,
+        Field(description='Optional human-readable description of the variable.'),
+    ] = None
 
 
-class Variant(BaseModel):
+class PromptVariant(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
     )
@@ -84,10 +80,10 @@ class Variant(BaseModel):
             description="The variant's template source — the only field that differs per variant."
         ),
     ]
-    meta: Annotated[
+    metadata: Annotated[
         dict[str, Any] | None,
         Field(
-            description='Library-OPAQUE selection metadata (weight, group, tags, ...). Stored + exposed; never interpreted by the library (caller selects). No schema-enforced selection semantics (FR-011c).'
+            description='Library-OPAQUE per-variant metadata (selection labels like weight/group/tags, or a `guard` key). Stored + exposed; never interpreted by the library (caller selects). No schema-enforced selection semantics (FR-011c). Mirrors the prompt-level `metadata` bag.'
         ),
     ] = None
 
@@ -114,11 +110,11 @@ class PromptDefinition(BaseModel):
             description="The DEFAULT variant's template source. The root body IS the default arm (FR-011); surfaced under reserved name 'default' with is_default=true."
         ),
     ]
-    variables: Annotated[dict[str, VariableDecl] | None, Field(description='Declared input variables, shared across all variants. Rich enough to generate-then-extend a typed Vars model in a later spec.', validate_default=True)] = {
+    variables: Annotated[dict[str, PromptVariable] | None, Field(description="Declared input variables, shared across all variants. Each entry declares the variable's type and input-trust origin.", validate_default=True)] = {
 
     }
     variants: Annotated[
-        dict[str, Variant] | None,
+        dict[str, PromptVariant] | None,
         Field(
             description='Named alternative arms. Absent => the prompt has only the default (root body) arm. Each arm differs ONLY in body (+ optional opaque meta).'
         ),
@@ -132,12 +128,6 @@ class PromptDefinition(BaseModel):
     metadata: Annotated[
         dict[str, Any] | None,
         Field(
-            description='Arbitrary prompt-level metadata; library-OPAQUE (may include uninterpreted model/param hints). Never interpreted by the library.'
-        ),
-    ] = None
-    meta: Annotated[
-        dict[str, Any] | None,
-        Field(
-            description="The default (root) arm's selection metadata; library-opaque (weight, group, tags, ...). Symmetric with Variant.meta."
+            description='Arbitrary prompt-level metadata; library-OPAQUE (may include uninterpreted model/param hints, selection labels like weight/group/tags, or a `guard` key). Stored and echoed; never interpreted by the library. The prompt and each variant each carry exactly one `metadata` bag.'
         ),
     ] = None

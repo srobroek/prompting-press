@@ -7,7 +7,6 @@ variables:
   date:
     type: string
     origin: trusted
-    format: date
     description: The current date injected by the server.
 output_model: GreetingOutput
 metadata:

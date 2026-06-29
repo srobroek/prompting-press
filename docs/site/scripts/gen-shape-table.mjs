@@ -12,8 +12,8 @@
  *   - Derives every table row from the schema; never hand-forks field descriptions.
  *   - Emits a full MDX page with frontmatter + three tables:
  *       1. Top-level PromptDefinition fields
- *       2. VariableDecl fields (the variables[].* sub-schema)
- *       3. Variant fields (the variants[].* sub-schema)
+ *       2. PromptVariable fields (the variables[].* sub-schema)
+ *       3. PromptVariant fields (the variants[].* sub-schema)
  *   - The generated file is committed; CI regenerates and the freshness is verified
  *     by `pnpm check-stale-surface` (T005 gate).
  */
@@ -137,45 +137,40 @@ const topLevelTable = renderTable(
   schema.$defs ?? {},
 );
 
-const variableDeclDef = schema.$defs?.VariableDecl ?? {};
+const variableDeclDef = schema.$defs?.PromptVariable ?? {};
 const variableDeclTable = renderTable(
   variableDeclDef.properties ?? {},
   variableDeclDef.required ?? [],
   schema.$defs ?? {},
 );
 
-const variantDef = schema.$defs?.Variant ?? {};
+const variantDef = schema.$defs?.PromptVariant ?? {};
 const variantTable = renderTable(
   variantDef.properties ?? {},
   variantDef.required ?? [],
   schema.$defs ?? {},
 );
 
-// Origin enum values (from the VariableDecl.origin property)
+// Origin enum values (from the PromptVariable.origin property)
 const originEnum = variableDeclDef.properties?.origin?.enum ?? [];
 const originList = originEnum.map((v) => `- \`"${v}"\``).join("\n");
 
 // Backtick-containing strings that cannot live inside a template literal.
-const schemaLinkText = "[`schemas/jsonschema/prompt-definition.schema.json`]" +
-  "(https://github.com/srobroek/prompting-press/blob/main/schemas/jsonschema/prompt-definition.schema.json)";
 const promptWord = "`Prompt`";
-const buildCmd = "`pnpm -C docs/site build`";
 
 const page = [
   "---",
   "# AUTO-GENERATED — do not edit by hand.",
   "# Source: schemas/jsonschema/prompt-definition.schema.json",
   "# Regenerate: pnpm -C docs/site build  (runs scripts/gen-shape-table.mjs as prebuild).",
-  'title: "Prompt definition shape"',
-  'description: "Complete field reference for the prompt-definition document, derived from the JSON Schema single source of truth."',
+  'title: "Prompt Definition"',
+  'description: "Complete field reference for the prompt-definition document."',
   "---",
   "",
   "import { Aside } from '@astrojs/starlight/components';",
   "",
   '<Aside type="note">',
-  "This page is **generated** from",
-  schemaLinkText,
-  `— the single source of truth for the prompt shape. Do not edit it by hand; run ${buildCmd} to regenerate.`,
+  "Automatically generated from the prompt-definition JSON Schema.",
   "</Aside>",
   "",
   `A prompt definition is a YAML, JSON, or TOML document that the ${promptWord} object is constructed from.`,
@@ -194,11 +189,11 @@ const bodySection = [
   topLevelTable,
   "---",
   "",
-  "## `variables[*]` — VariableDecl",
+  "## `variables[*]` — PromptVariable",
   "",
-  "Each entry in the `variables` map is a `VariableDecl`. The `type` and `origin` fields are required.",
-  "The remaining fields are optional JSON-Schema validation hints (carried as metadata; they drive",
-  "code-generated validators but are not enforced by the rendering kernel).",
+  "Each entry in the `variables` map is a `PromptVariable`. The `type` and `origin` fields are required.",
+  "The optional `description` field is a human-readable annotation; validation constraints belong in the",
+  "per-language validator (Zod / Pydantic / garde) and are not part of this shape.",
   "",
   variableDeclTable,
   "### `origin` values",
@@ -218,7 +213,7 @@ const bodySection = [
   "",
   "---",
   "",
-  "## `variants[*]` — Variant",
+  "## `variants[*]` — PromptVariant",
   "",
   "Each entry in the `variants` map is a named alternative arm. A variant carries only a `body` (its",
   "own template source) and an optional `meta` map. Role, variables, and output model are shared",

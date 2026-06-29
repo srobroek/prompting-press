@@ -27,8 +27,9 @@ Add a `variants` map to the prompt definition. Each entry has its **own `body`**
 per-variant `meta`. Variants share the prompt's `variables`, `role`, and `output_model` — a variant
 that tries to redefine those is rejected (it differs **only** in body + meta).
 
-```yaml
-# summary.yaml
+<Tabs syncKey="def-format">
+<TabItem label="YAML">
+```yaml title="summary.yaml"
 name: summary
 role: user
 body: "Summarise the following article in {{ max_words }} words:\n\n{{ article }}"
@@ -47,10 +48,136 @@ variants:
     meta:
       group: experiment-q4   # opaque to the library — your code interprets it
 ```
+</TabItem>
+<TabItem label="JSON">
+```json title="summary.json"
+{
+  "name": "summary",
+  "role": "user",
+  "body": "Summarise the following article in {{ max_words }} words:\n\n{{ article }}",
+  "variables": {
+    "article": { "type": "string", "origin": "untrusted" },
+    "max_words": { "type": "integer", "origin": "trusted" }
+  },
+  "variants": {
+    "concise": { "body": "In one sentence, summarise: {{ article }}" },
+    "structured": {
+      "body": "Summarise {{ article }} as a title, three bullets, and a one-line conclusion.",
+      "meta": { "group": "experiment-q4" }
+    }
+  }
+}
+```
+</TabItem>
+<TabItem label="TOML">
+```toml title="summary.toml"
+name = "summary"
+role = "user"
+body = "Summarise the following article in {{ max_words }} words:\n\n{{ article }}"
+
+[variables.article]
+type = "string"
+origin = "untrusted"
+
+[variables.max_words]
+type = "integer"
+origin = "trusted"
+
+[variants.concise]
+body = "In one sentence, summarise: {{ article }}"
+
+[variants.structured]
+body = "Summarise {{ article }} as a title, three bullets, and a one-line conclusion."
+meta = { group = "experiment-q4" }   # opaque to the library — your code interprets it
+```
+</TabItem>
+</Tabs>
 
 This prompt has three arms: the default (the root `body`), `concise`, and `structured`. All three see
 the same `article` / `max_words` variables — so the agreement check covers every arm, and a variant
 body that referenced an undeclared variable would fail at construction.
+
+## Or construct inline from the shape object
+
+The same three-arm prompt can be built directly from a typed shape object — no text to parse. The
+`variants` map mirrors the document form one-to-one, and construction runs the **same** validation
+(agreement over every arm, reserved-name check).
+
+<Tabs syncKey="construct">
+<TabItem label="Rust">
+```rust
+use prompting_press::{Prompt, PromptDefinition};
+
+let def: PromptDefinition = serde_json::from_value(serde_json::json!({
+    "name": "summary",
+    "role": "user",
+    "body": "Summarise the following article in {{ max_words }} words:\n\n{{ article }}",
+    "variables": {
+        "article":   { "type": "string",  "origin": "untrusted" },
+        "max_words": { "type": "integer", "origin": "trusted" }
+    },
+    "variants": {
+        "concise":    { "body": "In one sentence, summarise: {{ article }}" },
+        "structured": {
+            "body": "Summarise {{ article }} as a title, three bullets, and a one-line conclusion.",
+            "meta": { "group": "experiment-q4" }
+        }
+    }
+}))?;
+
+let summary = Prompt::new(def)?;   // same validation as Prompt::from_yaml
+summary.variants().contains_key("concise");   // true
+```
+</TabItem>
+<TabItem label="Python">
+```python
+from prompting_press import Prompt
+
+summary = Prompt({
+    "name": "summary",
+    "role": "user",
+    "body": "Summarise the following article in {{ max_words }} words:\n\n{{ article }}",
+    "variables": {
+        "article":   {"type": "string",  "origin": "untrusted"},
+        "max_words": {"type": "integer", "origin": "trusted"},
+    },
+    "variants": {
+        "concise":    {"body": "In one sentence, summarise: {{ article }}"},
+        "structured": {
+            "body": "Summarise {{ article }} as a title, three bullets, and a one-line conclusion.",
+            "meta": {"group": "experiment-q4"},
+        },
+    },
+})   # same validation as Prompt.from_yaml
+list(summary.variants)   # ["concise", "structured"]
+```
+</TabItem>
+<TabItem label="TypeScript">
+```ts
+import { Prompt, type PromptDefinition } from "prompting-press";
+
+const definition: PromptDefinition = {
+  name: "summary",
+  role: "user",
+  body: "Summarise the following article in {{ max_words }} words:\n\n{{ article }}",
+  variables: {
+    article: { type: "string", origin: "untrusted" },
+    max_words: { type: "integer", origin: "trusted" },
+  },
+  variants: {
+    concise: { body: "In one sentence, summarise: {{ article }}" },
+    structured: {
+      body: "Summarise {{ article }} as a title, three bullets, and a one-line conclusion.",
+      meta: { group: "experiment-q4" },
+    },
+  },
+};
+
+const summary = new Prompt(definition);   // same validation as Prompt.fromYaml
+Object.keys(summary.variants);            // ["concise", "structured"]
+```
+</TabItem>
+</Tabs>
 
 ## Selecting a variant at render
 

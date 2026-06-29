@@ -173,13 +173,13 @@ def test_guard_names_field_body_unchanged(injection: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# T011d: a guarded prompt (meta.guard.enabled) passes check() (SC-006 complement)
+# T011d: a guarded prompt (metadata.guard.enabled) passes check() (SC-006 complement)
 # ---------------------------------------------------------------------------
 
-def test_check_passes_when_guard_configured_in_meta() -> None:
-    """A prompt with meta.guard.enabled satisfies the untrusted_without_guard lint."""
+def test_check_passes_when_guard_configured_in_metadata() -> None:
+    """A prompt with metadata.guard.enabled satisfies the untrusted_without_guard lint."""
     guarded_def = dict(_UNTRUSTED_PROMPT_DEF)
-    guarded_def["meta"] = {"guard": {"enabled": True}}
+    guarded_def["metadata"] = {"guard": {"enabled": True}}
     p = Prompt(guarded_def)
     report = p.check()
     assert report.passed(), (

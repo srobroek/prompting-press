@@ -25,38 +25,32 @@ export interface PromptDefinition {
    */
   body: string;
   /**
-   * Declared input variables, shared across all variants. Rich enough to generate-then-extend a typed Vars model in a later spec.
+   * Declared input variables, shared across all variants. Each entry declares the variable's type and input-trust origin.
    */
   variables?: {
-    [k: string]: VariableDecl;
+    [k: string]: PromptVariable;
   };
   /**
    * Named alternative arms. Absent => the prompt has only the default (root body) arm. Each arm differs ONLY in body (+ optional opaque meta).
    */
   variants?: {
-    [k: string]: Variant;
+    [k: string]: PromptVariant;
   };
   /**
    * Optional OPAQUE reference to the caller's output model (e.g. 'NodeOutput'). Stored and echoed; never resolved, loaded, or parsed (Principle III). Shared across variants.
    */
   output_model?: string;
   /**
-   * Arbitrary prompt-level metadata; library-OPAQUE (may include uninterpreted model/param hints). Never interpreted by the library.
+   * Arbitrary prompt-level metadata; library-OPAQUE (may include uninterpreted model/param hints, selection labels like weight/group/tags, or a `guard` key). Stored and echoed; never interpreted by the library. The prompt and each variant each carry exactly one `metadata` bag.
    */
   metadata?: {
     [k: string]: unknown;
   };
-  /**
-   * The default (root) arm's selection metadata; library-opaque (weight, group, tags, ...). Symmetric with Variant.meta.
-   */
-  meta?: {
-    [k: string]: unknown;
-  };
 }
 /**
- * A declared input variable: type + origin + optional JSON-Schema validation constraints (carried for generate-then-extend).
+ * A declared input variable: type, origin, and an optional human-readable description. Validation constraints belong in the per-language validator (Zod/Pydantic/garde); the kernel is validation-blind.
  */
-export interface VariableDecl {
+export interface PromptVariable {
   /**
    * JSON-Schema type keyword(s) for the variable.
    */
@@ -64,34 +58,30 @@ export interface VariableDecl {
     | ("string" | "integer" | "number" | "boolean" | "array" | "object")
     | ("string" | "integer" | "number" | "boolean" | "array" | "object" | "null")[];
   /**
-   * Per-field origin (input-trust) tag (FR-010a; renamed from `provenance` in spec 008). DECLARATIVE METADATA ONLY — there is NO runtime enforcement of this tag in the current library version; it is not a security guard by itself. Untrusted-input guarding (the opt-in, additive guard expansion + lint) is introduced in a later spec per roadmap decision C-09 (deriving from constitution Principle IV). Do not assume the library protects `untrusted`/`external` fields until that version. NOTE: this is the per-VARIABLE trust tag, distinct from the render-result provenance (template_hash/render_hash) which is unchanged.
+   * Per-field input-trust tag. DECLARATIVE METADATA ONLY — the library does not enforce this tag at render time; it is not a security guard by itself. Use `check()` to detect `untrusted`/`external` variables that lack a declared guard, and enable the opt-in guard to receive advisory guard text. This per-variable trust tag is distinct from the render-result content hashes (`template_hash`/`render_hash`).
    */
   origin: "trusted" | "untrusted" | "external";
   /**
    * When true, a validator covering this variable MUST be supplied when the Prompt is constructed (spec 008). Orthogonal to `origin` — it MAY mark any variable, not only untrusted/external ones. Declarative metadata; enforcement is per-language (constitution Principle VI v1.2.0): TypeScript (Zod) and Python (Pydantic) introspect the supplied validator and throw/raise at construction if this variable is uncovered, while Rust guarantees coverage structurally at compile time. The kernel never reads this field (validation-blind).
    */
   validation_required?: boolean;
-  format?: string;
-  pattern?: string;
-  enum?: unknown[];
-  minimum?: number;
-  maximum?: number;
-  minLength?: number;
-  maxLength?: number;
+  /**
+   * Optional human-readable description of the variable.
+   */
   description?: string;
 }
 /**
- * A named alternative arm. May carry ONLY body and meta; redefining role/variables/output_model is rejected (FR-011a).
+ * A named alternative arm. May carry ONLY body and metadata; redefining role/variables/output_model is rejected (FR-011a).
  */
-export interface Variant {
+export interface PromptVariant {
   /**
    * The variant's template source — the only field that differs per variant.
    */
   body: string;
   /**
-   * Library-OPAQUE selection metadata (weight, group, tags, ...). Stored + exposed; never interpreted by the library (caller selects). No schema-enforced selection semantics (FR-011c).
+   * Library-OPAQUE per-variant metadata (selection labels like weight/group/tags, or a `guard` key). Stored + exposed; never interpreted by the library (caller selects). No schema-enforced selection semantics (FR-011c). Mirrors the prompt-level `metadata` bag.
    */
-  meta?: {
+  metadata?: {
     [k: string]: unknown;
   };
 }

@@ -29,7 +29,7 @@ Prompt(shape: PromptDefinition | dict, *, validators: type[BaseModel] | None = N
 Primary validating constructor. `shape` is a `PromptDefinition` Pydantic model instance or a
 plain `dict`. Both are reduced to JSON and routed through the Rust consumer.
 
-`validators` is an optional Pydantic model **class**. When any `VariableDecl` in `shape.variables`
+`validators` is an optional Pydantic model **class**. When any `PromptVariable` in `shape.variables`
 has `validation_required = True`, a covering `validators` class **must** be supplied — construction
 raises `PromptValidationError` naming the first uncovered variable if it is absent.
 
@@ -74,8 +74,8 @@ Same as `from_yaml` for TOML input. TOML parsing is done by the Rust consumer; n
 prompt.name          # str
 prompt.role          # str  — "system" | "user" | "assistant"
 prompt.body          # str  — root body template source
-prompt.variables     # dict — { name: VariableDecl }
-prompt.variants      # dict — { name: Variant }; empty when no named variants
+prompt.variables     # dict — { name: PromptVariable }
+prompt.variants      # dict — { name: PromptVariant }; empty when no named variants
 prompt.output_model  # str | None
 prompt.metadata      # dict
 prompt.meta          # dict
@@ -242,4 +242,4 @@ msg.text  # str — rendered body text
 | `template_hash` / `render_hash` | `RenderResult` fields | SHA-256 content fingerprints of the template source and rendered output. Computed at render time. Byte-identical across all three language bindings. |
 | `origin` | `variables[name].origin` | Per-variable trust tag (`"trusted"` / `"untrusted"` / `"external"`). Declarative metadata; not enforced by the kernel. |
 
-See [Prompt definition shape](/prompting-press/reference/prompt-definition/) for `VariableDecl.origin` details.
+See [Prompt definition shape](/prompting-press/reference/prompt-definition/) for `PromptVariable.origin` details.

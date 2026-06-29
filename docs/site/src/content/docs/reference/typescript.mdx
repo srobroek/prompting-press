@@ -33,7 +33,7 @@ new Prompt(
 Primary public constructor. `shape` is a `PromptDefinition`-shaped object. Routes through the
 Rust consumer; throws on any construction invariant violation.
 
-`validators` is an optional Zod-like schema. When any `VariableDecl` in `shape.variables` has
+`validators` is an optional Zod-like schema. When any `PromptVariable` in `shape.variables` has
 `validation_required: true`, the `validators.shape` is introspected to verify coverage. If
 `validators.shape` is absent (non-`ZodObject`), the coverage check is skipped.
 
@@ -290,4 +290,4 @@ to verify `validation_required` coverage.
 | `templateHash` / `renderHash` | `RenderResult` fields | SHA-256 content fingerprints of the template source and rendered output. Computed at render time. Byte-identical across all three language bindings. |
 | `origin` | `variables[name].origin` | Per-variable trust tag (`"trusted"` / `"untrusted"` / `"external"`). Declarative metadata; not enforced by the kernel. |
 
-See [Prompt definition shape](/prompting-press/reference/prompt-definition/) for `VariableDecl.origin` details.
+See [Prompt definition shape](/prompting-press/reference/prompt-definition/) for `PromptVariable.origin` details.

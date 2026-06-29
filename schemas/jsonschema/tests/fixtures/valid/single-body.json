@@ -6,7 +6,6 @@
     "date": {
       "type": "string",
       "origin": "trusted",
-      "format": "date",
       "description": "The current date injected by the server."
     }
   },

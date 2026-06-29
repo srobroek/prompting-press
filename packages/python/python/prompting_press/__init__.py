@@ -35,8 +35,8 @@ from .prompting_press import (  # the compiled extension submodule
     core_version,
 )
 
-# The generated Pydantic prompt-definition shape (codegen'd from the JSON Schema — C-07).
-from .generated import PromptDefinition
+# The generated Pydantic prompt-definition shapes (codegen'd from the JSON Schema — C-07).
+from .generated import PromptDefinition, PromptVariable, PromptVariant
 
 try:
     # The PyPI distribution name is ``prompting-press`` (the import name is ``prompting_press``).
@@ -60,8 +60,10 @@ __all__ = [
     "Message",
     # Kernel version accessor.
     "core_version",
-    # Generated prompt-definition shape.
+    # Generated prompt-definition shapes.
     "PromptDefinition",
+    "PromptVariable",
+    "PromptVariant",
     # Exception hierarchy.
     "PromptingPressError",
     "PromptValidationError",

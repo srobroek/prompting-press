@@ -54,7 +54,7 @@ role: user
 body: "User said: {{ payload }}"
 variables:
   payload: { type: string, origin: untrusted }
-meta:
+metadata:
   guard:
     enabled: true
 `;
@@ -202,7 +202,7 @@ test("T016-D: verbatim pass-through + guard-body-identical holds across generate
 
 // ── T016-E: check() passes when the guard is configured ──────────────────────────────────
 
-test("T016-E: check() passes when the guard is configured in meta (advisory lint clear)", () => {
+test("T016-E: check() passes when the guard is configured in metadata (advisory lint clear)", () => {
   const p = Prompt.fromYaml(GUARDED_YAML);
   const report = p.check();
 

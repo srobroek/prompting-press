@@ -58,13 +58,13 @@ test("an untrusted variable without a guard produces untrusted_without_guard fin
   assert.ok(f.detail.includes("topic"), `detail must mention the field, got: ${f.detail}`);
 });
 
-test("check() passes when a guard is configured in meta", () => {
+test("check() passes when a guard is configured in metadata", () => {
   const p = new Prompt({
     name: "guarded",
     role: "user",
     body: "{{ payload }}",
     variables: { payload: { type: "string", origin: "untrusted" } },
-    meta: { guard: { enabled: true } },
+    metadata: { guard: { enabled: true } },
   });
   assert.ok(p.check().passed(), "guard configured → check must pass");
 });

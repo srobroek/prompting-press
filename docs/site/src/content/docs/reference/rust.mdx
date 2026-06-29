@@ -65,8 +65,8 @@ Same as `from_yaml` but for TOML input (uses the `toml` crate internally).
 pub fn name(&self) -> &str
 pub fn role(&self) -> &PromptDefinitionRole    // Display → "system" / "user" / "assistant"
 pub fn body(&self) -> &str
-pub fn variables(&self) -> &HashMap<String, VariableDecl>
-pub fn variants(&self)  -> &HashMap<String, Variant>
+pub fn variables(&self) -> &HashMap<String, PromptVariable>
+pub fn variants(&self)  -> &HashMap<String, PromptVariant>
 pub fn output_model(&self) -> Option<&str>
 pub fn metadata(&self) -> &serde_json::Map<String, serde_json::Value>
 pub fn meta(&self) -> &serde_json::Map<String, serde_json::Value>
@@ -138,8 +138,8 @@ pub struct PromptOverlay {
     pub name:         Option<PromptDefinitionName>,
     pub role:         Option<PromptDefinitionRole>,
     pub body:         Option<String>,
-    pub variables:    Option<HashMap<String, VariableDecl>>,
-    pub variants:     Option<HashMap<String, Variant>>,
+    pub variables:    Option<HashMap<String, PromptVariable>>,
+    pub variants:     Option<HashMap<String, PromptVariant>>,
     pub output_model: Option<Option<String>>,
     pub metadata:     Option<serde_json::Map<String, serde_json::Value>>,
     pub meta:         Option<serde_json::Map<String, serde_json::Value>>,
@@ -270,6 +270,6 @@ pub struct Message {
 | Concept | Where | What |
 |---------|-------|------|
 | `template_hash` / `render_hash` | `RenderResult` fields | SHA-256 content fingerprints of the template source and the rendered output. Computed at render time. |
-| `origin` | `VariableDecl.origin` | Per-variable trust tag (`trusted` / `untrusted` / `external`). Declarative metadata; not enforced by the kernel. |
+| `origin` | `PromptVariable.origin` | Per-variable trust tag (`trusted` / `untrusted` / `external`). Declarative metadata; not enforced by the kernel. |
 
-These are **not** the same thing. See [Prompt definition shape](/prompting-press/reference/prompt-definition/) for `VariableDecl.origin` details.
+These are **not** the same thing. See [Prompt definition shape](/prompting-press/reference/prompt-definition/) for `PromptVariable.origin` details.

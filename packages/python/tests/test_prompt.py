@@ -444,9 +444,9 @@ def test_check_flags_unguarded_untrusted() -> None:
 
 
 def test_check_passes_for_guarded_untrusted() -> None:
-    """A guard key under meta satisfies the lint."""
+    """A guard key under metadata satisfies the lint."""
     guarded = dict(ASK_DEF)
-    guarded["meta"] = {"guard": {"enabled": True}}
+    guarded["metadata"] = {"guard": {"enabled": True}}
     p = Prompt(guarded)
     assert p.check().passed()
 

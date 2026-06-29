@@ -24,12 +24,11 @@
 //! ## The `kind` discriminant string (FR-020)
 //!
 //! JS matches on a [`Finding`]'s **`kind`**, exposed as a stable snake_case **discriminant string**
-//! (not an opaque enum): `"undeclared_variable"`, `"untrusted_without_guard"`, `"analysis_error"`,
-//! `"reserved_variant_name"`. The kind's inner datum (the undeclared `name`, the uncovered `field`,
-//! the scrubbed `reason`) is already echoed in [`Finding::detail`], so `kind` stays a single stable
-//! matchable value. The mapping is an **exhaustive** match over the consumer's [`FindingKind`] (no
-//! wildcard arm): a new consumer variant becomes a compile error here, forcing the JS surface to be
-//! updated deliberately rather than silently mapping to a stale string.
+//! (not an opaque enum): `"untrusted_without_guard"`. The kind's inner datum (the uncovered
+//! `field`) is already echoed in [`Finding::detail`], so `kind` stays a single stable matchable
+//! value. The mapping is an **exhaustive** match over the consumer's [`FindingKind`] (no wildcard
+//! arm): a new consumer variant becomes a compile error here, forcing the JS surface to be updated
+//! deliberately rather than silently mapping to a stale string.
 
 use napi_derive::napi;
 
@@ -102,12 +101,12 @@ impl CheckReport {
 pub struct Finding {
     /// The prompt's registry name.
     pub prompt: String,
-    /// The variant the finding pertains to (`"default"` / `"<name>"` for an agreement, analysis, or
-    /// reserved-name finding); `None` (`undefined` in JS) for a prompt-level provenance finding.
+    /// The variant the finding pertains to; `None` (`undefined` in JS) for a prompt-level
+    /// provenance finding.
     pub variant: Option<String>,
     /// The failure kind as a stable snake_case **discriminant string** — the value JS matches on.
-    /// One of `"undeclared_variable"`, `"untrusted_without_guard"`, `"analysis_error"`,
-    /// `"reserved_variant_name"`. The kind's inner datum is echoed in [`detail`](Self::detail).
+    /// Currently always `"untrusted_without_guard"`. The kind's inner datum is echoed in
+    /// [`detail`](Self::detail).
     pub kind: String,
     /// A human-readable, actionable description (FR-020). Carries no bound-value content.
     pub detail: String,
@@ -128,14 +127,11 @@ impl From<prompting_press::Finding> for Finding {
 ///
 /// **Exhaustive on purpose** (no `_` wildcard): if the consumer adds a `FindingKind` variant, this
 /// match fails to compile, forcing the JS-visible string set to be updated deliberately rather than
-/// silently mapping a new variant to a stale value. The bound inner data (`name` / `field` /
-/// `reason`) is intentionally *not* read here — it is already carried in [`Finding::detail`].
+/// silently mapping a new variant to a stale value. The bound inner data (`field`) is intentionally
+/// *not* read here — it is already carried in [`Finding::detail`].
 fn kind_discriminant(kind: &FindingKind) -> &'static str {
     match kind {
-        FindingKind::UndeclaredVariable { .. } => "undeclared_variable",
         FindingKind::UntrustedWithoutGuard { .. } => "untrusted_without_guard",
-        FindingKind::AnalysisError { .. } => "analysis_error",
-        FindingKind::ReservedVariantName { .. } => "reserved_variant_name",
     }
 }
 
