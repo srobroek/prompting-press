@@ -29,7 +29,7 @@
     },
     "variants": {
       "type": "object",
-      "description": "Named alternative arms. Absent => the prompt has only the default (root body) arm. Each arm differs ONLY in body (+ optional opaque meta).",
+      "description": "Named alternative arms. Absent => the prompt has only the default (root body) arm. Each arm differs ONLY in body (+ optional opaque metadata).",
       "additionalProperties": { "$ref": "#/$defs/PromptVariant" },
       "propertyNames": {
         "not": { "const": "default" },

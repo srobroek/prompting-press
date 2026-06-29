@@ -95,7 +95,7 @@ pub mod error {
 #[doc = "      }"]
 #[doc = "    },"]
 #[doc = "    \"variants\": {"]
-#[doc = "      \"description\": \"Named alternative arms. Absent => the prompt has only the default (root body) arm. Each arm differs ONLY in body (+ optional opaque meta).\","]
+#[doc = "      \"description\": \"Named alternative arms. Absent => the prompt has only the default (root body) arm. Each arm differs ONLY in body (+ optional opaque metadata).\","]
 #[doc = "      \"type\": \"object\","]
 #[doc = "      \"additionalProperties\": {"]
 #[doc = "        \"$ref\": \"#/$defs/PromptVariant\""]
@@ -127,7 +127,7 @@ pub struct PromptDefinition {
         skip_serializing_if = ":: std :: collections :: HashMap::is_empty"
     )]
     pub variables: ::std::collections::HashMap<::std::string::String, PromptVariable>,
-    #[doc = "Named alternative arms. Absent => the prompt has only the default (root body) arm. Each arm differs ONLY in body (+ optional opaque meta)."]
+    #[doc = "Named alternative arms. Absent => the prompt has only the default (root body) arm. Each arm differs ONLY in body (+ optional opaque metadata)."]
     #[serde(
         default,
         skip_serializing_if = ":: std :: collections :: HashMap::is_empty"

@@ -31,7 +31,7 @@ export interface PromptDefinition {
     [k: string]: PromptVariable;
   };
   /**
-   * Named alternative arms. Absent => the prompt has only the default (root body) arm. Each arm differs ONLY in body (+ optional opaque meta).
+   * Named alternative arms. Absent => the prompt has only the default (root body) arm. Each arm differs ONLY in body (+ optional opaque metadata).
    */
   variants?: {
     [k: string]: PromptVariant;

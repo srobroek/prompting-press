@@ -153,7 +153,24 @@ If the merged definition violates any construction invariant, `derive` returns a
 (Rust `Result::Err`) or raises/throws. Example — overlaying a body that references an undeclared
 variable:
 
-<Tabs>
+<Tabs syncKey="construct">
+<TabItem label="Rust">
+```rust
+use prompting_press::{ConsumerError, PromptOverlay};
+
+let bad = greet.derive(PromptOverlay {
+    body: Some("Hi {{ ghost }}".to_string()),
+    ..Default::default()
+});
+match bad {
+    Err(ConsumerError::Kernel(rows)) => {
+        assert_eq!(rows[0].code, "undefined_variable");
+        assert_eq!(rows[0].field, "ghost");
+    }
+    _ => unreachable!("the merged definition is agreement-unsound"),
+}
+```
+</TabItem>
 <TabItem label="Python">
 ```python
 try:
@@ -193,7 +210,17 @@ fields (no runtime validator object).
 
 After adding a variant, select it by name at render time:
 
-<Tabs>
+<Tabs syncKey="construct">
+<TabItem label="Rust">
+```rust
+use prompting_press::GuardConfig;
+
+let vars = GreetVars { name: "Ada".into(), count: 3 };
+let result = formal_greet.render(&vars, Some("formal"), &GuardConfig::default())?;
+result.text;     // "Good day, Ada. You have 3 messages."
+result.variant;  // "formal"
+```
+</TabItem>
 <TabItem label="Python">
 ```python
 result = derived.render(GreetVars, data={"name": "Ada", "count": 3}, variant="formal")

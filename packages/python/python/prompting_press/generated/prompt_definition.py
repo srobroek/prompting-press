@@ -116,7 +116,7 @@ class PromptDefinition(BaseModel):
     variants: Annotated[
         dict[str, PromptVariant] | None,
         Field(
-            description='Named alternative arms. Absent => the prompt has only the default (root body) arm. Each arm differs ONLY in body (+ optional opaque meta).'
+            description='Named alternative arms. Absent => the prompt has only the default (root body) arm. Each arm differs ONLY in body (+ optional opaque metadata).'
         ),
     ] = None
     output_model: Annotated[

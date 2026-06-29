@@ -27,7 +27,7 @@ types, Rust serde structs) are **code-generated** from it at build time and neve
 | `role` | `"system" \| "user" \| "assistant"` | Yes | Conversational role; first-class metadata the caller reads. Shared across all variants. |
 | `body` | `string` | Yes | The DEFAULT variant's template source. The root body IS the default arm; surfaced under reserved name 'default' with is_default=true. |
 | `variables` | `object` | No | Declared input variables, shared across all variants. Each entry declares the variable's type and input-trust origin. Default: `{}`. |
-| `variants` | `object` | No | Named alternative arms. Absent => the prompt has only the default (root body) arm. Each arm differs ONLY in body (+ optional opaque meta). |
+| `variants` | `object` | No | Named alternative arms. Absent => the prompt has only the default (root body) arm. Each arm differs ONLY in body (+ optional opaque metadata). |
 | `output_model` | `string` | No | Optional OPAQUE reference to the caller's output model (e.g. 'NodeOutput'). Stored and echoed; never resolved, loaded, or parsed. Shared across variants. |
 | `metadata` | `object` | No | Arbitrary prompt-level metadata; library-OPAQUE (may include uninterpreted model/param hints, selection labels like weight/group/tags, or a `guard` key). Stored and echoed; never interpreted by the library. The prompt and each variant each carry exactly one `metadata` bag. |
 
