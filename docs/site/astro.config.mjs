@@ -46,7 +46,7 @@ export default defineConfig({
         {
           label: "API reference",
           items: [
-            { label: "Prompt definition (shape)", link: "/reference/prompt-definition/" },
+            { label: "Prompt Definition", link: "/reference/prompt-definition/" },
             { label: "Rust", link: "/reference/rust/" },
             { label: "Python", link: "/reference/python/" },
             { label: "TypeScript", link: "/reference/typescript/" },

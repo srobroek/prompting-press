@@ -67,10 +67,14 @@ vars are constructed.
 
 ### Is `variables[].type` enforced at runtime?
 
-**No.** The `type` field on a `PromptVariable` (e.g. `type: string`) is **carried metadata** — it
-is not inspected by the rendering kernel. It is intended to drive code-generated typed Vars
-models and serves as documentation. Runtime type enforcement is owned by the Vars model
-(garde / Pydantic / Zod), not by the library.
+**No** — and that is intentional. The `type` field on a `PromptVariable` (e.g. `type: string`)
+declares the variable's logical type. The rendering kernel does not inspect it; runtime type
+enforcement is owned by the Vars model (garde / Pydantic / Zod). What `type` *does* is record the
+variable's shape in the language-neutral prompt definition, so a typed Vars model can be
+**generated** from it (`string` → `str` / `string` / `String`, `integer` → `int` / `number` /
+`i64`, and so on) and then extended by hand. It is the one piece of per-variable metadata with a
+concrete consumer: the definition carries enough to scaffold the per-language Vars model, rather
+than each language re-declaring the field shape from scratch.
 
 ### What is `validation_required`?
 

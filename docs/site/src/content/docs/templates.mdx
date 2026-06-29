@@ -11,7 +11,7 @@ sandboxed subset of the Jinja2 syntax. The feature set is deliberately narrow to
 
 ## Supported features
 
-These features are fully supported in v1 prompt templates:
+These features are fully supported in prompt templates:
 
 ### Interpolation
 
@@ -66,7 +66,7 @@ excluded from the agreement-check's "required roots" set.
 
 ## Excluded features
 
-The following features are **explicitly disabled** in v1 and are rejected at construction with a
+The following features are **explicitly disabled** and are rejected at construction with a
 `ConsumerError::Kernel` / `PromptRenderError` carrying `code: "excluded_feature"`:
 
 | Feature | Tag(s) | Reason |

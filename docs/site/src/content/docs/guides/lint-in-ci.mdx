@@ -37,8 +37,8 @@ binary is required.
 Each example below loads every `*.yaml` under a `prompts/` directory and asserts a clean report,
 naming the offending prompt + finding on failure so the CI log is actionable.
 
-### Rust
-
+<Tabs syncKey="construct">
+<TabItem label="Rust">
 ```rust
 // tests/prompts_lint.rs  — runs under `cargo test`
 use prompting_press::Prompt;
@@ -72,11 +72,10 @@ fn shipped_prompts_pass_check() {
 }
 ```
 
-`CheckReport::passed()` returns `true` iff `findings` is empty (`is_empty()` is an alias); here we
-collect the `findings` directly so the assertion message lists every offender.
-
-### Python
-
+`CheckReport::passed()` returns `true` iff `findings` is empty (`is_empty()` is an alias); here the
+`findings` are collected directly so the assertion message lists every offender.
+</TabItem>
+<TabItem label="Python">
 ```python
 # tests/test_prompts_lint.py  — runs under pytest
 from pathlib import Path
@@ -100,9 +99,8 @@ def test_shipped_prompt_passes_check(path: Path) -> None:
 
 Parametrizing over the files gives one pass/fail per prompt in the pytest report. `report.passed()`
 → `True` when there are no findings (`report.is_empty()` is an alias).
-
-### TypeScript
-
+</TabItem>
+<TabItem label="TypeScript">
 ```ts
 // test/prompts-lint.test.mjs  — runs under `node --test`
 import { test } from "node:test";
@@ -124,6 +122,8 @@ for (const file of readdirSync("prompts").filter((f) => f.endsWith(".yaml"))) {
 One `node:test` case per prompt file; the assertion message lists the findings. These tests need no
 network or model — `check()` is pure analysis — so they run in the same fast unit-test lane as the
 rest of the test suite.
+</TabItem>
+</Tabs>
 
 ## Suppressing a finding (the guard key)
 

@@ -180,6 +180,7 @@ const page = [
 
 const bodySection = [
   "",
+  "",
   "---",
   "",
   "## Top-level fields",
