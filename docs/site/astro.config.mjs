@@ -35,7 +35,7 @@ export default defineConfig({
           label: "Guides",
           items: [
             { label: "Variants", link: "/guides/variants/" },
-            { label: "Deriving a prompt with `with`", link: "/guides/with/" },
+            { label: "Deriving a prompt", link: "/guides/derive/" },
             { label: "Metadata", link: "/guides/metadata/" },
             { label: "Compose multi-message prompts", link: "/guides/composition/" },
             { label: "The advisory guard", link: "/guides/guard/" },

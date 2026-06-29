@@ -132,11 +132,11 @@ check(): CheckReport
 Pure advisory lint. Returns a `CheckReport`. The only live finding is `untrusted_without_guard`.
 Never renders, never mutates.
 
-### `with`
+### `derive`
 
 ```ts
-with(
-  overlay: Partial<PromptDefinition> | Record<string, unknown>,
+derive(
+  overlay: Partial<PromptDefinition>,
   validators?: ValidatorMap,
 ): Prompt
 ```

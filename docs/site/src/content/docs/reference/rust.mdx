@@ -117,10 +117,10 @@ pub fn check(&self) -> CheckReport
 Pure advisory lint. Returns a `CheckReport` containing only `UntrustedWithoutGuard` findings
 (the only live advisory for a constructed `Prompt`). Never renders, never mutates. `#[must_use]`.
 
-### `with`
+### `derive`
 
 ```rust
-pub fn with(&self, overlay: PromptOverlay) -> Result<Self, ConsumerError>
+pub fn derive(&self, overlay: PromptOverlay) -> Result<Self, ConsumerError>
 ```
 
 Shallow-replaces top-level fields from `overlay` onto a clone of this prompt's definition, routes

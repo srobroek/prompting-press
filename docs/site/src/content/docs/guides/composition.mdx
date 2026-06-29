@@ -20,8 +20,10 @@ TypeScript. An invalid entry is rejected immediately and nothing is stored. `res
 therefore only ever see fully-validated entries. If any entry fails at `resolve` (unknown variant,
 strict-undefined reference), the whole call fails and no partial result is returned.
 
-## Rust
+## Building a composition
 
+<Tabs syncKey="construct">
+<TabItem label="Rust">
 ```rust
 use prompting_press::{Composition, GuardConfig, Prompt};
 use garde::Validate;
@@ -67,9 +69,8 @@ for m in &messages {
 
 `Composition::resolve(&self)` returns `Result<Vec<Message>, ConsumerError>`. Each `Message`
 carries `role: String` and `text: String`.
-
-## Python
-
+</TabItem>
+<TabItem label="Python">
 ```python
 from prompting_press import Composition, Prompt
 from pydantic import BaseModel
@@ -107,9 +108,8 @@ comp = Composition.from_messages([
 ])
 messages = comp.resolve()
 ```
-
-## TypeScript
-
+</TabItem>
+<TabItem label="TypeScript">
 ```ts
 import { z } from "zod";
 import { Composition, Prompt } from "prompting-press";
@@ -147,6 +147,8 @@ for (const m of messages) {
 `append(entry)` → `void` (not chainable).
 `Composition.fromMessages(entries)` → `Composition` (all validation runs before any state is
 created; the first failure aborts).
+</TabItem>
+</Tabs>
 
 ## Message shape
 

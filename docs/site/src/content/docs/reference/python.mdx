@@ -121,22 +121,17 @@ prompt.check() -> CheckReport
 Pure advisory lint. Returns a `CheckReport`. The only live finding is `untrusted_without_guard`.
 Never renders, never mutates.
 
-### `with_`
+### `derive`
 
 ```python
-prompt.with_(overlay: dict, *, validators=None) -> Prompt
+prompt.derive(overlay: dict, *, validators=None) -> Prompt
 ```
 
 Shallow-replace top-level fields from `overlay` (a dict), route the merged definition through
 full re-validation, return a **new `Prompt`**. The original is untouched. `validators`
 carries forward from `self` by default; pass `validators=NewModel` to override.
 
-**Raises:** `PromptValidationError` or `LoadError` — same as construction.
-
-<Aside type="note">
-The method is named `with_` (trailing underscore) because `with` is a reserved Python keyword
-(PEP 8 trailing-underscore convention).
-</Aside>
+**Raises:** `PromptValidationError`, `PromptRenderError`, or `LoadError` — same as construction.
 
 ---
 

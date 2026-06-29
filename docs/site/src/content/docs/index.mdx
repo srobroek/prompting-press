@@ -44,7 +44,7 @@ across all three.
 ### The object model
 
 - **An immutable `Prompt`.** Construct from a shape object or from **YAML / JSON / TOML** text, then `render`,
-  read its source, or `check()` it. No setters — to vary a prompt you derive a **new** one with `with`
+  read its source, or `check()` it. No setters — to vary a prompt you `derive` a **new** one
   (shallow-replace a field, re-validate the whole). → **[Getting started](/prompting-press/getting-started/rust/)**.
 - **Multi-message composition.** Aggregate several `Prompt` objects (each with its own vars) into an ordered,
   role-tagged `[{role, text}]` sequence — no registry, you pass the objects directly. →

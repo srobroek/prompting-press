@@ -133,12 +133,6 @@ text; the actual protection is your responsibility.
 
 ## API surface
 
-### Why is it `with_` in Python but `with` in Rust and TypeScript?
-
-`with` is a reserved keyword in Python. PEP 8 trailing-underscore convention applies:
-`prompt.with_(overlay)`. Rust and TypeScript do not have this constraint; their method is
-named `with`.
-
 ### Why is there no `.chain()` on `Composition`?
 
 A fluent `.chain()` cannot cross the PyO3/napi FFI boundary (the bindings cannot return `Self`

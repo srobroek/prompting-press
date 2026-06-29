@@ -46,7 +46,7 @@ r.templateHash;  // 64-hex SHA-256 of the template source
 r.renderHash;    // 64-hex SHA-256 of the rendered output
 ```
 
-- **Prompt is a first-class object**: `render` / `getSource` / `check` / `with` live on the `Prompt`.
+- **Prompt is a first-class object**: `render` / `getSource` / `check` / `derive` live on the `Prompt`.
   There is no registry — you hold and pass `Prompt` objects directly.
 - **Validate-then-render**: the Zod schema is `safeParse`d **before** any templating. Invalid input
   throws a `PromptValidationError` naming every offending field, and nothing renders. You can also pass
@@ -55,7 +55,7 @@ r.renderHash;    // 64-hex SHA-256 of the rendered output
   `new Prompt(obj)` — all normalize through the **one** Rust loader, so every form renders identically
   (parity is structural, not re-tested here).
 - **Immutable**: a `Prompt` has read-only accessors and no setters. To vary one, use
-  `prompt.with(overlay)` — it shallow-replaces the given top-level fields, re-validates the merged whole,
+  `prompt.derive(overlay)` — it shallow-replaces the given top-level fields, re-validates the merged whole,
   and returns a **new** `Prompt`; the original is untouched.
 - **`PromptDefinition`** (the prompt-definition shape) is re-exported, code-generated from the published
   JSON Schema — never hand-written.

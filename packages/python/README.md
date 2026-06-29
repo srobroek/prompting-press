@@ -181,18 +181,17 @@ construction and are therefore unreachable from a successfully-constructed `Prom
 appear in the table for completeness; `untrusted_without_guard` is the only live advisory
 `check()` returns.
 
-## Immutability and `with_`
+## Immutability and `derive`
 
 A `Prompt` has read-only properties (`name`, `role`, `body`, `variables`, `variants`,
-`output_model`, `metadata`, `meta`) and no setters. The sole mutator is `with_` (the trailing
-underscore is required because `with` is a Python keyword):
+`output_model`, `metadata`, `meta`) and no setters. The sole mutator is `derive`:
 
 ```python
-derived = greet.with_({"body": "Hey {{ name }}, you have {{ count }} items"})
+derived = greet.derive({"body": "Hey {{ name }}, you have {{ count }} items"})
 # greet is unchanged; derived is a new fully-validated Prompt.
 ```
 
-`with_(overlay, *, validators=None)` shallow-replaces any subset of top-level fields, routes
+`derive(overlay, *, validators=None)` shallow-replaces any subset of top-level fields, routes
 the merged definition through the Rust consumer's full re-validation (agreement, parse,
 reserved name), and returns a **new `Prompt`**. The original is untouched. Validators carry
 forward from the original by default; pass `validators=SomeModel` to override.
