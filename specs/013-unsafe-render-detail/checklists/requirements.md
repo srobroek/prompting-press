@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,13 +31,13 @@
 
 ## Notes
 
-- Three [NEEDS CLARIFICATION] markers remain (at the limit), all high-impact with no safe default,
-  to be resolved in `/speckit-clarify`:
-  1. FR-009 — opt-in granularity (per-render-call vs per-Prompt vs both; not global).
-  2. FR-010 — scope of surfaced detail (render-only vs also ExcludedFeature).
-  3. FR-011 — governance: constitution amendment vs recorded decision (it touches the SEC-004
-     render-scrub half), and whether the boolean opt-in is a "new pluggable interface" (likely no).
-- FR-012 (naming/risk-signal) folds into the FR-011 governance discussion / can be settled in clarify
-  alongside it without a separate marker.
-- The off-by-default safety guarantee (FR-002/FR-003/SC-002/SC-003) is fixed and non-negotiable; only
-  the three markers above are open.
+- All three [NEEDS CLARIFICATION] markers resolved in `/speckit-clarify` (Session 2026-06-29, recorded in
+  spec ## Clarifications):
+  1. FR-009 → per-render-call (render-options flag; not per-Prompt, not global).
+  2. FR-010 → render detail only (ExcludedFeature/Parse unaffected).
+  3. FR-011 → recorded decision D3 + SEC-004 carve-out note (NOT a full amendment); the boolean opt-in is
+     not a pluggable interface, so no boundary-defense amendment trigger.
+- FR-012 (naming/risk-signal) settled alongside FR-011; the off-by-default guarantee (FR-002/003/SC-002/003)
+  is fixed and non-negotiable.
+- Spec stage complete + clarified. NEXT: memory-synthesis → /speckit-plan → tasks → implement. Note the
+  D3 decision doc + SEC-004 carve-out note should be authored as part of (or just before) implementation.

@@ -8,6 +8,14 @@
 
 **Input**: User description: "013 — Opt-in unsafe Render-error detail. Add an explicit, off-by-default mode in which the caller opts in to receive the full render-error detail (currently scrubbed by SEC-004), accepting responsibility for any bound-value/PII content it may carry."
 
+## Clarifications
+
+### Session 2026-06-29
+
+- Q: Granularity — where is the opt-in set? → A: **Per-render-call** — a flag on the render options object (alongside `variant`/`guard`), matching the existing options-object call shape (C-11) and how the guard is already passed per render. Deciding to expose detail is contextual to a specific debugging render, not a property of the prompt. Explicitly NOT a per-Prompt/construction setting and NOT global.
+- Q: Scope of detail surfaced? → A: **Render detail only.** The opt-in surfaces ONLY the scrubbed `Render`-error detail (the one PII-sensitive scrub). `ExcludedFeature` and `Parse` are unaffected (Parse already preserved per D2). Minimal blast radius; the opt-in maps 1:1 to the single risky scrub.
+- Q: Governance — this touches the SEC-004 *Render*-scrub half. Amendment or recorded decision? → A: **Recorded decision (D3) + an explicit SEC-004 carve-out note**, like D2 — NOT a full constitution amendment. Rationale: the default (scrub-by-default) is unchanged; this adds a sanctioned, OFF-BY-DEFAULT, caller-opt-in escape hatch, not a redefinition of the principle. The boolean flag is NOT a "new pluggable interface" under Scope Discipline (no seam, no second implementation), so it does not trip the boundary-defense amendment trigger.
+
 ## Context
 
 By default the library **scrubs** render-error detail: when the rendering engine rejects a render, the
@@ -120,27 +128,26 @@ detail arrives through that binding's normalized error contract identically.
 - **FR-008**: The documentation (the error-reference pages + relevant guides) MUST explain the tradeoff and
   warn, at the opt-in site, that enabling it may surface bound-value content (untrusted input / PII /
   secrets) into the caller's logs or stack traces.
-- **FR-009**: The option's **granularity** MUST be defined [NEEDS CLARIFICATION: per-render-call (an option
-  on the render options), per-Prompt (bound at construction and reused), or both — explicitly NOT a global
-  setting; lean per-call or per-construction].
-- **FR-010**: The **scope of detail** the opt-in surfaces MUST be defined [NEEDS CLARIFICATION: render
-  detail only, or also re-loosen the `ExcludedFeature` detail (which names a template construct, not a
-  bound value, and is already low-risk) — i.e. is this strictly the render-scrub half, or all
-  currently-templated kernel-detail kinds].
-- **FR-011**: The governance treatment MUST be decided [NEEDS CLARIFICATION: because this touches the
-  SEC-004 render-scrub half (not a pure refinement like D2), does it require a constitution amendment, or a
-  recorded decision (like D2) with the off-by-default guarantee as the safeguard — and does the boolean
-  opt-in count as a "new pluggable interface" under Scope Discipline (likely no — it is an option on an
-  existing call, not a pluggable seam)].
+- **FR-009**: The opt-in MUST be set **per-render-call** — a flag on the render options object (alongside
+  `variant`/`guard`), matching the options-object call shape (C-11) and how the guard is already passed per
+  render. It MUST NOT be a per-Prompt/construction-bound setting and MUST NOT be a global/ambient setting.
+- **FR-010**: The opt-in MUST surface **render-error detail only** — exactly the `Render`-error detail that
+  is otherwise scrubbed. It MUST NOT change `Parse` handling (already preserved per D2) and MUST NOT alter
+  `ExcludedFeature` detail; the opt-in maps 1:1 to the single PII-sensitive scrub.
+- **FR-011**: The governance treatment is a **recorded decision (D3)** plus an explicit SEC-004 carve-out
+  note (the same path as D2), NOT a full constitution amendment: the default scrub-by-default guarantee is
+  unchanged, so this adds a sanctioned, off-by-default, caller-opt-in escape hatch rather than redefining
+  the principle. The boolean opt-in is NOT a "new pluggable interface" under Scope Discipline (no seam, no
+  second implementation), so it does not trip the boundary-defense amendment trigger.
 - **FR-012**: The opt-in's name/signal MUST make the risk explicit at the call site (e.g. an
   `unsafe`/`unredacted`/`include_error_detail`-style name plus a doc-comment warning), so enabling it reads
   as a deliberate, risk-acknowledging choice rather than an innocuous flag.
 
 ### Key Entities
 
-- **Unsafe-detail opt-in**: the explicit, off-by-default setting (an option on the render path and/or a
-  construction-time setting — granularity per FR-009) that selects detail-surfacing over scrubbing for
-  render errors. Carries no data beyond "on/off"; not a pluggable interface.
+- **Unsafe-detail opt-in**: the explicit, off-by-default flag on the **render options** (per-call, FR-009)
+  that selects render-error-detail surfacing over scrubbing. Carries no data beyond "on/off"; not a
+  pluggable interface.
 - **Normalized error** (`{field, code, message}`): the existing cross-binding error contract; the opt-in
   changes only what the `message` carries for a render error (full detail vs. scrubbed), never the shape.
 
