@@ -1,292 +1,559 @@
 ---
+# AUTO-GENERATED — do not edit by hand.
+# Source: typedoc 0.28.19
+# Regenerate: pnpm -C docs/site build  (runs scripts/gen-api-refs.mjs as prebuild).
 title: "TypeScript API reference"
-description: "Complete API reference for the prompting-press TypeScript/Node.js package: Prompt, RenderResult, Composition, error types."
+description: "API reference for the prompting-press typescript binding. Generated from source doc comments."
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
-Package: `prompting-press` (npm). ESM-only · Node 20+. Peer dependency: `zod`.
-
-The primary public type is `Prompt` — an immutable, fully-validated prompt class. Zod validation
-is owned by the TypeScript facade before the kernel is reached. Native
-Zod and Rust error types never cross the public surface.
-
----
-
-## `Prompt`
-
-```ts
-import { Prompt } from "prompting-press";
-```
-
-### Construction — four entry points, all throwing on invalid input
-
-#### `new Prompt(shape, validators?)`
-
-```ts
-new Prompt(
-  shape: PromptDefinition | Record<string, unknown>,
-  validators?: ValidatorMap,
-)
-```
-
-Primary public constructor. `shape` is a `PromptDefinition`-shaped object. Routes through the
-Rust consumer; throws on any construction invariant violation.
-
-`validators` is an optional Zod-like schema. When any `PromptVariable` in `shape.variables` has
-`validation_required: true`, the `validators.shape` is introspected to verify coverage. If
-`validators.shape` is absent (non-`ZodObject`), the coverage check is skipped.
-
-**Throws:** `PromptRenderError` — template/agreement error. `LoadError` — shape violation.
-`PromptValidationError` — uncovered `validation_required` variable.
-
-#### `Prompt.fromYaml(text, validators?)`
-
-```ts
-static fromYaml(text: string, validators?: ValidatorMap): Prompt
-```
-
-Parse already-read YAML text, then validate. YAML is parsed by the Rust consumer (no JS YAML
-library). The library reads no files.
-
-**Throws:** `LoadError` — malformed YAML or shape violation. `PromptRenderError` — template/
-agreement error. `PromptValidationError` — uncovered `validation_required` variable.
-
-#### `Prompt.fromJson(text, validators?)`
-
-```ts
-static fromJson(text: string, validators?: ValidatorMap): Prompt
-```
-
-Same as `fromYaml` for JSON input.
-
-#### `Prompt.fromToml(text, validators?)`
-
-```ts
-static fromToml(text: string, validators?: ValidatorMap): Prompt
-```
-
-Same as `fromYaml` for TOML input. TOML is parsed by the Rust consumer (`toml@1.1.2`); no JS
-TOML library is required.
-
-### Read-only accessors (getters)
-
-```ts
-prompt.name         // string
-prompt.role         // string — "system" | "user" | "assistant"
-prompt.body         // string — root body template source
-prompt.variables    // PromptDefinition["variables"]
-prompt.variants     // PromptDefinition["variants"]
-prompt.outputModel  // string | undefined
-prompt.metadata     // Record<string, unknown>
-```
-
 <Aside type="note">
-The accessor is `outputModel` (camelCase) in TypeScript, matching the napi-rs naming convention.
-The JSON/YAML/TOML field name is `output_model` (snake_case).
+Automatically generated from TypeScript source doc comments (typedoc 0.28.19).
 </Aside>
 
-### `render`
+Package: `prompting-press`. Version: `latest`.
 
-Two overloads:
+## Prompt
 
-```ts
-// Schema form — Zod's safeParse(data) runs before any templating:
-render<T>(schema: ZodLikeSchema<T>, data: unknown, opts?: RenderOptions | null): RenderResult
-
-// Static / bound-validator form — data marshaled directly (or validated by bound validators):
-render(data: unknown, opts?: RenderOptions | null): RenderResult
-```
-
-`RenderOptions`:
-```ts
-interface RenderOptions {
-  variant?: string;
-  guard?: GuardConfig | null;
-}
-```
-
-`variant` absent selects the default (root body) arm. `guard` absent / `null` opts out.
-
-**Throws:** `PromptValidationError` — Zod validation failed (before any templating).
-`PromptRenderError` — kernel error (unknown variant, undefined variable, parse/render failure).
-
-### `getSource`
+### `Prompt`
 
 ```ts
-getSource(opts?: { variant?: string } | null): string
+class Prompt
 ```
 
-Returns the unrendered template source for the given variant. Pure: no vars, no validation.
-`opts.variant` absent returns the root body source.
+An immutable, fully-validated prompt. Wraps a `NapiPrompt` handle; all construction invariants (shape-valid, template-parseable, agreement-sound, reserved-name clean) are enforced by the Rust consumer at construction time. There are no setters; the sole mutator is Prompt.derive (T045). ## Construction — four entry points, all throwing on invalid input ```ts const p = new Prompt(shape, validators?); const p = Prompt.fromYaml(text, validators?); const p = Prompt.fromJson(text, validators?); const p = Prompt.fromToml(text, validators?); // TOML routed to Rust, no smol-toml dep ``` ## validators? — validation_required coverage check When supplied, any variable with `validation_required: true` must appear in `validators.shape`. Construction throws a PromptValidationError if a required variable is uncovered. When `validators.shape` is absent (non-`ZodObject` schema), the check is skipped. ## render() — validate-then-render ```ts p.render(schema, data, opts?); // schema form: safeParse before templating p.render(data, opts?); // static form (or uses bound validators when present) ``` ## derive(overlay, validators?) — sole mutator Shallow-replaces top-level fields; re-validates the merged whole. Validators carry forward from the source by default; pass `validators` to override.
 
-**Throws:** `PromptRenderError` — unknown variant name.
+#### `body`
 
-### `check`
+```ts
+get body(): string
+```
+
+The root body template source (the default arm's unrendered template text).
+
+#### `metadata`
+
+```ts
+get metadata(): Record<string, unknown>
+```
+
+The `metadata` opaque map (library-defined top-level annotations, if any).
+
+#### `name`
+
+```ts
+get name(): string
+```
+
+The prompt's name (the `name` field of the underlying definition).
+
+#### `outputModel`
+
+```ts
+get outputModel(): string | undefined
+```
+
+The `output_model` reference, if declared. Carried as metadata only — the library never parses against it.
+
+#### `role`
+
+```ts
+get role(): string
+```
+
+The conversational role (`"system"` / `"user"` / `"assistant"`).
+
+#### `variables`
+
+```ts
+get variables(): object | undefined
+```
+
+The declared variables map (`&#123; [name]: PromptVariable &#125;`). Read-only metadata. Each entry carries the variable's `type`, `origin`, and optional `validation_required`.
+
+#### `variants`
+
+```ts
+get variants(): object | undefined
+```
+
+The named variants map (`&#123; [name]: PromptVariant &#125;`). Empty object when the prompt has no named variants (only the implicit `default` arm).
+
+#### `constructor`
+
+```ts
+new Prompt(shape: PromptDefinition, validators?: ValidatorMap): Prompt
+```
+
+Primary public constructor — constructs a `Prompt` from a `PromptDefinition`-shaped object. The optional third parameter `_internal` is a module-private token (type `InternalCtorArg`) that can only be formed by code within this module. External callers cannot construct a valid `InternalCtorArg` value (its type uses a `unique symbol` brand), so `new Prompt(shape, v?)` is effectively the only publicly-callable form. The static factories (`fromYaml`, `fromJson`, `fromToml`) and `with()` use the internal path to avoid re-running the Rust validator on an already-validated handle.
+
+#### `check`
 
 ```ts
 check(): CheckReport
 ```
 
-Pure advisory lint. Returns a `CheckReport`. The only live finding is `untrusted_without_guard`.
-Never renders, never mutates.
+Pure advisory lint: returns a CheckReport containing only the origin/guard finding class (`"untrusted_without_guard"`). Construction already enforces agreement, parse, and reserved-name invariants; those are structurally unreachable here. Pure: never renders, never mutates.
 
-### `derive`
-
-```ts
-derive(
-  overlay: Partial<PromptDefinition>,
-  validators?: ValidatorMap,
-): Prompt
-```
-
-Shallow-replace top-level fields from `overlay`, route the merged definition through full
-re-validation, return a **new `Prompt`**. The original is untouched. `validators`
-carries forward from the source by default; pass `validators` to override.
-
-**Throws:** same as construction.
-
----
-
-## `RenderResult`
+#### `derive`
 
 ```ts
-// Read-only class (from the addon):
-result.text          // string — rendered body text
-result.name          // string — the prompt name
-result.variant       // string — resolved variant name ("default" when none selected)
-result.templateHash  // string — lowercase-hex SHA256(variant template source), 64 chars
-result.renderHash    // string — lowercase-hex SHA256(rendered output), 64 chars
-result.guard         // string | null — advisory guard text; null when guard not enabled
+derive(overlay: Partial<PromptDefinition>, validators?: ValidatorMap): Prompt
 ```
 
-<Aside type="note">
-**camelCase in TypeScript:** `templateHash` / `renderHash` (napi-rs maps Rust `snake_case` to
-JS conventions). The Rust and Python bindings use `template_hash` / `render_hash`.
-</Aside>
+The sole mutator: shallow-replace top-level fields from `overlay` onto a clone of this prompt's definition, then re-validate the merged whole via the Rust consumer. The original `Prompt` is untouched. Validators carry forward from the source by default; pass `validators` to override/augment. Coverage is re-checked against the merged definition.
 
----
-
-## `GuardConfig`
+#### `fromJson`
 
 ```ts
-interface GuardConfig {
-  enabled: boolean;
-  template?: string | null;
-}
+static fromJson(text: string, validators?: ValidatorMap): Prompt
 ```
 
-`{ enabled: false }` or omitting `guard` in `RenderOptions` opts out — `result.guard === null`.
+Construct a `Prompt` from already-read **JSON** text.
 
----
-
-## `CheckReport` and `Finding`
+#### `fromToml`
 
 ```ts
-// CheckReport (from the addon):
-report.passed()          // boolean — true iff no findings
-report.findings          // readonly Finding[]
-
-// Finding fields:
-finding.prompt           // string
-finding.variant          // string | null
-finding.kind             // string — stable kind (see table below)
-finding.detail           // string — human-readable description
+static fromToml(text: string, validators?: ValidatorMap): Prompt
 ```
 
-`finding.kind` vocabulary:
+Construct a `Prompt` from already-read **TOML** text. TOML parsing is done by the Rust consumer (`toml@1.1.2` via `Prompt::from_toml`). Raw text is routed to the addon — no `smol-toml` or other JS TOML library needed.
 
-| Kind | Meaning |
-|------|---------|
-| `"untrusted_without_guard"` | Untrusted/external variable with no guard key in `metadata`. The only kind `check()` returns. |
-
-Hard invariants (undeclared variable, un-analyzable template, reserved variant name) are
-enforced at construction and are never returned by `check()`.
-
----
-
-## Error hierarchy
+#### `fromYaml`
 
 ```ts
-// All extend Error; carry .errors: readonly FieldError[]
-PromptingPressError          // base
-├── PromptValidationError    // Zod validation failed          (code "validation")
-├── PromptRenderError        // kernel render failure
-│                            //   codes: unknown_variant | undefined_variable | parse |
-│                            //          render | excluded_feature
-└── LoadError                // malformed YAML/JSON/TOML        (code "load")
+static fromYaml(text: string, validators?: ValidatorMap): Prompt
 ```
+
+Construct a `Prompt` from already-read **YAML** text. The text is routed to the Rust consumer's `Prompt::from_yaml` — no JS YAML parsing. Error semantics mirror `new Prompt()`.
+
+#### `getSource`
 
 ```ts
-interface FieldError {
-  readonly field:   string;  // offending field / path; "" when not field-specific
-  readonly code:    string;  // stable code (see table above)
-  readonly message: string;  // human-readable; render detail scrubbed (no bound values);
-                             // parse detail preserved (template-syntax context, pre-binding)
-}
+getSource(opts?: { variant: string } | null): string
 ```
 
----
+Return a variant's **unrendered** template source (the exact string the kernel hashes into `templateHash`). Pure: no vars, no validation. `opts.variant` selects an arm (absent ⇒ the reserved `default`).
 
-## `Composition`
+#### `render`
 
 ```ts
-import { Composition, CompositionEntry } from "prompting-press";
-
-// Build from an array (all validation runs up-front):
-const comp = Composition.fromMessages([
-  { prompt: systemPrompt, schema: SysVars, data: sysData },
-  { prompt: userPrompt,   schema: UserVars, data: userData },
-  { prompt: formalReply,  schema: UserVars, data: replyData, variant: "formal" },
-]);
-
-// Or imperatively:
-const comp = new Composition();
-comp.append({ prompt, schema: MySchema, data: myData });  // void — not chainable
-
-const messages = comp.resolve();   // Message[]  in append order
-// Message: { role: string, text: string }
-
-comp.length;  // number of appended entries
+render(data: unknown, opts?: RenderOptions | null): RenderResult
 ```
 
-`CompositionEntry`:
-```ts
-interface CompositionEntry {
-  prompt:    Prompt;
-  schema?:   ZodLikeSchema;  // present → safeParse(data) runs at append
-  data:      unknown;
-  variant?:  string;
-}
-```
+Render this prompt's resolved variant with typed inputs, validating first. Three call forms, selected at runtime: - **Schema form:** `render(schema, data, opts?)` — `schema.safeParse(data)` runs here, before any templating; on failure a PromptValidationError is thrown and the kernel is **never reached**. - **Static form:** `render(data, opts?)` — already-typed plain data, marshaled directly (no Zod check at render time). - **Bound-validator form:** `render(data, opts?)` when the prompt was constructed with `validators` — the bound schema's `safeParse(data)` runs automatically. `opts` carries `&#123; variant?, guard? &#125;`.
 
-`append` returns `void` (not `this` — not chainable). Validation is eager; a Zod failure
-throws `PromptValidationError` and nothing is stored.
+## RenderResult
 
----
-
-## `ValidatorMap` and `ZodLikeSchema`
+### `RenderResult`
 
 ```ts
-// The library types the validator structurally (no hard Zod dep):
-export interface ZodLikeSchema<T = unknown> {
-  safeParse(data: unknown): ZodSafeParseResult<T>;
-  shape?: Record<string, unknown>;  // optional: ZodObject.shape for coverage check
-}
-
-export type ValidatorMap = ZodLikeSchema;
+class RenderResult
 ```
 
-In practice, pass a `z.object({...})` schema. The `shape` property is used at construction time
-to verify `validation_required` coverage.
+A rendered prompt + its content-addressed provenance, read-only from JS. The Node mirror of the kernel's RenderResult (; ). Surfaced **1:1** — the binding adds nothing and interprets nothing. A Read-only class with camelCase JS accessors (`template_hash` → `templateHash`). A result is produced by [`render`], never constructed from JS.
 
----
+#### `guard`
 
-## Content hashes vs. origin
+```ts
+get guard(): string | null
+```
 
-| Concept | Where | What |
-|---------|-------|------|
-| `templateHash` / `renderHash` | `RenderResult` fields | SHA-256 content-addressed hashes of the template source and rendered output. Computed at render time. Byte-identical across all three language bindings. |
-| `origin` | `variables[name].origin` | Per-variable trust tag (`"trusted"` / `"untrusted"` / `"external"`). Declarative metadata; not enforced by the kernel. |
+The opt-in guard instruction text (present iff a guard was enabled and the prompt declares an untrusted/external field); `null` for a plain render. Never part of `text`.
 
-These are not the same thing. See [Prompt definition shape](/prompting-press/reference/prompt-definition/) for `PromptVariable.origin` details.
+#### `name`
+
+```ts
+get name(): string
+```
+
+The prompt name.
+
+#### `renderHash`
+
+```ts
+get renderHash(): string
+```
+
+Lowercase-hex `SHA256(rendered text)`. Surfaces as `renderHash`.
+
+#### `templateHash`
+
+```ts
+get templateHash(): string
+```
+
+Lowercase-hex `SHA256(resolved variant source)`. Surfaces as `templateHash`.
+
+#### `text`
+
+```ts
+get text(): string
+```
+
+The rendered body text. The guard text is NEVER concatenated here.
+
+#### `variant`
+
+```ts
+get variant(): string
+```
+
+The resolved variant name (the reserved `default`, or the named arm).
+
+## GuardConfig
+
+### `GuardConfig`
+
+```ts
+interface GuardConfig
+```
+
+The opt-in guard-expansion config, accepted from JS as a plain object and **plumbed through** to the kernel. A 1:1 mirror of the kernel's GuardConfig — `enabled` plus an optional override `template`. This is **config only**; it carries no logic. The kernel owns guard *expansion*; the binding only marshals these two fields across the boundary and surfaces whatever [`RenderResult::guard`] the kernel populates. Accepted from JS as a plain TS object `&#123; enabled, template? &#125;`.
+
+#### `enabled`
+
+```ts
+enabled: boolean
+```
+
+When `false`, the render is plain and [`RenderResult::guard`] is `None`.
+
+#### `template`
+
+```ts
+template?: string
+```
+
+Optional caller override of the guard instruction text; absent ⇒ the kernel default.
+
+### `RenderOptions`
+
+```ts
+interface RenderOptions
+```
+
+Options for Prompt.render.
+
+#### `guard`
+
+```ts
+guard?: GuardConfig | null
+```
+
+Opt-in guard config; absent / `&#123; enabled: false &#125;` ⇒ a plain render (`RenderResult.guard === null`).
+
+#### `variant`
+
+```ts
+variant?: string
+```
+
+Select a named variant arm; absent ⇒ the reserved `default` arm.
+
+## CheckReport
+
+### `CheckReport`
+
+```ts
+class CheckReport
+```
+
+The output of [`check`]: an ordered, read-only list of [`Finding`]s. Empty ⇒ the lint passed. The Node mirror of the consumer's CheckReport (; ). Surfaced **1:1** — the binding adds nothing and interprets nothing. Read-only class with read-only accessors; a report is produced by [`check`], never constructed from JS.
+
+#### `findings`
+
+```ts
+get findings(): Finding[]
+```
+
+Every lint failure found, in the consumer's deterministic order. Empty ⇒ pass.
+
+#### `isEmpty`
+
+```ts
+isEmpty(): boolean
+```
+
+`report.isEmpty()` — alias for [`passed`](Self::passed): `true` iff there are no findings.
+
+#### `passed`
+
+```ts
+passed(): boolean
+```
+
+`report.passed()` — `true` iff there are no findings (the lint passed). Reads clearly at a CI gate (`if (!check(reg).passed()) process.exit(1)`).
+
+## Finding
+
+### `Finding`
+
+```ts
+interface Finding
+```
+
+One actionable lint finding, read-only from JS. The Node mirror of the consumer's Finding. It names the `prompt`, the `variant` where applicable (`null` for a prompt-level provenance finding), the failure `kind` (a stable snake_case discriminant string — see the module docs), and a human-readable `detail`. The `detail` carries no bound-value content. Surfaced as a plain JS object with all four fields (the natural shape for the `findings` array the TS facade iterates / matches on).
+
+#### `detail`
+
+```ts
+detail: string
+```
+
+A human-readable, actionable description. Carries no bound-value content.
+
+#### `kind`
+
+```ts
+kind: string
+```
+
+The failure kind as a stable snake_case **discriminant string** — the value JS matches on. Currently always `"untrusted_without_guard"`. The kind's inner datum is echoed in [`detail`](Self::detail).
+
+#### `prompt`
+
+```ts
+prompt: string
+```
+
+The prompt's registry name.
+
+#### `variant`
+
+```ts
+variant?: string
+```
+
+The variant the finding pertains to; `None` (`undefined` in JS) for a prompt-level provenance finding.
+
+## Composition
+
+### `Composition`
+
+```ts
+class Composition
+```
+
+An explicit, ordered composition of `(Prompt, vars, variant?)` entries that resolves to an ordered `Message[]`. Built with `new Composition()` + `append()` or `Composition.fromMessages([...])`. No fluent `.chain()`. **No Registry**: each entry holds an owned `Prompt` object. `resolve()` takes no arguments — it renders using each entry's stored `Prompt` handle directly. No-partial guarantee: if any entry fails validation at `append`/`fromMessages`, the whole call throws and **nothing** is stored. If an entry fails at `resolve` (unknown variant, undefined variable, parse/render), `resolve` throws and the partial result is discarded.
+
+#### `length`
+
+```ts
+get length(): number
+```
+
+The number of appended entries (== the resolved-message count on success).
+
+#### `append`
+
+```ts
+append(entry: CompositionEntry): void
+```
+
+Marshal + store one CompositionEntry. When `entry.schema` is present, validation runs here (`schema.safeParse(entry.data)`); on failure a PromptValidationError is thrown and nothing is stored. Returns `void` (not `this`): intentionally **not** fluent.
+
+#### `fromMessages`
+
+```ts
+static fromMessages(entries: readonly CompositionEntry[]): Composition
+```
+
+Build a composition from an ordered array of CompositionEntry objects, validating each in order. The first entry whose `schema.safeParse(data)` fails throws a PromptValidationError and **no** `Composition` is returned (no partial state — ).
+
+#### `resolve`
+
+```ts
+resolve(): Message[]
+```
+
+Resolve the composition to an ordered `Message[]`, rendering each entry in append order through the kernel (via `NapiPrompt.renderPrompt` on each stored handle). **No Registry** — each entry holds its own `NapiPrompt` handle (T046). One entry's failure (unknown variant, undefined variable, parse/render error) throws the mapped PromptingPressError subclass and the partial result is discarded — never returned as success. An empty composition resolves to `[]`.
+
+### `CompositionEntry`
+
+```ts
+interface CompositionEntry
+```
+
+One composition entry, as an **options object**. - `prompt` — the `Prompt` object to render. - `schema` — optional Zod-like schema. Present ⇒ `schema.safeParse(data)` runs at append. - `data` — the vars value (validated against `schema` when present). - `variant` — the selected variant arm (absent ⇒ the reserved `default`).
+
+#### `data`
+
+```ts
+data: unknown
+```
+
+The vars value passed to the prompt renderer (validated against `schema` when present).
+
+#### `prompt`
+
+```ts
+prompt: Prompt
+```
+
+The `Prompt` object to render.
+
+#### `schema`
+
+```ts
+schema?: ZodLikeSchema<unknown>
+```
+
+Optional Zod-like schema. When present, `schema.safeParse(data)` runs at append time.
+
+#### `variant`
+
+```ts
+variant?: string
+```
+
+The selected variant arm. Absent means the reserved `default` variant.
+
+## Message
+
+### `Message`
+
+```ts
+interface Message
+```
+
+One resolved message in a composition's output: a role-tagged rendered string. The Node mirror of the consumer's `Message` (). `role` is the prompt definition's role stringified (`"system"` / `"user"` / `"assistant"`); `text` is that prompt rendered with the entry's own validated value. Surfaced as a plain JS object `&#123; role, text &#125;`; a message is produced by [`Composition::resolve`], never constructed from JS.
+
+#### `role`
+
+```ts
+role: string
+```
+
+The conversational role, taken from the prompt definition's `role`.
+
+#### `text`
+
+```ts
+text: string
+```
+
+The rendered body text for this entry. The guard text is never concatenated here.
+
+## Errors
+
+### `LoadError`
+
+```ts
+class LoadError
+```
+
+Raised when a document fails to load: malformed YAML/JSON/TOML, or a prompt-definition shape violation. Nothing is partially loaded. Top-level code `"load"`.
+
+### `PromptingPressError`
+
+```ts
+class PromptingPressError
+```
+
+The base class for every failure the library raises. Carries the normalized, already-scrubbed `errors` rows. Every thrown error is an `instanceof PromptingPressError`; callers branch on the concrete subclass (or on `err.errors[*].code`) and never see a `ZodError` or a native napi error.
+
+#### `errors`
+
+```ts
+readonly errors: readonly FieldError[]
+```
+
+The structured, scrubbed failure rows (the cross-language contract).
+
+### `PromptRenderError`
+
+```ts
+class PromptRenderError
+```
+
+Raised when the kernel rejects a render: an unknown variant, a referenced-but-undefined root variable (the loud three-sets gap — never a silent empty render), a parse/render failure, or an excluded template feature. Maps the kernel codes `unknown_variant` / `undefined_variable` / `parse` / `render` / `excluded_feature`. `parse`/`render`/`excluded_feature` detail is scrubbed.
+
+### `PromptValidationError`
+
+```ts
+class PromptValidationError
+```
+
+Raised when typed input fails validation — either the facade's Zod `safeParse` (before any templating) or a garde-class validation surfaced by the consumer. Top-level code `"validation"`. It is **not** a `ZodError`: the facade copies only the value-free issue message + path.
+
+### `FieldError`
+
+```ts
+interface FieldError
+```
+
+One normalized failure row. The TS mirror of the Rust consumer's `FieldError` and the cross-language error contract. Reconstructed by the facade from the addon's JSON payload (or, for a Zod validation failure, built locally from `issue.message` + `issue.path`).
+
+#### `code`
+
+```ts
+readonly code: string
+```
+
+A stable code from the consumer's closed vocabulary (e.g. `"validation"`, `"render"`).
+
+#### `field`
+
+```ts
+readonly field: string
+```
+
+The offending field or dotted path; `""` when no single field applies.
+
+#### `message`
+
+```ts
+readonly message: string
+```
+
+A human-readable, scrubbed message safe to log (never the rejected value).
+
+### `ZodLikeSchema`
+
+```ts
+interface ZodLikeSchema
+```
+
+The minimal structural contract this facade needs from a Zod schema: a `safeParse` returning a tagged result. Typing it structurally (rather than importing Zod's concrete `ZodType`) keeps the facade decoupled from a specific Zod minor and lets a caller pass any object exposing the same shape — the library never depends on Zod's identity, only on `safeParse`. The optional `shape` field supports the `validation_required` coverage check at construction: if present (it is on a `ZodObject`), `field in schema.shape` proves that a `validation_required` variable is covered. If absent, the coverage check is skipped with a documented "cannot assert coverage" limitation.
+
+#### `shape`
+
+```ts
+shape?: Record<string, unknown>
+```
+
+Optional: `ZodObject.shape` — a record of field name → ZodType. Present on a `ZodObject`; absent on other schema types. When absent, `validation_required` coverage cannot be introspected and the check is skipped (documented limitation).
+
+#### `safeParse`
+
+```ts
+safeParse(data: unknown): ZodSafeParseResult<T>
+```
+
+Validate `data` and return a tagged success/failure result without throwing.
+
+### `coreVersion`
+
+```ts
+coreVersion(): string
+```
+
+Returns the kernel version, reached through the Rust consumer surface. Retained from the spec-001 stub so the addon exports a trivial callable and the dependency edges onto `prompting-press`/`prompting-press-core` stay load-bearing. Surfaces as `coreVersion` in JS (napi renames snake_case → camelCase).
+
+### `ValidatorMap`
+
+```ts
+type ValidatorMap = ZodLikeSchema
+```
+
+A validator bound at `Prompt` construction. In practice this is a Zod schema (a `ZodObject`) whose `shape` property the construction-time `validation_required` coverage check introspects. Typed as `ZodLikeSchema` so callers aren't forced to import Zod types.
+
+## Shape types
+
+- [`PromptDefinition`](/prompting-press/reference/prompt-definition/) — see the Prompt definition shape.
+
+- [`PromptVariable`](/prompting-press/reference/prompt-definition/) — see the Prompt definition shape.
+
+- [`PromptVariant`](/prompting-press/reference/prompt-definition/) — see the Prompt definition shape.

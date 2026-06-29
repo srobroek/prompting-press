@@ -8,7 +8,7 @@
 //!    `untrusted` / `external`, so a consumer can query the tags without re-reading the
 //!    generated shape. Pure derivation over `def.variables`; sorted (`BTreeSet`) ⇒
 //!    deterministic.
-//! 2. [`GuardConfig`] + [`build_guard_text`] (FR-022..FR-025) — the opt-in, per-render
+//! 2. [`GuardConfig`] + `build_guard_text` (FR-022..FR-025) — the opt-in, per-render
 //!    guard instruction that *names* the untrusted/external fields. The guard is a
 //!    **separate** output ([`crate::RenderResult::guard`]); it is never concatenated into
 //!    the rendered body, never mutates the template/values/body, and never inspects or
@@ -23,7 +23,7 @@ use crate::generated::prompt_definition::{PromptDefinition, PromptVariableOrigin
 /// The kernel's default guard instruction template (FR-024).
 ///
 /// A single `{fields}` placeholder is substituted (by **plain string replacement**, see
-/// [`build_guard_text`]) with the comma-joined sorted union of the prompt's
+/// `build_guard_text`) with the comma-joined sorted union of the prompt's
 /// untrusted/external field names. The wording deliberately frames those inputs as *data,
 /// not instructions* — the canonical prompt-injection defense — but it is only a
 /// suggestion: the kernel never enforces it and never touches the values themselves
@@ -36,7 +36,7 @@ const FIELDS_PLACEHOLDER: &str = "{fields}";
 
 /// Per-render guard-expansion option (data-model §GuardConfig; FR-022..FR-025).
 ///
-/// Opt-in, per render. When [`enabled`](Self::enabled) is `false`, [`build_guard_text`]
+/// Opt-in, per render. When [`enabled`](Self::enabled) is `false`, `build_guard_text`
 /// returns `None` and the render is a plain render with a byte-identical body
 /// (FR-022, SC-005). [`template`](Self::template) overrides the
 /// [`DEFAULT_GUARD_TEMPLATE`]; `None` ⇒ the default.

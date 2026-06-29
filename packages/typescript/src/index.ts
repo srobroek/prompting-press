@@ -252,6 +252,7 @@ function decodeAddonError(thrown: unknown): PromptingPressError {
  * documented "cannot assert coverage" limitation.
  */
 export interface ZodLikeSchema<T = unknown> {
+	/** Validate `data` and return a tagged success/failure result without throwing. */
 	safeParse(data: unknown): ZodSafeParseResult<T>;
 	/**
 	 * Optional: `ZodObject.shape` — a record of field name → ZodType (Zod 4.4.3 API, research R2).
@@ -395,6 +396,8 @@ declare const _CTOR_BRAND: unique symbol;
  * The internal construction token passed as the third argument to `new Prompt(...)` by the
  * static factories and `with()`. Its type uses a `unique symbol` brand so TypeScript rejects
  * any attempt to construct it outside this module.
+ *
+ * @internal
  */
 type InternalCtorArg = { readonly [_CTOR_BRAND]: true; handle: NapiPrompt };
 
@@ -460,6 +463,7 @@ export class Prompt {
 	constructor(
 		shape: PromptDefinition,
 		validators?: ValidatorMap,
+		/** @internal */
 		_internal?: InternalCtorArg,
 	) {
 		if (_internal !== undefined) {
@@ -765,9 +769,13 @@ export class Prompt {
  *  - `variant` — the selected variant arm (absent ⇒ the reserved `default`).
  */
 export interface CompositionEntry {
+	/** The `Prompt` object to render. */
 	prompt: Prompt;
+	/** Optional Zod-like schema. When present, `schema.safeParse(data)` runs at append time. */
 	schema?: ZodLikeSchema;
+	/** The vars value passed to the prompt renderer (validated against `schema` when present). */
 	data: unknown;
+	/** The selected variant arm. Absent means the reserved `default` variant. */
 	variant?: string;
 }
 

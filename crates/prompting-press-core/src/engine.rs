@@ -131,14 +131,14 @@ pub struct RenderResult {
 /// Render a prompt's resolved variant to text and stamp provenance (spec 002, T019).
 ///
 /// Resolves the variant (FR-007..FR-011), renders the resolved source against `values`
-/// using the kernel's strict-undefined environment ([`build_environment`]), and computes
+/// using the kernel's strict-undefined environment (`build_environment`), and computes
 /// `template_hash`/`render_hash` (FR-012/FR-013). Rendering is deterministic: identical
 /// `(def, variant, values)` yields byte-identical `text` and equal hashes (FR-003,
 /// SC-001). The kernel is validation-blind and performs no I/O (FR-004/FR-005).
 ///
 /// Guard expansion is opt-in (US3, FR-022..FR-025): when `guard.enabled`, the result's
 /// [`RenderResult::guard`] carries an instruction *naming* the prompt's untrusted/external
-/// fields (computed by [`build_guard_text`] over [`origin_view`]). It is a **separate**
+/// fields (computed by `build_guard_text` over [`origin_view`]). It is a **separate**
 /// field — never concatenated into `text` — and is purely additive: enabling it does not
 /// change `text`, the template, or the values (FR-023, SC-005), and it never inspects or
 /// sanitizes a value (FR-025). When `!guard.enabled`, `guard` is `None`.

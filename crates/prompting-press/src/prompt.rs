@@ -21,7 +21,7 @@
 //!
 //! ## `with` — the sole mutator (R6)
 //!
-//! [`Prompt::with`] shallow-replaces top-level fields via a [`PromptOverlay`] and routes the
+//! [`Prompt::derive`] shallow-replaces top-level fields via a [`PromptOverlay`] and routes the
 //! merged definition through `Prompt::new` (full re-validation). The original `Prompt` is
 //! untouched. In Rust the validator is generic `V` named at the `render` / `with` call site
 //! (compile-time coverage); `PromptOverlay` therefore carries only data fields — no runtime
@@ -57,7 +57,7 @@ const DEFAULT: &str = "default";
 
 /// An immutable, fully-validated prompt. Wraps a [`PromptDefinition`]; all invariants
 /// (shape-valid, template-parseable, agreement-sound, reserved-name clean) are enforced at
-/// construction time. There are no setters; the sole mutator is [`Prompt::with`].
+/// construction time. There are no setters; the sole mutator is [`Prompt::derive`].
 #[derive(Debug, Clone)]
 pub struct Prompt {
     /// The validated definition. Private; exposed only through read-only accessors.
@@ -332,7 +332,7 @@ impl Prompt {
 
 // ─── PromptOverlay ───────────────────────────────────────────────────────────
 
-/// A shallow-replacement overlay for [`Prompt::with`].
+/// A shallow-replacement overlay for [`Prompt::derive`].
 ///
 /// Each field is `Option<T>`. A `Some(value)` replaces the corresponding field on the
 /// cloned definition; a `None` leaves it unchanged. All fields are optional — pass only

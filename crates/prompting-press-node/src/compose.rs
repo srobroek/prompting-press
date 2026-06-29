@@ -30,9 +30,8 @@ use crate::marshal::to_kernel_value;
 ///
 /// The Node mirror of the consumer's `Message` (data-model §Message). `role` is the prompt
 /// definition's role stringified (`"system"` / `"user"` / `"assistant"`); `text` is that prompt
-/// rendered with the entry's own validated value. A `#[napi(object)]` so it crosses as a plain JS
-/// object `{ role, text }`; a message is produced by [`Composition::resolve`], never constructed
-/// from JS.
+/// rendered with the entry's own validated value. Surfaced as a plain JS object `{ role, text }`;
+/// a message is produced by [`Composition::resolve`], never constructed from JS.
 #[derive(Clone, Debug)]
 #[napi(object)]
 pub struct Message {
