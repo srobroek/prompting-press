@@ -70,7 +70,10 @@ function stripInlineJargon(s) {
 	s = s.replace(/\bSEC-\d+-/gi, "");
 	// Remove mixed parentheticals containing Q-codes or slash combos with jargon:
 	// "(Q3 / Principle I)", "(Q1)", "(Q3 / Principle I / R2)", "(owned; Principle V: ...)"
-	s = s.replace(/\s*\([^)]*\b(?:Q\d+|R\d+|Principle\s+[IVXLC]+)\b[^)]*\)/gi, "");
+	s = s.replace(
+		/\s*\([^)]*\b(?:Q\d+|R\d+|Principle\s+[IVXLC]+)\b[^)]*\)/gi,
+		"",
+	);
 	// Remove bare inline "Principle X:" or "Principle X." or "Principle X," references
 	// that appear inside list items or prose (not already caught by parenthetical rules).
 	// Match: optional leading space/semicolon, "Principle <roman>", optional trailing punct.
@@ -114,7 +117,8 @@ const REPO_ROOT = resolve(__dirname, "../../..");
 
 const args = process.argv.slice(2);
 const versionFlagIdx = args.indexOf("--version");
-const VERSION = versionFlagIdx >= 0 ? (args[versionFlagIdx + 1] ?? "latest") : "latest";
+const VERSION =
+	versionFlagIdx >= 0 ? (args[versionFlagIdx + 1] ?? "latest") : "latest";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -125,7 +129,11 @@ const TS_ENTRY = resolve(REPO_ROOT, "packages/typescript/src/index.ts");
 const TS_TSCONFIG = resolve(REPO_ROOT, "packages/typescript/tsconfig.json");
 
 /** The three generated shape types — re-exported, not re-rendered (FR-010). */
-const SHAPE_REFS = new Set(["PromptDefinition", "PromptVariable", "PromptVariant"]);
+const SHAPE_REFS = new Set([
+	"PromptDefinition",
+	"PromptVariable",
+	"PromptVariant",
+]);
 
 // ---------------------------------------------------------------------------
 // TypeDoc kind constants (TypeDoc 0.28.x ReflectionKind numeric values)
@@ -317,12 +325,14 @@ function serializeSignature(sig, ownerName, isStatic = false) {
 	}
 	// Function / method call signature
 	const typeParams = sig.typeParameter?.length
-		? `<${sig.typeParameter.map((tp) => {
-				let s = tp.name;
-				if (tp.type) s += ` extends ${serializeType(tp.type)}`;
-				if (tp.default) s += ` = ${serializeType(tp.default)}`;
-				return s;
-			}).join(", ")}>`
+		? `<${sig.typeParameter
+				.map((tp) => {
+					let s = tp.name;
+					if (tp.type) s += ` extends ${serializeType(tp.type)}`;
+					if (tp.default) s += ` = ${serializeType(tp.default)}`;
+					return s;
+				})
+				.join(", ")}>`
 		: "";
 	const params = serializeParams(sig.parameters ?? []);
 	const ret = sig.type ? serializeType(sig.type) : "void";
@@ -404,6 +414,12 @@ function memberToSymbol(child, ownerName) {
 		return null;
 	}
 
+	// Skip members inherited from parent classes (e.g. Error.cause, Error.stack,
+	// Error.message, Error.name). These are not part of our public API surface.
+	if (child.inheritedFrom !== undefined && child.inheritedFrom !== null) {
+		return null;
+	}
+
 	const kind = irKind(child.kind, child);
 
 	let sig;
@@ -420,6 +436,10 @@ function memberToSymbol(child, ownerName) {
 		deprecated = extractDeprecated(get?.comment ?? null);
 	} else if (child.kind === KIND_CONSTRUCTOR) {
 		const cs = child.signatures?.[0];
+		// Skip implicit (undocumented) constructors — TypeDoc synthesizes a
+		// default constructor for every napi class even when the TS source has
+		// no explicit doc comment. These are framework plumbing, not public API.
+		if (!cs?.comment) return null;
 		sig = cs ? serializeSignature(cs, ownerName) : `new ${ownerName}()`;
 		comment = cs?.comment ?? null;
 		deprecated = extractDeprecated(comment);
@@ -485,7 +505,7 @@ function symbolToIR(node) {
 	const deprecated = extractDeprecated(topLevelComment);
 
 	// --- kind ---
-	let kind = irKind(node.kind, node);
+	const kind = irKind(node.kind, node);
 
 	// --- signature ---
 	let signature;
@@ -592,7 +612,11 @@ function run() {
 		);
 		process.exit(1);
 	} finally {
-		try { unlinkSync(tdOutPath); } catch { /* ignore */ }
+		try {
+			unlinkSync(tdOutPath);
+		} catch {
+			/* ignore */
+		}
 	}
 
 	// Step 2: collect the public surface (symbols in top-level groups).

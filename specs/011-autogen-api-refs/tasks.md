@@ -53,17 +53,17 @@ description: "Task list for spec 011 — auto-generated language API references"
 
 ### The shared renderer
 
-- [ ] T011 [US1] `docs/site/scripts/lib/render-api-ref.mjs` — IR → MDX: AUTO-GENERATED frontmatter marker; one `##` per group; each symbol a `###` with a language-tagged signature fence + jargon-stripped/MDX-escaped doc (via `lib/strip-jargon.mjs`); `shapeRef` symbols render as a link to `prompt-definition.mdx` (FR-010); `doc: null` → **throw** an actionable error naming language+symbol (R6/FR-008); deterministic order from the IR. **GATE**: renders all three IRs to valid MDX; a `doc:null` IR makes it throw.
+- [x] T011 [US1] `docs/site/scripts/lib/render-api-ref.mjs` — IR → MDX: AUTO-GENERATED frontmatter marker; one `##` per group; each symbol a `###` with a language-tagged signature fence + jargon-stripped/MDX-escaped doc (via `lib/strip-jargon.mjs`); `shapeRef` symbols render as a link to `prompt-definition.mdx` (FR-010); `doc: null` → **throw** an actionable error naming language+symbol (R6/FR-008); deterministic order from the IR. **GATE**: renders all three IRs to valid MDX; a `doc:null` IR makes it throw.
 
 ### The orchestrator + prebuild wiring
 
-- [ ] T012 [US1] `docs/site/scripts/gen-api-refs.mjs` — orchestrator: accept `--version` (default `latest`) + `--out` (default the live `reference/` dir) (FR-016, R8); for each language run extract → render → write `reference/<lang>.mdx`. **GATE**: `node gen-api-refs.mjs` writes all three pages.
-- [ ] T013 [US1] Wire `gen-api-refs.mjs` into `docs/site/package.json` `prebuild` alongside `gen-shape-table.mjs`. **GATE**: `pnpm -C docs/site build` regenerates all three language pages and the Astro build is clean.
+- [x] T012 [US1] `docs/site/scripts/gen-api-refs.mjs` — orchestrator: accept `--version` (default `latest`) + `--out` (default the live `reference/` dir) (FR-016, R8); for each language run extract → render → write `reference/<lang>.mdx`. **GATE**: `node gen-api-refs.mjs` writes all three pages.
+- [x] T013 [US1] Wire `gen-api-refs.mjs` into `docs/site/package.json` `prebuild` alongside `gen-shape-table.mjs`. **GATE**: `pnpm -C docs/site build` regenerates all three language pages and the Astro build is clean.
 
 ### The freshness gate (the "can't rot" guarantee)
 
-- [ ] T014 [US1] `docs/site/scripts/check-api-refs-fresh.sh` mirroring `schemas/scripts/codegen-check.sh`: regenerate the three pages, `git diff --exit-code` against committed (twice-run determinism, SC-003); fail naming any drifted page; the orchestrator's `doc:null` throw also fails here (FR-008). **GATE**: gate passes clean on fresh output, fails on a stale page, fails on an undocumented public symbol.
-- [ ] T015 [US1] Wire the freshness gate into CI (the same place `schemas:codegen-check` runs in `.github/workflows/ci.yml`). **GATE**: CI runs the gate; a committed-but-stale page fails the build.
+- [x] T014 [US1] `docs/site/scripts/check-api-refs-fresh.sh` mirroring `schemas/scripts/codegen-check.sh`: regenerate the three pages, `git diff --exit-code` against committed (twice-run determinism, SC-003); fail naming any drifted page; the orchestrator's `doc:null` throw also fails here (FR-008). **GATE**: gate passes clean on fresh output, fails on a stale page, fails on an undocumented public symbol.
+- [x] T015 [US1] Wire the freshness gate into CI (the same place `schemas:codegen-check` runs in `.github/workflows/ci.yml`). **GATE**: CI runs the gate; a committed-but-stale page fails the build.
 
 **Checkpoint (US1 / MVP complete)**: all three pages generate from source, are wired into the build, and a freshness gate prevents drift. SC-001/002/003/006/007 satisfied.
 
@@ -98,7 +98,7 @@ description: "Task list for spec 011 — auto-generated language API references"
 
 **Purpose**: flip the three reference pages from hand-written to generated; verify the boundary.
 
-- [ ] T019 Replace the committed hand-written `reference/{rust,python,typescript}.mdx` with the generated output (commit the generated pages; they now carry the AUTO-GENERATED marker). **GATE**: the three pages match a fresh generation (gate green).
+- [x] T019 Replace the committed hand-written `reference/{rust,python,typescript}.mdx` with the generated output (commit the generated pages; they now carry the AUTO-GENERATED marker). **GATE**: the three pages match a fresh generation (gate green).
 - [ ] T020 [P] Verify Principle II/III boundary: `mise exec -- moon run ci:check-ffi` passes and no extractor toolchain (TypeDoc/griffe/nightly-rustdoc) appears in any crate `Cargo.toml [dependencies]` or package runtime deps (FR-011, SC-006). **GATE**: ci:check-ffi green; grep confirms dev-only.
 - [ ] T021 [P] Sweep for now-stale hand-maintenance notes (e.g. any "edit this page by hand" guidance, the sidebar/AGENTS references) and remove them; confirm the version/output-path param shape is stable for spec 012 to call (R8). **GATE**: no stale hand-maintenance guidance remains.
 

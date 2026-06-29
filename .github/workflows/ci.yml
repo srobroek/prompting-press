@@ -94,6 +94,18 @@ jobs:
       - name: 'T029: Codegen freshness'
         run: mise exec -- moon run schemas:codegen-check
 
+      # T015 (spec 011) — API-ref freshness gate.
+      # Requires: nightly rustdoc (provided by mise via rust-toolchain-nightly.toml),
+      # uv (provided by mise), and docs/site pnpm deps (TypeDoc).
+      # The nightly toolchain is installed by mise-action above alongside the
+      # stable toolchain; the gate script shells out to `node gen-api-refs.mjs`
+      # which runs the three extractors (TS/Python/Rust) then checks git diff.
+      - name: 'Install docs/site deps (pnpm)'
+        run: mise exec -- pnpm -C docs/site install --frozen-lockfile
+
+      - name: 'T015: API-ref freshness (spec 011)'
+        run: mise exec -- bash docs/site/scripts/check-api-refs-fresh.sh
+
       # T036 — Advisory scan: known CVEs in workspace deps (SEC-001)
       # cargo-deny reads Cargo.lock + deny.toml; does NOT require cargo build.
       # Gate owner also re-confirms minijinja undeclared_variables API on each bump (roadmap Q3).
