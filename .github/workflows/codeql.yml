@@ -33,11 +33,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # `rust` is analyzed with the default build-mode; `python` and
-        # `javascript-typescript` use CodeQL's none/auto build.
+        # All three use build-mode `none` (buildless extraction). Rust CodeQL does
+        # NOT support `autobuild` ("Rust does not support the autobuild build mode")
+        # and buildless extraction is the supported mode; Python and JS/TS are
+        # buildless by nature.
         include:
           - language: rust
-            build-mode: autobuild
+            build-mode: none
           - language: python
             build-mode: none
           - language: javascript-typescript
@@ -51,10 +53,6 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
-
-      - name: Autobuild
-        if: matrix.build-mode == 'autobuild'
-        uses: github/codeql-action/autobuild@v3
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
