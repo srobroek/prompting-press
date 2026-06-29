@@ -122,11 +122,11 @@ determinism).
 **Gate**: `moon run ci:conformance` + full CI.
 
 - [X] T049 ~~Update the conformance corpus field rename~~ **DONE IN PHASE 3 (spillover)**: the `origin` rename in `conformance/marshaling/*.json` (5 files) + `conformance/schema/yaml/valid-single-body.yaml` was applied during Phase 3 (the Rust consumer's own tests consume these, and the regenerated Rust types reject `provenance`). Verified: zero `provenance` refs remain in `conformance/`. Canonical-serialized-form parity (D1) preserved. The RUNNER updates (object-surface, not the field) remain — see T050. (FR-005; SC-003)
-- [ ] T050 Update the conformance runners to drive the new `Prompt` object surface (construct + render) instead of the `Registry` + free-fn surface, in all three language runners. (FR-016, FR-019; SC-003, SC-001)
-- [ ] T051 GATE: `moon run ci:conformance` green (byte-identical hashes across all three bindings over the renamed field). (SC-003)
-- [ ] T052 [P] Sweep + reconcile docs for the OLD surface (mid-amendment lesson): every `README.md`, package README, quickstart, and merged-spec quickstart referencing `Registry`/`render(reg,name,…)`/the `provenance` field → update to the `Prompt`/`origin` surface. `rg -n 'Registry|provenance|render\(reg'` across `README.md packages/*/README.md` etc. (FR-005; SC-002, SC-007)
-- [ ] T053 [P] Update `AGENTS.md`/`CLAUDE.md` only if they describe the old surface (NOT the APM-generated constitution block — leave APM-managed content alone, per A8-10). (FR-005)
-- [ ] T054 GATE: full CI green — `moon run ci:check-ffi ci:conformance ci:test-python ci:test-node` + `cargo test --workspace`. (FR-028; SC-007)
+- [X] T050 Update the conformance runners to drive the new `Prompt` object surface (construct + render) instead of the `Registry` + free-fn surface, in all three language runners. (FR-016, FR-019; SC-003, SC-001)
+- [X] T051 GATE: `moon run ci:conformance` green (byte-identical hashes across all three bindings over the renamed field). (SC-003)
+- [X] T052 [P] Sweep + reconcile docs for the OLD surface (mid-amendment lesson): every `README.md`, package README, quickstart, and merged-spec quickstart referencing `Registry`/`render(reg,name,…)`/the `provenance` field → update to the `Prompt`/`origin` surface. `rg -n 'Registry|provenance|render\(reg'` across `README.md packages/*/README.md` etc. (FR-005; SC-002, SC-007)
+- [X] T053 [P] Update `AGENTS.md`/`CLAUDE.md` only if they describe the old surface (NOT the APM-generated constitution block — leave APM-managed content alone, per A8-10). (FR-005)
+- [X] T054 GATE: full CI green — `moon run ci:check-ffi ci:conformance ci:test-python ci:test-node` + `cargo test --workspace`. (FR-028; SC-007)
 
 ---
 
