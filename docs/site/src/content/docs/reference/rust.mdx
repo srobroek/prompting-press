@@ -69,7 +69,6 @@ pub fn variables(&self) -> &HashMap<String, PromptVariable>
 pub fn variants(&self)  -> &HashMap<String, PromptVariant>
 pub fn output_model(&self) -> Option<&str>
 pub fn metadata(&self) -> &serde_json::Map<String, serde_json::Value>
-pub fn meta(&self) -> &serde_json::Map<String, serde_json::Value>
 ```
 
 ### `render<V>`
@@ -89,7 +88,7 @@ where
 Validates `vars` via garde, then delegates to the kernel. Steps:
 1. `vars.validate()` — garde runs once over the whole struct, before any templating.
 2. `minijinja::Value::from_serialize(vars)` — bridge to the kernel's value type.
-3. `prompting_press_core::render(...)` — kernel renders and stamps provenance.
+3. `prompting_press_core::render(...)` — kernel renders and computes the content hashes.
 
 `variant = None` selects the default (root body) arm. `guard = &GuardConfig::default()` opts out.
 
@@ -142,7 +141,6 @@ pub struct PromptOverlay {
     pub variants:     Option<HashMap<String, PromptVariant>>,
     pub output_model: Option<Option<String>>,
     pub metadata:     Option<serde_json::Map<String, serde_json::Value>>,
-    pub meta:         Option<serde_json::Map<String, serde_json::Value>>,
 }
 ```
 
@@ -172,7 +170,6 @@ pub struct RenderResult {
 pub enum ConsumerError {
     Validation(Vec<FieldError>),  // garde validation failure
     Kernel(Vec<FieldError>),      // kernel parse/render/agreement failure
-    UnknownPrompt(String),        // prompt name not found (registry paths)
     Load(String),                 // malformed YAML/JSON/TOML
 }
 ```
@@ -194,14 +191,16 @@ Stable error codes (from `prompting_press::error::code`):
 | `VALIDATION` | `"validation"` | garde failure |
 | `UNKNOWN_VARIANT` | `"unknown_variant"` | variant name not declared |
 | `UNDEFINED_VARIABLE` | `"undefined_variable"` | template referenced undeclared variable |
-| `PARSE` | `"parse"` | template parse error (detail scrubbed) |
+| `PARSE` | `"parse"` | template parse error (detail preserved — template syntax) |
 | `RENDER` | `"render"` | render-time error (detail scrubbed) |
 | `EXCLUDED_FEATURE` | `"excluded_feature"` | excluded template feature used |
 | `LOAD` | `"load"` | malformed YAML/JSON/TOML |
 
-<Aside type="caution" title="Parse/render detail is scrubbed">
-`ConsumerError::Kernel` for `Parse` and `Render` errors carries a fixed, templated message —
-the raw kernel detail (which may contain bound-value content / PII) is discarded.
+<Aside type="caution" title="Render detail is scrubbed; parse detail is preserved">
+`ConsumerError::Kernel` for `Render` errors carries a fixed message — the raw kernel detail
+(which may contain bound-value content / PII) is discarded. `Parse` detail is preserved:
+parsing happens before any value is bound, so the message carries only template-syntax
+context (line/column, the offending construct) and never a bound value.
 </Aside>
 
 ---
@@ -225,12 +224,12 @@ pub struct Finding {
 }
 
 pub enum FindingKind {
-    UntrustedWithoutGuard { field: String },  // LIVE: the only advisory check() returns
-    UndeclaredVariable    { name: String },   // enforced at construction — unreachable here
-    AnalysisError         { reason: String }, // enforced at construction — unreachable here
-    ReservedVariantName   { name: String },   // enforced at construction — unreachable here
+    UntrustedWithoutGuard { field: String },  // the only advisory check() returns
 }
 ```
+
+Hard invariants (undeclared variable, un-analyzable template, reserved variant name) are
+enforced at construction and are never returned by `check()`.
 
 ---
 
@@ -265,11 +264,11 @@ pub struct Message {
 
 ---
 
-## Provenance — two distinct concepts
+## Content hashes vs. origin
 
 | Concept | Where | What |
 |---------|-------|------|
-| `template_hash` / `render_hash` | `RenderResult` fields | SHA-256 content fingerprints of the template source and the rendered output. Computed at render time. |
+| `template_hash` / `render_hash` | `RenderResult` fields | SHA-256 content-addressed hashes of the template source and the rendered output. Computed at render time. |
 | `origin` | `PromptVariable.origin` | Per-variable trust tag (`trusted` / `untrusted` / `external`). Declarative metadata; not enforced by the kernel. |
 
-These are **not** the same thing. See [Prompt definition shape](/prompting-press/reference/prompt-definition/) for `PromptVariable.origin` details.
+These are not the same thing. See [Prompt definition shape](/prompting-press/reference/prompt-definition/) for `PromptVariable.origin` details.

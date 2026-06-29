@@ -79,7 +79,6 @@ prompt.variables    // PromptDefinition["variables"]
 prompt.variants     // PromptDefinition["variants"]
 prompt.outputModel  // string | undefined
 prompt.metadata     // Record<string, unknown>
-prompt.meta         // Record<string, unknown>
 ```
 
 <Aside type="note">
@@ -197,12 +196,12 @@ finding.detail           // string — human-readable description
 
 `finding.kind` vocabulary:
 
-| Kind | Live? | Meaning |
-|------|-------|---------|
-| `"untrusted_without_guard"` | **Yes** | Untrusted/external variable, no guard key in meta/metadata. |
-| `"undeclared_variable"` | No (enforced at construction) | Template references undeclared variable. |
-| `"reserved_variant_name"` | No (enforced at construction) | Variant named `"default"`. |
-| `"analysis_error"` | No (enforced at construction) | Template could not be analyzed. |
+| Kind | Meaning |
+|------|---------|
+| `"untrusted_without_guard"` | Untrusted/external variable with no guard key in `metadata`. The only kind `check()` returns. |
+
+Hard invariants (undeclared variable, un-analyzable template, reserved variant name) are
+enforced at construction and are never returned by `check()`.
 
 ---
 
@@ -215,7 +214,6 @@ PromptingPressError          // base
 ├── PromptRenderError        // kernel render failure
 │                            //   codes: unknown_variant | undefined_variable | parse |
 │                            //          render | excluded_feature
-├── UnknownPromptError       // prompt name lookup failed       (code "unknown_prompt")
 └── LoadError                // malformed YAML/JSON/TOML        (code "load")
 ```
 
@@ -223,7 +221,8 @@ PromptingPressError          // base
 interface FieldError {
   readonly field:   string;  // offending field / path; "" when not field-specific
   readonly code:    string;  // stable code (see table above)
-  readonly message: string;  // human-readable; the rejected value is never echoed
+  readonly message: string;  // human-readable; render detail scrubbed (no bound values);
+                             // parse detail preserved (template-syntax context, pre-binding)
 }
 ```
 
@@ -283,11 +282,11 @@ to verify `validation_required` coverage.
 
 ---
 
-## Provenance — two distinct concepts
+## Content hashes vs. origin
 
 | Concept | Where | What |
 |---------|-------|------|
-| `templateHash` / `renderHash` | `RenderResult` fields | SHA-256 content fingerprints of the template source and rendered output. Computed at render time. Byte-identical across all three language bindings. |
+| `templateHash` / `renderHash` | `RenderResult` fields | SHA-256 content-addressed hashes of the template source and rendered output. Computed at render time. Byte-identical across all three language bindings. |
 | `origin` | `variables[name].origin` | Per-variable trust tag (`"trusted"` / `"untrusted"` / `"external"`). Declarative metadata; not enforced by the kernel. |
 
-See [Prompt definition shape](/prompting-press/reference/prompt-definition/) for `PromptVariable.origin` details.
+These are not the same thing. See [Prompt definition shape](/prompting-press/reference/prompt-definition/) for `PromptVariable.origin` details.
