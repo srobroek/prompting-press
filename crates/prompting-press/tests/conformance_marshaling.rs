@@ -29,7 +29,7 @@ fn marshaling_fixtures_match_golden() {
 
         let vars = RawVars(build_vars(&fx.input));
         let result = prompt
-            .render(&vars, fx.variant.as_deref(), &GuardConfig::default())
+            .render(&vars, fx.variant.as_deref(), &GuardConfig::default(), false)
             .unwrap_or_else(|e| panic!("{} ({}): render failed: {e:?}", fx.case, path.display()));
 
         // Guard against an un-regenerated fixture: an empty golden means T006 was never run.

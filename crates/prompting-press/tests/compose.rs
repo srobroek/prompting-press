@@ -130,6 +130,7 @@ fn ordered_composition_resolves_n_to_n() {
             },
             None,
             &GuardConfig::default(),
+            false,
         )
         .expect("direct render");
     assert_eq!(messages[0].text, direct.text);
@@ -223,6 +224,7 @@ fn fragment_by_value_into_parent() {
             },
             None,
             &GuardConfig::default(),
+            false,
         )
         .expect("fragment renders");
     assert_eq!(frag.text, "the quick fox");
@@ -235,6 +237,7 @@ fn fragment_by_value_into_parent() {
             },
             None,
             &GuardConfig::default(),
+            false,
         )
         .expect("parent renders with the fragment value");
     assert_eq!(parent.text, "Story: the quick fox jumped.");

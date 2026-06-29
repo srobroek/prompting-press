@@ -195,7 +195,7 @@ fn corpus_secret_in_render_error_is_scrubbed() {
             name: String::new(), // always invalid
         };
         let err = prompt
-            .render(&vars, None, &no_guard())
+            .render(&vars, None, &no_guard(), false)
             .expect_err("empty name must fail validation");
         assert!(
             matches!(err, ConsumerError::Validation(_)),
@@ -260,7 +260,7 @@ proptest! {
         let _ = &secret; // ensure it's in scope but not passed to garde
         let vars = LeakyVars { name: String::new() }; // always invalid
         let err = prompt
-            .render(&vars, None, &no_guard())
+            .render(&vars, None, &no_guard(), false)
             .expect_err("invalid vars must fail");
 
         // Confirm it's a Validation error (not a Kernel error — the kernel was never reached).
