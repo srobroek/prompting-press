@@ -127,7 +127,10 @@ mod tests {
     fn insert_malformed_object_errors() {
         let mut reg = Registry::new();
         let res = reg.insert(serde_json::json!({ "name": "greet" }));
-        assert!(res.is_err(), "missing required fields must error, not panic");
+        assert!(
+            res.is_err(),
+            "missing required fields must error, not panic"
+        );
         assert!(reg.get("greet").is_none(), "no partial load");
     }
 
@@ -163,8 +166,7 @@ mod tests {
 
     #[test]
     fn from_defs_for_test_seeds_by_name() {
-        let def =
-            def_from_json(r#"{"name":"greet","role":"user","body":"hi","variables":{}}"#);
+        let def = def_from_json(r#"{"name":"greet","role":"user","body":"hi","variables":{}}"#);
         let reg = Registry::from_defs_for_test([def]);
         assert!(reg.get("greet").is_some());
     }

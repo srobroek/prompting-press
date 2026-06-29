@@ -61,7 +61,8 @@ echo ""
 echo "==> uv venv + build extension (maturin develop) into ${VENV_DIR}"
 uv venv "${VENV_DIR}" --python 3.12
 # pydantic: the wheel's runtime dep (Vars facade + generated shape). pytest: the runner.
-VIRTUAL_ENV="${VENV_DIR}" uv pip install --python "${VENV_DIR}/bin/python" pytest pydantic
+# hypothesis==6.155.7: property-based fuzzing (spec 009 T008 — test-only; exact pin per FR-009).
+VIRTUAL_ENV="${VENV_DIR}" uv pip install --python "${VENV_DIR}/bin/python" pytest pydantic "hypothesis==6.155.7"
 
 # maturin develop must run from packages/python (resolves [tool.maturin] module-name).
 ( cd "${PYTHON_PKG}" \

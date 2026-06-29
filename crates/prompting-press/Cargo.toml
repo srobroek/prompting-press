@@ -37,3 +37,8 @@ serde_yaml_ng = "0.10"
 # toml::from_str::<T>() with T: DeserializeOwned, same serde path as YAML/JSON arms).
 # FFI-free; stays within the no-pyo3/no-napi rule (C-02) and the no-I/O rule (C-03).
 toml = { workspace = true }
+
+[dev-dependencies]
+# Adversarial fuzzing suite (spec 009, T001). Exact pin; dev-only.
+# proptest is pure-Rust; does NOT introduce any FFI dependency (constitution Principle II).
+proptest = "1.11.0"

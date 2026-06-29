@@ -501,8 +501,7 @@ impl Prompt {
     /// tests (e.g. `compose.rs`, `prompt.rs` `#[cfg(test)]`). Panics on invalid input.
     #[cfg(test)]
     pub(crate) fn from_json_for_test(json: &str) -> Self {
-        let inner =
-            prompting_press::Prompt::from_json(json).expect("valid prompt JSON in test");
+        let inner = prompting_press::Prompt::from_json(json).expect("valid prompt JSON in test");
         Self {
             inner,
             validators: None,
@@ -756,7 +755,10 @@ mod tests {
     fn from_json_undeclared_variable_raises() {
         let json = r#"{"name":"bad","role":"user","body":"{{ ghost }}","variables":{"name":{"type":"string","origin":"trusted"}}}"#;
         let result = prompting_press::Prompt::from_json(json);
-        assert!(result.is_err(), "undeclared variable must fail construction");
+        assert!(
+            result.is_err(),
+            "undeclared variable must fail construction"
+        );
         match result.unwrap_err() {
             prompting_press::ConsumerError::Kernel(rows) => {
                 assert!(

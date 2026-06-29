@@ -1,0 +1,19 @@
+# gitleaks configuration.
+#
+# Extends the upstream default ruleset (so every built-in secret rule still
+# fires everywhere) and adds ONE narrowly-scoped allowlist: the spec-009
+# secret-scrub fuzz tests intentionally embed FAKE, secret-SHAPED literals
+# (e.g. "sk-LIVE-…", "AKIA…", "Bearer …") to prove the library's SEC-004 scrub
+# strips such values out of error messages/stacks. They are test fixtures, not
+# real credentials. The allowlist is restricted by PATH to exactly those test
+# files, so real secrets anywhere else in the repo are still caught.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "spec-009 secret-scrub fuzz fixtures use deliberately fake, secret-shaped literals"
+paths = [
+  '''crates/prompting-press/tests/fuzz_scrub\.rs''',
+  '''packages/python/tests/test_fuzz_scrub\.py''',
+  '''packages/typescript/test/fuzz\.scrub\.test\.mjs''',
+]

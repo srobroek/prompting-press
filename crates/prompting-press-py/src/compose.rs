@@ -201,14 +201,7 @@ impl Composition {
         let names: Vec<String> = self
             .entries
             .iter()
-            .map(|e| {
-                e.prompt
-                    .bind(py)
-                    .borrow()
-                    .inner_prompt()
-                    .name()
-                    .to_string()
-            })
+            .map(|e| e.prompt.bind(py).borrow().inner_prompt().name().to_string())
             .collect();
         format!("Composition(entries={}, names={:?})", names.len(), names)
     }
