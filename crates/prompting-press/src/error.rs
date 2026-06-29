@@ -217,7 +217,7 @@ impl ConsumerError {
     ///
     /// - When `reveal_render_detail == false` **or** the error is any kind other than
     ///   [`KernelError::Render`]: produces the **exact same result** as
-    ///   [`ConsumerError::from(err)`] — the scrubbing default (SEC-004 unchanged).
+    ///   `ConsumerError::from(err)` — the scrubbing default (SEC-004 unchanged).
     /// - When `reveal_render_detail == true` **and** the error is
     ///   [`KernelError::Render { detail }`]: surfaces the real `detail` verbatim in the
     ///   returned [`FieldError::message`]. All other fields (`field`, `code`) are unchanged.

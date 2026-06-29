@@ -244,6 +244,14 @@ guard?: GuardConfig | null
 
 Opt-in guard config; absent / `&#123; enabled: false &#125;` ⇒ a plain render (`RenderResult.guard === null`).
 
+#### `unsafeRevealRenderDetail`
+
+```ts
+unsafeRevealRenderDetail?: boolean
+```
+
+**Off by default.** When `true`, the full underlying render-error detail is surfaced in the thrown PromptRenderError``.errors[0].message` instead of the fixed scrubbed string. **Risk:** enabling this may place **bound-value content** — untrusted input, PII, secrets — into the thrown error and into any log line or stack trace derived from it. Use only in a controlled debug context with a trusted log destination, and only after deliberately accepting that exposure. Never set `true` by default or via ambient configuration.
+
 #### `variant`
 
 ```ts
