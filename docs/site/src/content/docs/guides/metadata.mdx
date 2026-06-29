@@ -1,22 +1,26 @@
 ---
 title: "Metadata"
-description: "Attach opaque prompt-level metadata and per-variant selection metadata, and read it back in your own code."
+description: "Attach opaque metadata to a prompt and its variants, and read it back in application code."
 ---
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
-A prompt can carry two kinds of free-form metadata. Both are **library-opaque**: the library stores
-them, echoes them back through accessors, and never interprets or acts on them. They exist so *your*
-code can attach whatever it needs and read it back.
+Both the prompt and each individual variant carry one opaque `metadata` map. The library stores
+these maps, echoes them through accessors, and never interprets or acts on them. They exist so
+application code can attach whatever annotations are needed and read them back.
 
-| Field | Where | Purpose |
+| Where | Field | Purpose |
 |-------|-------|---------|
-| `metadata` | prompt-level | Arbitrary prompt annotations — model hints, param hints, tags, ownership. |
-| `meta` | the root body, and each variant | Selection metadata for *your* variant-choosing logic — weights, group labels, tags. |
+| Prompt (top-level) | `metadata` | Arbitrary prompt annotations — model hints, param hints, tags, ownership. |
+| Each variant | `metadata` | Per-variant labels for the caller's selection logic — weights, group labels, tags. |
 
-Neither is schema-constrained beyond "an object", and neither changes rendering. `output_model` is a
-separate top-level string field with the same opaque, carried-only contract (a reference to your
-output model; never resolved by the library).
+Neither map is schema-constrained beyond "an object", and neither affects rendering or the content
+hashes. `output_model` is a separate top-level string field with the same opaque, carried-only
+contract.
+
+There is one documented exception: if the prompt-level `metadata` map contains a key named `"guard"`
+(any value), `check()` suppresses the `untrusted_without_guard` advisory for that prompt. The
+library only checks for the key's presence — its value is not read.
 
 ## Declaring metadata
 
@@ -28,35 +32,37 @@ variables:
   article:
     type: string
     origin: untrusted
-metadata:                 # prompt-level: anything you want to carry
+metadata:                 # prompt-level: anything to carry
   model_hint: claude-sonnet-4-6
   max_tokens: 512
   owner: team-content
 variants:
   terse:
     body: "TL;DR of {{ article }}."
-    meta:                 # per-variant: drives YOUR selection logic
+    metadata:             # per-variant: drives the caller's selection logic
       weight: 0.2
       group: experiment-q4
 ```
 
 ## Reading it back
 
-The accessors return the maps as-is; act on them in your own code (the library won't).
+The accessors return the maps as-is; application code interprets them.
 
 <Tabs syncKey="construct">
 <TabItem label="Rust">
 ```rust
 let p = Prompt::from_yaml(yaml_text)?;
 
-// metadata() / meta() return &serde_json::Map<String, serde_json::Value>.
+// metadata() returns &serde_json::Map<String, serde_json::Value>.
 if let Some(hint) = p.metadata().get("model_hint") {
     route_to_model(hint.as_str().unwrap_or("default"));
 }
 
-// Per-variant selection metadata is on each Variant in p.variants(); read it
-// in your own selection code (the library never does).
-let _root_meta = p.meta();
+// Per-variant metadata is on each Variant in p.variants().
+// The caller reads it in selection logic — the library never does.
+if let Some(terse) = p.variants().get("terse") {
+    let _weight = terse.metadata.get("weight");
+}
 ```
 </TabItem>
 <TabItem label="Python">
@@ -64,10 +70,10 @@ let _root_meta = p.meta();
 p = Prompt.from_yaml(yaml_text)
 
 p.metadata           # => {"model_hint": "claude-sonnet-4-6", "max_tokens": 512, "owner": "team-content"}
-p.metadata["model_hint"]   # your code decides what to do with it
+p.metadata["model_hint"]   # application code decides what to do with it
 
-# the root arm's selection metadata:
-p.meta               # => {}  (none declared at the root here)
+# per-variant metadata:
+p.variants["terse"].metadata   # => {"weight": 0.2, "group": "experiment-q4"}
 ```
 </TabItem>
 <TabItem label="TypeScript">
@@ -75,22 +81,24 @@ p.meta               # => {}  (none declared at the root here)
 const p = Prompt.fromYaml(yamlText);
 
 p.metadata;          // => { model_hint: "claude-sonnet-4-6", max_tokens: 512, owner: "team-content" }
-p.metadata.model_hint;     // your code decides what to do with it
+p.metadata.model_hint;     // application code decides what to do with it
 
-p.meta;              // => {}  (root-arm selection metadata; none declared here)
+// per-variant metadata:
+p.variants["terse"].metadata;  // => { weight: 0.2, group: "experiment-q4" }
 ```
 </TabItem>
 </Tabs>
 
 <Aside type="note">
-**The library never reads these.** `metadata` and `meta` never affect rendering, validation, or the
-provenance hashes. A `model_hint` does not pick a model; a variant `weight` does not pick a variant —
-those are decisions your application makes after reading the values back. (Variant *selection* itself
-is caller-owned — see [Variants](/prompting-press/guides/variants/).)
+**The library never reads these.** `metadata` maps never affect rendering, validation, or the
+content hashes (`template_hash` / `render_hash`). A `model_hint` does not pick a model; a variant
+`weight` does not pick a variant — those are decisions the application makes after reading the
+values back. (Variant *selection* itself is caller-owned — see
+[Variants](/prompting-press/guides/variants/).)
 </Aside>
 
 ## Updating metadata on a derived prompt
 
-`metadata` and `meta` are overlayable like any other top-level field — `derive` replaces the whole map
+`metadata` is overlayable like any other top-level field — `derive` replaces the whole map
 (shallow), so read-then-spread to add a key without dropping the rest. See
 [Deriving a prompt](/prompting-press/guides/derive/).

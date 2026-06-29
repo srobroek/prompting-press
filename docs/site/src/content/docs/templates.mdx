@@ -6,7 +6,7 @@ description: "What MiniJinja template features are supported and which are exclu
 import { Aside } from '@astrojs/starlight/components';
 
 Prompting Press uses [MiniJinja](https://docs.rs/minijinja) as its template engine — a strict,
-sandboxed subset of the Jinja2 syntax. The v1 feature set is deliberately narrow to preserve the
+sandboxed subset of the Jinja2 syntax. The feature set is deliberately narrow to preserve the
 **sound agreement check**.
 
 ## Supported features
@@ -21,7 +21,7 @@ Variable substitution uses `{{ }}` delimiters:
 Hi {{ name }}, you have {{ count }} messages.
 ```
 
-Variables referenced in the template **must** be declared in the prompt's `variables` map — the
+Variables referenced in the template must be declared in the prompt's `variables` map — the
 agreement check catches any undeclared reference at construction time, not at render time.
 
 ### Conditionals
@@ -104,7 +104,7 @@ gap that slips through at render time.
 
 ## The agreement check
 
-The agreement check is the **construction-time** enforcement of the three-sets invariant:
+The agreement check is the **construction-time** enforcement of the subset invariant:
 
 ```
 template references  ⊆  declared variables  (in the prompt's variables map)
@@ -114,6 +114,6 @@ If a template references a variable name that is not declared in `variables`, co
 immediately — `Prompt::new`, `from_yaml`, `from_json`, `from_toml` all return an error (or raise
 in Python / throw in TypeScript). A constructed `Prompt` is always agreement-sound.
 
-`prompt.check()` / `prompt.check()` is a **pure advisory** lint for the remaining live finding:
+`prompt.check()` is a **pure advisory** lint for the remaining live finding:
 an `untrusted`/`external` variable without a declared guard. See
 [Lint prompts in CI](/prompting-press/guides/lint-in-ci/).

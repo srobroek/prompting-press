@@ -11,7 +11,7 @@ produce a *changed* prompt: it shallow-replaces any subset of top-level fields, 
 original is untouched. The method is spelled `derive` in all three languages.
 
 It is general — use it to replace the body, rename, swap the variables map, adjust metadata, or **add
-a variant at runtime**. (If you just want to *declare* alternative bodies up front in the prompt
+a variant at runtime**. (To *declare* alternative bodies up front in the prompt
 document, that's simpler — see **[Variants](/prompting-press/guides/variants/)**. This page is for
 deriving a changed copy of an already-constructed `Prompt`.)
 
@@ -37,7 +37,6 @@ Any top-level field of the prompt definition:
 | `variants` | full variants map (replaces the entire map) |
 | `output_model` | `string \| null` (TS/Py) / `Option<String>` (Rust) |
 | `metadata` | opaque object |
-| `meta` | opaque object |
 
 Fields absent from the overlay are kept from the original. Re-validation runs over the **merged
 whole** — so an overlay that introduces an agreement violation (a new body that references an
@@ -46,9 +45,9 @@ undeclared variable) is rejected.
 ## `variants` is replaced wholesale — read, then spread
 
 This is the one sharp edge: `derive` does a **shallow replace** per top-level field, so an overlay's
-`variants` map **replaces the entire existing map** — it does not merge. If your prompt already has
-variants and you want to *add* one while keeping the rest, **read the current map with
-`.variants()` and spread it into the overlay**. (If your prompt has no variants yet, you can pass the
+`variants` map **replaces the entire existing map** — it does not merge. When the prompt already has
+variants and the intent is to *add* one while keeping the rest, **read the current map with
+`.variants()` and spread it into the overlay**. (When the prompt has no variants yet, pass the
 new map directly — there is nothing to preserve.)
 
 `.variants()` is a **read accessor** (it returns the current map; it never mutates). `derive` is the
@@ -125,7 +124,7 @@ safe idiom whenever the prompt may already carry variants.
 
 ## Replacing the body
 
-Replace just the root body (the default arm):
+Replacing only the root body (the default arm):
 
 <Tabs>
 <TabItem label="Rust">
@@ -211,5 +210,5 @@ console.log(result.variant);  // "formal"
 </TabItem>
 </Tabs>
 
-Variant selection is **caller-owned** — the library validates the name, renders it, and stamps
-provenance. It does not own experiment-assignment logic or choose variants automatically.
+Variant selection is **caller-owned** — the library validates the name and renders it. It does not
+own experiment-assignment logic or choose variants automatically.

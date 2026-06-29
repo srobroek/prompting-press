@@ -6,9 +6,8 @@ description: "Declare named alternative bodies that share a prompt's variables, 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
 A **variant** is a named alternative *body* for a prompt that shares the same declared `variables`,
-`role`, and `output_model`. Variants are the one multi-template need git cannot express well — a set
-of parallel, coexisting wordings of the same prompt (`concise`, `formal`, an experiment arm) that you
-choose between at render time.
+`role`, and `output_model`. Variants are the mechanism for parallel, coexisting wordings of the same
+prompt (`concise`, `formal`, an experiment arm) — the caller selects one by name at render time.
 
 This guide covers **declaring** variants in a prompt document and **selecting** one at render. To add
 a variant to an already-constructed `Prompt` at runtime, see
@@ -17,15 +16,16 @@ a variant to an already-constructed `Prompt` at runtime, see
 ## The default arm
 
 Every prompt has an implicit default arm: the **root `body`**. It is surfaced under the reserved
-variant name `"default"`, and it is what renders when you don't select a variant
-(`variant = None` / omitted). You never declare a variant literally named `default` — that name is
-reserved for the root body, and a prompt that tries to is rejected at construction.
+variant name `"default"`, and it renders when no variant is selected
+(`variant = None` / omitted). A variant literally named `default` is rejected at construction — that
+name is reserved for the root body.
 
 ## Declaring variants in the document
 
-Add a `variants` map to the prompt definition. Each entry has its **own `body`** and may carry opaque
-per-variant `meta`. Variants share the prompt's `variables`, `role`, and `output_model` — a variant
-that tries to redefine those is rejected (it differs **only** in body + meta).
+Add a `variants` map to the prompt definition. Each entry has its **own `body`** and may carry an
+opaque per-variant `metadata` map. Variants share the prompt's `variables`, `role`, and
+`output_model` — a variant that tries to redefine those is rejected (it differs **only** in
+body + metadata).
 
 <Tabs syncKey="def-format">
 <TabItem label="YAML">
@@ -45,8 +45,8 @@ variants:
     body: "In one sentence, summarise: {{ article }}"
   structured:
     body: "Summarise {{ article }} as a title, three bullets, and a one-line conclusion."
-    meta:
-      group: experiment-q4   # opaque to the library — your code interprets it
+    metadata:
+      group: experiment-q4   # opaque to the library — the caller interprets it
 ```
 </TabItem>
 <TabItem label="JSON">
@@ -63,7 +63,7 @@ variants:
     "concise": { "body": "In one sentence, summarise: {{ article }}" },
     "structured": {
       "body": "Summarise {{ article }} as a title, three bullets, and a one-line conclusion.",
-      "meta": { "group": "experiment-q4" }
+      "metadata": { "group": "experiment-q4" }
     }
   }
 }
@@ -88,16 +88,16 @@ body = "In one sentence, summarise: {{ article }}"
 
 [variants.structured]
 body = "Summarise {{ article }} as a title, three bullets, and a one-line conclusion."
-meta = { group = "experiment-q4" }   # opaque to the library — your code interprets it
+metadata = { group = "experiment-q4" }   # opaque to the library — the caller interprets it
 ```
 </TabItem>
 </Tabs>
 
 This prompt has three arms: the default (the root `body`), `concise`, and `structured`. All three see
-the same `article` / `max_words` variables — so the agreement check covers every arm, and a variant
+the same `article` / `max_words` variables — the agreement check covers every arm, and a variant
 body that referenced an undeclared variable would fail at construction.
 
-## Or construct inline from the shape object
+## Constructing inline from a shape object
 
 The same three-arm prompt can be built directly from a typed shape object — no text to parse. The
 `variants` map mirrors the document form one-to-one, and construction runs the **same** validation
@@ -120,7 +120,7 @@ let def: PromptDefinition = serde_json::from_value(serde_json::json!({
         "concise":    { "body": "In one sentence, summarise: {{ article }}" },
         "structured": {
             "body": "Summarise {{ article }} as a title, three bullets, and a one-line conclusion.",
-            "meta": { "group": "experiment-q4" }
+            "metadata": { "group": "experiment-q4" }
         }
     }
 }))?;
@@ -145,7 +145,7 @@ summary = Prompt({
         "concise":    {"body": "In one sentence, summarise: {{ article }}"},
         "structured": {
             "body": "Summarise {{ article }} as a title, three bullets, and a one-line conclusion.",
-            "meta": {"group": "experiment-q4"},
+            "metadata": {"group": "experiment-q4"},
         },
     },
 })   # same validation as Prompt.from_yaml
@@ -168,7 +168,7 @@ const definition: PromptDefinition = {
     concise: { body: "In one sentence, summarise: {{ article }}" },
     structured: {
       body: "Summarise {{ article }} as a title, three bullets, and a one-line conclusion.",
-      meta: { group: "experiment-q4" },
+      metadata: { group: "experiment-q4" },
     },
   },
 };
@@ -224,13 +224,13 @@ An unknown variant name throws `PromptRenderError` with code `"unknown_variant"`
 </Tabs>
 
 The variant name is a plain string resolved at render time — the set of variants is whatever the
-prompt document declares, so it isn't a compile-time enum. It needn't be a magic literal, though: the
-names are data you can read off the prompt and an unknown name fails loudly, never silently.
+prompt document declares, so it is not a compile-time enum. The names are readable from the prompt
+object, and an unknown name fails loudly, never silently.
 
 ## Discovering the available variants
 
-The `variants` accessor returns the declared variant map; read its keys to see what's selectable (the
-default arm is always available and is not listed there — it's the root body, name `"default"`).
+The `variants` accessor returns the declared variant map; read its keys to see what is selectable
+(the default arm is always available and is not listed there — it is the root body, name `"default"`).
 
 <Tabs>
 <TabItem label="Rust">
@@ -253,20 +253,21 @@ Object.keys(summary.variants);      // ["concise", "structured"]
 </TabItem>
 </Tabs>
 
-Passing a name that isn't declared doesn't fail silently — it returns/raises/throws a structured error
-with code `"unknown_variant"` (shown per language above), so a bad selection surfaces immediately.
+Passing a name that is not declared returns/raises/throws a structured error with code
+`"unknown_variant"` (shown per language above) — bad selections surface immediately.
 
 <Aside type="note" title="Selection is caller-owned">
-The library validates the variant name, renders that arm, and stamps provenance — it does **not** own
-experiment-assignment logic or pick a variant for you. Which arm to render (an A/B split, a feature
-flag, a per-tenant choice) is your application's decision; pass the name you chose.
+The library validates the variant name and renders that arm — it does **not** own
+experiment-assignment logic or select a variant automatically. Which arm to render (an A/B split, a
+feature flag, a per-tenant choice) is the application's decision; pass the chosen name.
 </Aside>
 
 ## Per-variant metadata
 
-Each variant can carry an opaque `meta` map (weights, group labels) for your selection logic — the
-library stores and echoes it but never acts on it. See **[Metadata](/prompting-press/guides/metadata/)**
-for how `meta` and the prompt-level `metadata` work and how to read them back.
+Each variant can carry an opaque `metadata` map (weights, group labels) for the caller's selection
+logic — the library stores and echoes it but never acts on it. See
+**[Metadata](/prompting-press/guides/metadata/)** for how per-variant and prompt-level `metadata`
+work and how to read them back.
 
 ## Next
 

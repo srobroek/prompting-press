@@ -21,8 +21,8 @@ variant])` tuples in `from_messages`), while TypeScript takes a single `Composit
 ## The validate-then-render guarantee
 
 Validation is **eager** — at `append` time in Rust/Python, at `append`/`fromMessages` time in
-TypeScript. An invalid entry is rejected immediately and nothing is stored. `resolve()` can
-therefore only ever see fully-validated entries. If any entry fails at `resolve` (unknown variant,
+TypeScript. An invalid entry is rejected immediately and nothing is stored. `resolve()` therefore
+only ever sees fully-validated entries. If any entry fails at `resolve` (unknown variant,
 strict-undefined reference), the whole call fails and no partial result is returned.
 
 ## Building a composition
@@ -128,8 +128,26 @@ for m in messages:
 `append` accepts a Pydantic model **instance** (already-constructed). Validation happens eagerly;
 a `PromptValidationError` is raised and nothing is stored on failure.
 
-You can also build a composition from a list of `(prompt, vars)` or `(prompt, vars, variant)`
-tuples:
+```python
+# Successful append — model instance passes Pydantic validation:
+comp = Composition()
+comp.append(sys_prompt, SysVars(instructions="Be concise."))
+
+# Failed append — Pydantic rejects the empty string; nothing is stored:
+from prompting_press import PromptValidationError
+
+class StrictVars(BaseModel):
+    query: str = Field(min_length=1)
+
+try:
+    comp.append(user_prompt, StrictVars(query=""))   # raises before storage
+except PromptValidationError as exc:
+    print(exc.errors[0].field)    # "query"
+    print(exc.errors[0].code)     # "string_too_short" (or similar)
+    # comp is unchanged — the failed entry was never stored
+```
+
+Build a composition from a list of `(prompt, vars)` or `(prompt, vars, variant)` tuples:
 
 ```python
 comp = Composition.from_messages([
@@ -200,7 +218,7 @@ created; the first failure aborts).
 
 `role` is taken from the `Prompt`'s definition (`"system"` / `"user"` / `"assistant"`).
 `text` is the rendered body. Composition uses no guard expansion — the `RenderResult.guard` field
-is not accessible from composition; use individual `Prompt.render` calls if you need the guard.
+is not accessible from composition; use individual `Prompt.render` calls to access the guard.
 
 <Aside type="note">
 **No partial results.** If any entry fails at `resolve` (unknown variant, strict-undefined

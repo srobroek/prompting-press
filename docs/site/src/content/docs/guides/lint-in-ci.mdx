@@ -6,7 +6,7 @@ description: "Wire prompt.check() as a CI gate to catch untrusted variables with
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
 `prompt.check()` is a **pure advisory lint** — it never renders, never mutates, and takes no
-vars. Wire it as a CI gate over every `Prompt` your application constructs.
+vars. Wire it as a CI gate over every `Prompt` the application constructs.
 
 ## What check() catches
 
@@ -16,10 +16,10 @@ un-analyzable templates, reserved variant names) are enforced **at construction*
 
 | Finding kind | Meaning |
 |---|---|
-| `untrusted_without_guard` | A variable is tagged `origin: untrusted` or `origin: external` but the prompt carries no `guard` key in its `meta` or `metadata` map. |
+| `untrusted_without_guard` | A variable is tagged `origin: untrusted` or `origin: external` but the prompt carries no `guard` key in its `metadata` map. |
 
 This is an advisory — the library does not block rendering when this finding is present. It is
-your CI gate that chooses to fail on it.
+the CI gate that chooses to fail on it.
 
 <Aside type="note">
 The other finding kinds (`undeclared_variable`, `reserved_variant_name`, `analysis_error`) appear
@@ -29,10 +29,10 @@ in the `FindingKind` / `finding.kind` vocabulary for completeness, but a success
 
 ## Write it as a test, not a script
 
-A CI gate is just a **test that fails the build**. Put the prompts your app ships under version
-control, load each one, and assert `check()` returns no findings. When CI runs your normal test
-command (`cargo test` / `pytest` / `node --test`), a flagged prompt fails the run — no separate
-lint binary to wire up.
+A CI gate is a **test that fails the build**. Place shipped prompts under version control, load
+each one, and assert `check()` returns no findings. When CI runs the normal test command
+(`cargo test` / `pytest` / `node --test`), a flagged prompt fails the run — no separate lint
+binary is required.
 
 Each example below loads every `*.yaml` under a `prompts/` directory and asserts a clean report,
 naming the offending prompt + finding on failure so the CI log is actionable.
@@ -123,13 +123,13 @@ for (const file of readdirSync("prompts").filter((f) => f.endsWith(".yaml"))) {
 
 One `node:test` case per prompt file; the assertion message lists the findings. These tests need no
 network or model — `check()` is pure analysis — so they run in the same fast unit-test lane as the
-rest of your suite.
+rest of the test suite.
 
 ## Suppressing a finding (the guard key)
 
-To suppress `untrusted_without_guard`, add a `guard` key to the prompt's `meta` map. The library
-checks only for the **presence** of the key, not its shape — any value (including `true`) is
-sufficient:
+To suppress `untrusted_without_guard`, add a `guard` key to the prompt's `metadata` map. The
+library checks only for the **presence** of the key, not its shape — any value (including `true`)
+is sufficient:
 
 ```yaml
 name: ask
@@ -139,12 +139,12 @@ variables:
   topic:
     type: string
     origin: untrusted
-meta:
+metadata:
   guard:
     enabled: true
 ```
 
-With the `guard` key present, `check()` returns a passing report. At render time you can then
-pass `guard=GuardConfig(enabled=True)` (Python) / `guard: { enabled: true }` (TypeScript) /
+With the `guard` key present, `check()` returns a passing report. At render time, pass
+`guard=GuardConfig(enabled=True)` (Python) / `guard: { enabled: true }` (TypeScript) /
 `&GuardConfig { enabled: true, .. }` (Rust) to receive the advisory guard text in
 `RenderResult.guard`. See [The advisory guard](/prompting-press/guides/guard/).
