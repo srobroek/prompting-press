@@ -24,7 +24,7 @@ or service the caller sends it to — that is outside the library's boundary.
 
 Please **do not** open a public GitHub issue for security vulnerabilities.
 
-Report privately via [GitHub's private vulnerability reporting](https://github.com/srobroek/prompting-press/security/advisories/new)
+Report privately via [GitHub's private vulnerability reporting](https://github.com/prompting-press/prompting-press.github.io/security/advisories/new)
 (Settings → Security → Advisories → "Report a vulnerability").
 
 Include:

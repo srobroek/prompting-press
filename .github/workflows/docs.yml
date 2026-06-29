@@ -13,9 +13,13 @@ on:
       - "schemas/jsonschema/prompt-definition.schema.json"
       - ".github/workflows/docs.yml"
 
-# Allow one deploy at a time; cancel in-progress deploys on new push.
+# Serialize per ref, not globally: a single shared `pages` group made concurrent
+# PRs cancel each other's build (both touch docs/site/**). Scope the group by ref
+# so each PR/branch builds independently; only repeated pushes to the SAME ref
+# cancel their own in-progress run. The real GitHub Pages environment still
+# serializes actual deploys regardless.
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

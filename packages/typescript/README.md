@@ -1,6 +1,6 @@
 # prompting-press (Node / TypeScript)
 
-TypeScript distribution of [Prompting Press](https://github.com/srobroek/prompting-press) — a typed,
+TypeScript distribution of [Prompting Press](https://github.com/prompting-press/prompting-press.github.io) — a typed,
 variant-aware prompt-template library. It validates typed inputs, renders prompt text, stamps
 content-addressed provenance, and lints your prompts in CI — all backed by the **same shared Rust
 engine** the Rust and Python bindings use. This package is a thin [napi-rs](https://napi.rs) binding +

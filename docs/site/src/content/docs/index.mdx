@@ -13,10 +13,10 @@ bind one shared Rust engine, so a rendered prompt is byte-identical across them.
 
 - **A focused template language** (MiniJinja): interpolation (`{{ name }}`), conditionals (`{% if %}`), and
   loops (`{% for %}`). Includes, macros, and inheritance are excluded so the agreement check stays sound. See
-  **[Template features](/prompting-press/templates/)**.
+  **[Template features](/templates/)**.
 - **Named variants.** A prompt can carry alternative bodies (`concise`, `formal`, …) that share the same
   declared variables. A variant is selected by name at render (`variant: "formal"`); selection is caller-owned.
-  See **[Variants](/prompting-press/guides/variants/)**.
+  See **[Variants](/guides/variants/)**.
 
 ### Typed, validated inputs
 
@@ -34,7 +34,7 @@ bind one shared Rust engine, so a rendered prompt is byte-identical across them.
 - **`origin` tagging and an advisory guard.** A variable is tagged `trusted`, `untrusted`, or `external`.
   Enabling the guard at render returns a separate advisory string naming the untrusted fields for the
   downstream model. The guard is advisory text; it does not sanitize values. See
-  **[The advisory guard](/prompting-press/guides/guard/)**.
+  **[The advisory guard](/guides/guard/)**.
 - **Content hashes.** Every render returns a `template_hash` and a `render_hash` (SHA-256), so a trace can
   identify which template produced which output. Both are byte-identical across the three languages.
 - **Opaque metadata.** A prompt and each variant carry an optional `metadata` map (model hints, tags, an
@@ -45,10 +45,10 @@ bind one shared Rust engine, so a rendered prompt is byte-identical across them.
 
 - **An immutable `Prompt`.** Construct it from a shape object or from YAML, JSON, or TOML text, then `render`,
   read its source, or `check()` it. There are no setters; `derive` produces a new `Prompt` by shallow-replacing
-  a field and re-validating the whole. See **[Getting started](/prompting-press/getting-started/rust/)**.
+  a field and re-validating the whole. See **[Getting started](/getting-started/rust/)**.
 - **Multi-message composition.** Several `Prompt` objects (each with its own variables) compose into an ordered,
   role-tagged `[{role, text}]` sequence. There is no registry; the objects are passed directly. See
-  **[Composition](/prompting-press/guides/composition/)**.
+  **[Composition](/guides/composition/)**.
 - **One engine, three languages.** Rust, Python, and TypeScript bind the same Rust core, so rendering,
   validation behavior, and hashes are identical across them. The idiom is native per language; the result is not.
 
@@ -60,5 +60,5 @@ bind one shared Rust engine, so a rendered prompt is byte-identical across them.
 - Its untrusted-input **guard is advisory text, not enforcement**. It names untrusted fields for the downstream
   model; it does not sanitize values, and the library has no model of its own.
 
-See **[Getting started](/prompting-press/getting-started/rust/)** for a per-language walkthrough, or the
-**[API reference](/prompting-press/reference/prompt-definition/)**.
+See **[Getting started](/getting-started/rust/)** for a per-language walkthrough, or the
+**[API reference](/reference/prompt-definition/)**.

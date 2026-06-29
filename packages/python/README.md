@@ -1,6 +1,6 @@
 # prompting-press (Python)
 
-Python binding of [Prompting Press](https://github.com/srobroek/prompting-press) — a typed,
+Python binding of [Prompting Press](https://github.com/prompting-press/prompting-press.github.io) — a typed,
 variant-aware **prompt-template** library. It turns *typed inputs + a template* into *rendered
 text + provenance*, and nothing else.
 

@@ -7,7 +7,7 @@
   "author": "Sjors Robroek",
   "repository": {
     "type": "git",
-    "url": "https://github.com/srobroek/prompting-press.git",
+    "url": "https://github.com/prompting-press/prompting-press.github.io.git",
     "directory": "packages/typescript"
   },
   "private": true,

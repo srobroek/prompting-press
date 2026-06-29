@@ -31,7 +31,7 @@ All three suites plus schema-codegen gates run in CI (`cargo xtask` / moon pipel
 pnpm -C docs/site dev    # http://localhost:4321/prompting-press/
 ```
 
-The published docs are at <https://srobroek.github.io/prompting-press/>.
+The published docs are at <https://prompting-press.github.io/>.
 
 ---
 
@@ -54,7 +54,7 @@ A breaking change gets `!` after the prefix (e.g. `feat!:`) and a `BREAKING CHAN
 
 ## Substantial changes: SpecKit workflow
 
-New public API, schema changes, new bindings, or anything that touches multiple crates/packages goes through the SpecKit spec workflow (spec → clarify → plan → tasks → implement → verify). Open a [feature request issue](https://github.com/srobroek/prompting-press/issues/new?template=feature_request.yml) first; a maintainer will initiate the spec if the proposal is accepted.
+New public API, schema changes, new bindings, or anything that touches multiple crates/packages goes through the SpecKit spec workflow (spec → clarify → plan → tasks → implement → verify). Open a [feature request issue](https://github.com/prompting-press/prompting-press.github.io/issues/new?template=feature_request.yml) first; a maintainer will initiate the spec if the proposal is accepted.
 
 ---
 

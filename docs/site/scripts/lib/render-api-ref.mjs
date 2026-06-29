@@ -52,10 +52,10 @@ const LANG_FENCE = {
 	typescript: "ts",
 };
 
-// Shape page link path (stable). MUST include the Astro `base` (/prompting-press) so the
-// link resolves under the deployed base path — matching every other internal docs link
-// (e.g. /prompting-press/reference/...). A bare /reference/... would 404 on the live site.
-const SHAPE_PAGE = "/prompting-press/reference/prompt-definition/";
+// Shape page link path (stable). The site deploys at the org root
+// (https://prompting-press.github.io/, Astro `base` = "/"), so this is a bare
+// root-relative path matching every other internal docs link (e.g. /reference/...).
+const SHAPE_PAGE = "/reference/prompt-definition/";
 
 /**
  * Render a single Symbol to MDX lines.
