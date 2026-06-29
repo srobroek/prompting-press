@@ -7,10 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      zod:
-        specifier: 4.4.3
-        version: 4.4.3
     devDependencies:
       '@napi-rs/cli':
         specifier: 3.7.2
@@ -27,6 +23,9 @@ importers:
       typescript:
         specifier: 5.9.2
         version: 5.9.2
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
 packages:
 

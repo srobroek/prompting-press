@@ -32,9 +32,9 @@ bun add prompting-press zod
 
 ESM-only · Node 20+ · ships as a native addon (per-platform binary).
 
-`zod` is a dependency for the typed-validation facade. You supply a Zod schema at render time; the
-library imports only the structural `safeParse` interface, not Zod's identity, so any object exposing
-`safeParse` works.
+`zod` is a peer dependency for the typed-validation facade (you bring your own Zod version). You supply
+a Zod schema at render time; the library imports only the structural `safeParse` interface, not Zod's
+identity, so any object exposing `safeParse` works.
 
 ## Write a prompt definition
 
