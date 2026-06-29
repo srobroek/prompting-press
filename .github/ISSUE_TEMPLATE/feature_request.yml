@@ -1,0 +1,46 @@
+name: Feature request
+description: Propose a new capability or meaningful improvement.
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Substantial features** (new public API, new binding, schema changes) go through
+        the [SpecKit spec workflow](https://srobroek.github.io/prompting-press/). Use this
+        form for initial scoping; a maintainer will open a spec if the proposal is accepted.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What limitation or pain are you hitting? Real use-case context is more useful than an abstract wish.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: What change would solve it? Be as concrete as you can — a sketch API, example input/output, or pseudocode all help.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: bindings
+    attributes:
+      label: Binding(s) affected
+      options:
+        - label: Rust (prompting-press)
+        - label: Python (prompting-press-py)
+        - label: TypeScript (prompting-press-node)
+        - label: Core engine (prompting-press-core)
+        - label: Docs / examples
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What workarounds exist today? Why aren't they sufficient?
+    validations:
+      required: false

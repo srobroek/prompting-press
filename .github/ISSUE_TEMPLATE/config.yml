@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://srobroek.github.io/prompting-press/
+    about: Read the docs for guides, API reference, and FAQ.
+  - name: GitHub Discussions
+    url: https://github.com/srobroek/prompting-press/discussions
+    about: Questions, ideas, and general discussion about Prompting Press.

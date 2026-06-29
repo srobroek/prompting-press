@@ -4,10 +4,28 @@
   "separate-pull-requests": false,
 
   "packages": {
-    ".": {
+    "crates/prompting-press-core": {
+      "release-type": "rust",
+      "component": "prompting-press-core",
+      "package-name": "prompting-press-core",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "crates/prompting-press": {
       "release-type": "rust",
       "component": "prompting-press",
       "package-name": "prompting-press",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "crates/prompting-press-py": {
+      "release-type": "rust",
+      "component": "prompting-press-py-crate",
+      "package-name": "prompting-press-py",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "crates/prompting-press-node": {
+      "release-type": "rust",
+      "component": "prompting-press-node-crate",
+      "package-name": "prompting-press-node",
       "changelog-path": "CHANGELOG.md"
     },
     "packages/python": {
@@ -26,14 +44,13 @@
 
   "plugins": [
     {
-      "type": "cargo-workspace",
-      "merge": false
-    },
-    {
       "type": "linked-versions",
       "groupName": "prompting-press",
       "components": [
+        "prompting-press-core",
         "prompting-press",
+        "prompting-press-py-crate",
+        "prompting-press-node-crate",
         "prompting-press-py",
         "prompting-press-ts"
       ]
