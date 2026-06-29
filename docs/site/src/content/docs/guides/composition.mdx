@@ -13,6 +13,11 @@ There is **no registry** — each entry holds a `Prompt` object directly. There 
 **no fluent `.chain()` API** (it cannot cross the PyO3/napi FFI boundary and collides with
 `Iterator::chain` in Rust / standard JS idiom).
 
+An entry is `(prompt, vars, variant?)` everywhere; only its **spelling** differs by language idiom:
+Rust and Python pass them as positional args to `append` (Python also accepts `(prompt, vars[,
+variant])` tuples in `from_messages`), while TypeScript takes a single `CompositionEntry` object
+(`{ prompt, schema?, data, variant? }`) — matching how `render` is shaped in each language.
+
 ## The validate-then-render guarantee
 
 Validation is **eager** — at `append` time in Rust/Python, at `append`/`fromMessages` time in
@@ -134,7 +139,8 @@ for (const m of messages) {
 }
 ```
 
-`CompositionEntry` shape:
+In TypeScript an entry is a `CompositionEntry` object (the analogue of Rust/Python's positional
+args):
 ```ts
 {
   prompt: Prompt;
