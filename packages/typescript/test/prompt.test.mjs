@@ -5,7 +5,7 @@
  *   - T042: construction via new/fromYaml/fromJson/fromToml — valid and invalid (throw)
  *   - T043: validation_required coverage check at construction
  *   - T044: render/getSource/check on the object surface
- *   - T045: with() immutability + merged-validation
+ *   - T045: derive() immutability + merged-validation
  *   - T046: Composition over Prompt objects, no Registry, resolve() with no arg
  *
  * All tests use `origin` (not `provenance` — renamed in spec 008 Phase 1).
@@ -15,7 +15,7 @@
  *  - Construction throws PromptValidationError / LoadError / PromptRenderError (never raw napi).
  *  - A constructed Prompt carries zero undeclared-variable errors (agreement enforced at construction).
  *  - render() provenance hashes are 64-char lowercase hex.
- *  - with() leaves the original Prompt untouched (SC-004).
+ *  - derive() leaves the original Prompt untouched (SC-004).
  */
 
 import assert from "node:assert/strict";
@@ -387,14 +387,14 @@ test("T044: check() passes when guard is configured", () => {
   assert.ok(p.check().passed(), "guard configured → check must pass");
 });
 
-// ─── T045: with() — sole mutator, immutability ────────────────────────────────────────────
+// ─── T045: derive() — sole mutator, immutability ─────────────────────────────────────────
 
-test("T045: with() returns a new Prompt with the overlay applied; original unchanged (SC-004)", () => {
+test("T045: derive() returns a new Prompt with the overlay applied; original unchanged (SC-004)", () => {
   const original = new Prompt(GREET_SHAPE);
   const originalBody = original.body;
   const originalVariantsCount = Object.keys(original.variants ?? {}).length;
 
-  const derived = original.with({ body: "Hey {{ name }}, you have {{ count }} messages" });
+  const derived = original.derive({ body: "Hey {{ name }}, you have {{ count }} messages" });
 
   assert.equal(derived.body, "Hey {{ name }}, you have {{ count }} messages");
   assert.equal(original.body, originalBody, "original body unchanged");
@@ -405,10 +405,10 @@ test("T045: with() returns a new Prompt with the overlay applied; original uncha
   );
 });
 
-test("T045: with() on overlay that introduces undeclared variable throws PromptRenderError", () => {
+test("T045: derive() on overlay that introduces undeclared variable throws PromptRenderError", () => {
   const original = new Prompt(GREET_SHAPE);
   assert.throws(
-    () => original.with({ body: "{{ name }} {{ ghost }}" }),
+    () => original.derive({ body: "{{ name }} {{ ghost }}" }),
     (err) => {
       assert.ok(err instanceof PromptRenderError);
       assert.ok(err.errors.some((r) => r.code === "undefined_variable"));
@@ -417,9 +417,9 @@ test("T045: with() on overlay that introduces undeclared variable throws PromptR
   );
 });
 
-test("T045: with() carries validators forward from source by default (R6)", () => {
+test("T045: derive() carries validators forward from source by default (R6)", () => {
   const p = new Prompt(GREET_SHAPE, Greeting);
-  const derived = p.with({ body: "Greetings {{ name }}, you have {{ count }} messages" });
+  const derived = p.derive({ body: "Greetings {{ name }}, you have {{ count }} messages" });
   // Derived inherits bound Greeting validator — bad data must throw PromptValidationError.
   assert.throws(
     () => derived.render({ name: "", count: -1 }),
@@ -427,16 +427,16 @@ test("T045: with() carries validators forward from source by default (R6)", () =
   );
 });
 
-test("T045: with(overlay, validators) overrides bound validator on derived prompt (R6)", () => {
+test("T045: derive(overlay, validators) overrides bound validator on derived prompt (R6)", () => {
   const p = new Prompt(GREET_SHAPE, Greeting);
   const NoCheck = z.object({ name: z.string(), count: z.number() });
-  const derived = p.with({ body: "Hi {{ name }}, you have {{ count }} messages" }, NoCheck);
+  const derived = p.derive({ body: "Hi {{ name }}, you have {{ count }} messages" }, NoCheck);
   // Derived has NoCheck as its bound validator — the count=-1 should now pass (no refine).
   const result = derived.render({ name: "Eli", count: -1 });
   assert.equal(result.text, "Hi Eli, you have -1 messages");
 });
 
-test("T045: with() coverage check on derived definition when validators override", () => {
+test("T045: derive() coverage check on derived definition when validators override", () => {
   const shapeWithRequired = {
     name: "strict",
     role: "user",
@@ -457,7 +457,7 @@ test("T045: with() coverage check on derived definition when validators override
     body: "Hi {{ name }} {{ newfield }}",
   };
   assert.throws(
-    () => original.with(badOverlay),
+    () => original.derive(badOverlay),
     PromptValidationError,
   );
 });

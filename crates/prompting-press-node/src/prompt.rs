@@ -206,7 +206,7 @@ impl NapiPrompt {
         CheckReport::from_findings(findings)
     }
 
-    /// `prompt.withPrompt(overlay)` — shallow-replace top-level fields and re-validate.
+    /// `prompt.derivePrompt(overlay)` — shallow-replace top-level fields and re-validate.
     ///
     /// `overlay` is a `serde_json::Value` object whose keys are a subset of the
     /// `PromptDefinition` top-level fields. Implementation:
@@ -216,7 +216,7 @@ impl NapiPrompt {
     /// 3. Deserialize the merged object to a `PromptDefinition` and hand it to
     ///    `Prompt::new` (full re-validation).
     ///
-    /// This is semantically equivalent to `Prompt::with(PromptOverlay { ... })` but avoids
+    /// This is semantically equivalent to `Prompt::derive(PromptOverlay { ... })` but avoids
     /// needing `PromptOverlay` to implement `serde::Deserialize` (it does not today and
     /// adding `Deserialize` to `PromptOverlay` would add a serde dep that the consumer's
     /// internal type doesn't need for its Rust-only API).
@@ -228,7 +228,7 @@ impl NapiPrompt {
     /// Same error classes as construction: a merged definition that fails any construction
     /// invariant returns the structured error.
     #[napi]
-    pub fn with_prompt(&self, overlay: serde_json::Value) -> napi::Result<NapiPrompt> {
+    pub fn derive_prompt(&self, overlay: serde_json::Value) -> napi::Result<NapiPrompt> {
         // Serialize the current definition to a JSON object, merge overlay on top, then
         // validate through the same construction path.
         let base = serde_json::to_value(self.inner.definition()).map_err(|e| {
@@ -315,7 +315,7 @@ pub fn prompt_from_toml(text: String) -> napi::Result<NapiPrompt> {
 /// key present in `overlay` replaces the corresponding key in `base`; absent keys are kept
 /// from `base`. Returns an error string if either value is not a JSON object.
 ///
-/// This is the `with_prompt` merge step: it mirrors `PromptOverlay`'s semantics (a
+/// This is the `derive_prompt` merge step: it mirrors `PromptOverlay`'s semantics (a
 /// `Some(field)` replaces, `None` keeps) in pure `serde_json::Value` space, without needing
 /// `PromptOverlay` to implement `serde::Deserialize`.
 fn shallow_merge_json(
@@ -504,10 +504,10 @@ mod tests {
         );
     }
 
-    // ── T045: with_prompt ────────────────────────────────────────────────────────────────
+    // ── T045: derive_prompt ──────────────────────────────────────────────────────────────
 
     #[test]
-    fn with_prompt_valid_overlay_original_unchanged() {
+    fn derive_prompt_valid_overlay_original_unchanged() {
         let shape = serde_json::json!({
             "name": "greet",
             "role": "user",
@@ -518,7 +518,7 @@ mod tests {
         let original_body = original.body();
 
         let overlay = serde_json::json!({ "body": "Hey {{ name }}" });
-        let derived = original.with_prompt(overlay).expect("valid overlay");
+        let derived = original.derive_prompt(overlay).expect("valid overlay");
 
         assert_eq!(derived.body(), "Hey {{ name }}");
         assert_eq!(
@@ -529,7 +529,7 @@ mod tests {
     }
 
     #[test]
-    fn with_prompt_undeclared_var_returns_error() {
+    fn derive_prompt_undeclared_var_returns_error() {
         let shape = serde_json::json!({
             "name": "greet",
             "role": "user",
@@ -540,7 +540,7 @@ mod tests {
         // Overlay introduces an undeclared variable.
         let overlay = serde_json::json!({ "body": "{{ name }} {{ ghost }}" });
         let err = original
-            .with_prompt(overlay)
+            .derive_prompt(overlay)
             .expect_err("undeclared var must fail");
         let payload = payload_of(&err);
         let errors = payload["errors"].as_array().expect("errors");

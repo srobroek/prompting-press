@@ -24,7 +24,7 @@
 //!
 //! Phase 4 (spec 008 T035–T038) adds the immutable `Prompt` object:
 //! - [`prompt`] — the `Prompt` pyclass: validating construction, `from_yaml`/`from_json`/
-//!   `from_toml`, read-only properties, `render`/`get_source`/`check`, and `with_` (the sole
+//!   `from_toml`, read-only properties, `render`/`get_source`/`check`, and `derive` (the sole
 //!   mutator). Primary public type; replaces the former Registry-based split surface.
 //!
 //! [PyO3]: https://pyo3.rs

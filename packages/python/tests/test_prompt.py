@@ -4,7 +4,7 @@ Tests the new `Prompt` pyclass surface introduced in the api-schema reshape:
 - T035: construction via `Prompt(shape)`, `from_yaml`, `from_json`, `from_toml`.
 - T036: `validation_required` coverage check at construction.
 - T037: `render`, `get_source`, `check` as methods on the object.
-- T038: `with_` immutability + merged-validation.
+- T038: `derive` immutability + merged-validation.
 
 Also exercises:
 - `Composition` with `Prompt` objects (T039 reshape: no registry, no name strings).
@@ -451,45 +451,45 @@ def test_check_passes_for_guarded_untrusted() -> None:
     assert p.check().passed()
 
 
-# ─── T038: with_ ──────────────────────────────────────────────────────────────
+# ─── T038: derive ─────────────────────────────────────────────────────────────
 
 
-def test_with_overlay_derives_new_body_original_untouched() -> None:
-    """with_(overlay) produces a derived Prompt; the original is untouched (SC-004)."""
+def test_derive_overlay_derives_new_body_original_untouched() -> None:
+    """derive(overlay) produces a derived Prompt; the original is untouched (SC-004)."""
     original = Prompt(SIMPLE_DEF)
     original_body = original.body
 
-    derived = original.with_({"body": "Hey {{ name }}"})
+    derived = original.derive({"body": "Hey {{ name }}"})
 
     assert derived.body == "Hey {{ name }}"
     assert original.body == original_body, "original must be untouched (SC-004)"
     assert derived.name == original.name  # name carried forward
 
 
-def test_with_overlay_can_rename() -> None:
-    """with_ can overlay the name field."""
+def test_derive_overlay_can_rename() -> None:
+    """derive can overlay the name field."""
     p = Prompt(SIMPLE_DEF)
-    derived = p.with_({"name": "simple-renamed"})
+    derived = p.derive({"name": "simple-renamed"})
     assert derived.name == "simple-renamed"
     assert p.name == "simple", "original unchanged"
 
 
-def test_with_overlay_undeclared_var_raises() -> None:
-    """with_ overlay that introduces an undeclared variable raises."""
+def test_derive_overlay_undeclared_var_raises() -> None:
+    """derive overlay that introduces an undeclared variable raises."""
     p = Prompt(SIMPLE_DEF)
     with pytest.raises((PromptValidationError, PromptRenderError)):
-        p.with_({"body": "{{ ghost }}"})
+        p.derive({"body": "{{ ghost }}"})
 
 
-def test_with_overlay_reserved_variant_name_raises() -> None:
-    """with_ overlay that adds a 'default' variant raises."""
+def test_derive_overlay_reserved_variant_name_raises() -> None:
+    """derive overlay that adds a 'default' variant raises."""
     p = Prompt(SIMPLE_DEF)
     with pytest.raises((PromptValidationError, PromptRenderError)):
-        p.with_({"variants": {"default": {"body": "shadowed"}}})
+        p.derive({"variants": {"default": {"body": "shadowed"}}})
 
 
-def test_with_validators_carry_forward() -> None:
-    """with_ carries validators forward from the original by default (R6)."""
+def test_derive_validators_carry_forward() -> None:
+    """derive carries validators forward from the original by default (R6)."""
     strict = {
         "name": "strict",
         "role": "user",
@@ -498,12 +498,12 @@ def test_with_validators_carry_forward() -> None:
     }
     original = Prompt(strict, validators=Named)
     # Derive without supplying validators — they carry forward from original.
-    derived = original.with_({"body": "Hello {{ name }}"})
+    derived = original.derive({"body": "Hello {{ name }}"})
     assert derived.body == "Hello {{ name }}"
 
 
-def test_with_validators_override() -> None:
-    """with_(overlay, validators=NewModel) overrides the bound validators."""
+def test_derive_validators_override() -> None:
+    """derive(overlay, validators=NewModel) overrides the bound validators."""
     strict = {
         "name": "strict",
         "role": "user",
@@ -516,16 +516,16 @@ def test_with_validators_override() -> None:
         name: str
 
     # Override with a different but covering class.
-    derived = original.with_({"body": "Hey {{ name }}"}, validators=AlsoNamed)
+    derived = original.derive({"body": "Hey {{ name }}"}, validators=AlsoNamed)
     assert derived.body == "Hey {{ name }}"
 
 
-def test_with_adds_variant_original_unchanged() -> None:
-    """with_ that adds a named variant produces the new variant; original has none."""
+def test_derive_adds_variant_original_unchanged() -> None:
+    """derive that adds a named variant produces the new variant; original has none."""
     p = Prompt(SIMPLE_DEF)
     assert p.variants == {}
 
-    derived = p.with_(
+    derived = p.derive(
         {
             "variants": {"brief": {"body": "Hey {{ name }}"}},
         }

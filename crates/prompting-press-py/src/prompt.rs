@@ -31,10 +31,10 @@
 //! `model.model_fields` for each `validation_required` variable. If a multi-model use
 //! case arises, iterate then.
 //!
-//! ## with_ naming
+//! ## derive naming
 //!
-//! `with` is a Python keyword. The method is named `with_` (PEP 8 trailing-underscore
-//! convention for keyword clashes) as documented in the spec contracts.
+//! The sole mutator is named `derive` (identical across Rust, Python, and TypeScript —
+//! no trailing underscore needed since `derive` is not a Python keyword).
 //!
 //! ## No I/O (Principle III / C-03)
 //!
@@ -61,7 +61,7 @@ use crate::render::{validate_in_python, GuardConfig, RenderResult};
 /// Wraps a [`prompting_press::Prompt`] (the Rust consumer). All construction invariants —
 /// shape-valid, template-parseable, agreement-sound, reserved-name clean — are enforced
 /// at construction time by the Rust consumer. There are no setters; the sole mutator is
-/// [`with_`](Self::with_).
+/// [`derive`](Self::derive).
 ///
 /// ## Construction
 ///
@@ -409,13 +409,13 @@ impl Prompt {
     /// The sole mutator: shallow-replace top-level fields, re-validate, return a new `Prompt`.
     ///
     /// ```python
-    /// derived = p.with_(overlay, *, validators=None)
+    /// derived = p.derive(overlay, *, validators=None)
     /// ```
     ///
     /// `overlay` is a `dict` of top-level fields to replace (any subset of `name`, `role`,
     /// `body`, `variables`, `variants`, `output_model`, `metadata`, `meta`). Fields absent
     /// from the dict are kept from the original. The merged definition is routed through the
-    /// Rust consumer's `Prompt::with` (full re-validation: agreement, parse, reserved name).
+    /// Rust consumer's `Prompt::derive` (full re-validation: agreement, parse, reserved name).
     ///
     /// Validators carry forward from `self` by default (R6). Pass `validators=SomeModel` to
     /// override or augment the bound validator on the derived prompt. Coverage is re-checked
@@ -430,7 +430,7 @@ impl Prompt {
     ///   do not cover a `validation_required` variable in the merged definition.
     /// - [`LoadError`](crate::error::LoadError) — `overlay` could not be deserialized.
     #[pyo3(signature = (overlay, *, validators = None))]
-    fn with_(
+    fn derive(
         &self,
         py: Python<'_>,
         overlay: &Bound<'_, PyAny>,
@@ -441,7 +441,7 @@ impl Prompt {
 
         let derived_inner = self
             .inner
-            .with(rust_overlay)
+            .derive(rust_overlay)
             .map_err(|e| consumer_error_to_pyerr(py, e))?;
 
         // Determine the effective validators for the derived prompt (R6):
@@ -456,7 +456,7 @@ impl Prompt {
         // if the caller omits `validators` entirely, PyO3 gives us `None` too —
         // indistinguishable. To be safe and ergonomic: treat Option::None as "carry
         // forward from self" (the R6 default). If the caller explicitly wants to drop
-        // validators, they'd need to do `p.with_(overlay, validators=None)`.
+        // validators, they'd need to do `p.derive(overlay, validators=None)`.
         // Since we can't distinguish "omitted" vs "explicitly None" in PyO3 without a
         // sentinel, we use the R6 carry-forward rule for None (least surprise).
         let effective_validators: Option<Py<PyAny>> = match validators {
@@ -912,10 +912,10 @@ origin = "trusted"
         });
     }
 
-    // ── with_ (T038) ─────────────────────────────────────────────────────────
+    // ── derive (T038) ────────────────────────────────────────────────────────
 
     #[test]
-    fn with_overlay_creates_derived_original_untouched() {
+    fn derive_overlay_creates_derived_original_untouched() {
         use pyo3::types::{PyDict, PyString};
 
         Python::attach(|py| {
@@ -928,7 +928,7 @@ origin = "trusted"
                 .expect("set body");
 
             let derived = original
-                .with_(py, overlay.as_any(), None)
+                .derive(py, overlay.as_any(), None)
                 .expect("valid overlay must succeed");
 
             assert_eq!(derived.body(), "Hey {{ name }}");
@@ -941,7 +941,7 @@ origin = "trusted"
     }
 
     #[test]
-    fn with_undeclared_var_overlay_raises() {
+    fn derive_undeclared_var_overlay_raises() {
         use pyo3::types::{PyDict, PyString};
 
         Python::attach(|py| {
@@ -951,7 +951,7 @@ origin = "trusted"
                 .set_item("body", PyString::new(py, "{{ ghost }}"))
                 .expect("set body");
 
-            let result = original.with_(py, overlay.as_any(), None);
+            let result = original.derive(py, overlay.as_any(), None);
             assert!(
                 result.is_err(),
                 "overlay introducing undeclared var must fail"

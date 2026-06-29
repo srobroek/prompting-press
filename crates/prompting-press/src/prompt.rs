@@ -287,14 +287,14 @@ impl Prompt {
     /// rejected.
     ///
     /// In Rust the validator is the generic `V` named at the `render` call site (Principle
-    /// VI compile-time coverage); `with` takes `&self` and carries no runtime validator.
+    /// VI compile-time coverage); `derive` takes `&self` and carries no runtime validator.
     /// `PromptOverlay` therefore contains only data fields (R6 — the Rust asymmetry).
     ///
     /// # Errors
     ///
     /// Same error classes as [`Prompt::new`]: a merged definition that fails any construction
     /// invariant returns the structured error.
-    pub fn with(&self, overlay: PromptOverlay) -> Result<Self, ConsumerError> {
+    pub fn derive(&self, overlay: PromptOverlay) -> Result<Self, ConsumerError> {
         // Clone the underlying definition, then shallow-replace each Some field.
         let mut merged = self.def.clone();
 
@@ -613,7 +613,7 @@ mod tests {
     // ── T033: `with` adds a variant; original unchanged ───────────────────────
 
     #[test]
-    fn with_adds_variant_original_unchanged() {
+    fn derive_adds_variant_original_unchanged() {
         let original = make_prompt();
         let original_body = original.body().to_string();
         let original_variants_count = original.variants().len();
@@ -627,11 +627,11 @@ mod tests {
         );
 
         let derived = original
-            .with(PromptOverlay {
+            .derive(PromptOverlay {
                 variants: Some(new_variants),
                 ..Default::default()
             })
-            .expect("with must succeed for a valid overlay");
+            .expect("derive must succeed for a valid overlay");
 
         // Derived has the new variant.
         assert!(derived.variants().contains_key("brief"));
@@ -641,15 +641,15 @@ mod tests {
         assert_eq!(original.variants().len(), original_variants_count);
     }
 
-    // ── T033: `with` producing undeclared var → Err ───────────────────────────
+    // ── T033: `derive` producing undeclared var → Err ────────────────────────
 
     #[test]
-    fn with_undeclared_var_body_returns_err() {
+    fn derive_undeclared_var_body_returns_err() {
         let original = make_prompt();
 
         // Overlay replaces body with one that references an undeclared variable.
         let err = original
-            .with(PromptOverlay {
+            .derive(PromptOverlay {
                 body: Some("{{ name }} {{ ghost }}".to_string()),
                 ..Default::default()
             })

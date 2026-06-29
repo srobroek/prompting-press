@@ -411,7 +411,7 @@ function makeInternalArg(handle: NapiPrompt): InternalCtorArg {
  *
  * Wraps a `NapiPrompt` handle; all construction invariants (shape-valid, template-parseable,
  * agreement-sound, reserved-name clean) are enforced by the Rust consumer at construction time
- * (Principle I / T042). There are no setters; the sole mutator is {@link Prompt.with} (T045).
+ * (Principle I / T042). There are no setters; the sole mutator is {@link Prompt.derive} (T045).
  *
  * ## Construction — four entry points, all throwing on invalid input (Q6)
  *
@@ -435,7 +435,7 @@ function makeInternalArg(handle: NapiPrompt): InternalCtorArg {
  * p.render(data, opts?);           // static form (or uses bound validators when present)
  * ```
  *
- * ## with(overlay, validators?) — sole mutator (T045 / R6)
+ * ## derive(overlay, validators?) — sole mutator (T045 / R6)
  *
  * Shallow-replaces top-level fields; re-validates the merged whole. Validators carry forward
  * from the source by default (R6); pass `validators` to override.
@@ -443,7 +443,7 @@ function makeInternalArg(handle: NapiPrompt): InternalCtorArg {
 export class Prompt {
 	/** The underlying napi handle. Private — never exposed outside this class. */
 	readonly #handle: NapiPrompt;
-	/** The bound validator (if any) stored for render() and with(). */
+	/** The bound validator (if any) stored for render() and derive(). */
 	readonly #validators: ValidatorMap | undefined;
 
 	/**
@@ -718,7 +718,7 @@ export class Prompt {
 	 * @throws {PromptRenderError}     merged template/agreement error.
 	 * @throws {PromptValidationError} uncovered `validation_required` variable after merge.
 	 */
-	with(
+	derive(
 		overlay: Partial<PromptDefinition>,
 		validators?: ValidatorMap,
 	): Prompt {
@@ -728,7 +728,7 @@ export class Prompt {
 
 		let derivedHandle: NapiPrompt;
 		try {
-			derivedHandle = this.#handle.withPrompt(
+			derivedHandle = this.#handle.derivePrompt(
 				overlay as Record<string, unknown>,
 			);
 		} catch (thrown) {
