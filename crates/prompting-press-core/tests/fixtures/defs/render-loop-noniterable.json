@@ -5,7 +5,7 @@
   "variables": {
     "n": {
       "type": "integer",
-      "provenance": "trusted",
+      "origin": "trusted",
       "description": "Deliberately an integer; iterating it triggers a render-time InvalidOperation."
     }
   }

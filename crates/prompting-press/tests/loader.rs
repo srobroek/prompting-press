@@ -24,9 +24,9 @@ use prompting_press::{ConsumerError, PromptDefinition, Registry};
 /// The spec-001 valid fixtures, reused as JSON loader inputs (FR-008: the crate consumes the
 /// kernel's `PromptDefinition`, no parallel shape).
 const SINGLE_BODY_JSON: &str =
-    include_str!("../../../schemas/jsonschema/fixtures/valid/single-body.json");
+    include_str!("../../../schemas/jsonschema/tests/fixtures/valid/single-body.json");
 const MULTI_VARIANT_JSON: &str =
-    include_str!("../../../schemas/jsonschema/fixtures/valid/multi-variant.json");
+    include_str!("../../../schemas/jsonschema/tests/fixtures/valid/multi-variant.json");
 
 /// Canonical structural compare: re-serialize a `PromptDefinition` to a `serde_json::Value`.
 /// Two defs are structurally equal iff their `Value`s are equal — independent of input form

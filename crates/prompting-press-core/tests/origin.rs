@@ -1,7 +1,8 @@
-//! US3 provenance + guard-expansion suite (spec 002, T027).
+//! US3 origin + guard-expansion suite (spec 002, T027; per-variable tag renamed
+//! `provenance`→`origin` in spec 008).
 //!
-//! Covers quickstart scenarios V3.1–V3.5: exposing provenance tags
-//! ([`provenance_view`]) and the opt-in, additive guard expansion carried in
+//! Covers quickstart scenarios V3.1–V3.5: exposing origin tags
+//! ([`origin_view`]) and the opt-in, additive guard expansion carried in
 //! [`RenderResult::guard`]. Template bodies live in JSON data fixtures
 //! (`tests/fixtures/defs/*.json`), never inlined here, per the
 //! self-referential-grep mitigation (see `tests/fixtures/README.md`).
@@ -9,7 +10,7 @@
 mod common;
 
 use common::load_def_fixture;
-use prompting_press_core::{provenance_view, render, GuardConfig};
+use prompting_press_core::{origin_view, render, GuardConfig};
 
 /// A disabled guard config — the baseline plain-render configuration.
 fn no_guard() -> GuardConfig {
@@ -29,15 +30,15 @@ fn mixed_values() -> minijinja::Value {
     }))
 }
 
-/// V3.1 — `provenance_view` buckets fields by their declared tag.
+/// V3.1 — `origin_view` buckets fields by their declared tag.
 ///
 /// `{q: untrusted, ctx: external, sys: trusted}` → `untrusted = {q}`,
 /// `external = {ctx}` (trusted `sys` is the complement and is not stored). [FR-021]
 #[test]
-fn v3_1_provenance_view_buckets_by_tag() {
+fn v3_1_origin_view_buckets_by_tag() {
     let def = load_def_fixture("provenance-mixed");
 
-    let view = provenance_view(&def);
+    let view = origin_view(&def);
 
     assert!(
         view.untrusted.iter().eq(["q"].iter()),

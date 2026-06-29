@@ -61,11 +61,11 @@ determinism).
 **Goal**: rename the kernel's provenance surface to `origin` vocabulary; ZERO behavior change. **Gate**:
 `cargo test -p prompting-press-core` + `moon run ci:check-ffi`.
 
-- [ ] T021 Rename `crates/prompting-press-core/src/provenance.rs` → `origin.rs` (`git mv`) and update the `mod`/`pub use` in `lib.rs`. (FR-004)
-- [ ] T022 Rename the symbols in that module: `ProvenanceView` → `OriginView` (fields `untrusted`/`external` unchanged), `provenance_view` → `origin_view`, and switch to the regenerated `origin` enum from the generated shape. Logic/algorithm byte-for-byte identical; update doc comments from "provenance" → "origin" for the per-variable tag ONLY. (FR-004; SC-002)
-- [ ] T023 Update all kernel call sites + tests referencing the renamed symbols (`engine.rs`, `lib.rs`, `tests/*.rs`, `tests/fixtures/defs/*.json` using the `provenance` field). Keep render/guard/hash behavior unchanged. (FR-004, FR-027; SC-002, SC-003)
-- [ ] T024 Confirm the render-result provenance (`template_hash`/`render_hash` in `hashing.rs`/`engine.rs`) is NOT renamed. (FR-002; SC-002)
-- [ ] T025 GATE: `cargo test -p prompting-press-core` green; `moon run ci:check-ffi` green (no FFI dep crept into the kernel). (FR-027, FR-028)
+- [X] T021 Rename `crates/prompting-press-core/src/provenance.rs` → `origin.rs` (`git mv`) and update the `mod`/`pub use` in `lib.rs`. (FR-004)
+- [X] T022 Rename the symbols in that module: `ProvenanceView` → `OriginView` (fields `untrusted`/`external` unchanged), `provenance_view` → `origin_view`, and switch to the regenerated `origin` enum from the generated shape. Logic/algorithm byte-for-byte identical; update doc comments from "provenance" → "origin" for the per-variable tag ONLY. (FR-004; SC-002)
+- [X] T023 Update all kernel call sites + tests referencing the renamed symbols (`engine.rs`, `lib.rs`, `tests/*.rs`, `tests/fixtures/defs/*.json` using the `provenance` field). Keep render/guard/hash behavior unchanged. (FR-004, FR-027; SC-002, SC-003)
+- [X] T024 Confirm the render-result provenance (`template_hash`/`render_hash` in `hashing.rs`/`engine.rs`) is NOT renamed. (FR-002; SC-002)
+- [X] T025 GATE: `cargo test -p prompting-press-core` green; `moon run ci:check-ffi` green (no FFI dep crept into the kernel). (FR-027, FR-028)
 
 ---
 

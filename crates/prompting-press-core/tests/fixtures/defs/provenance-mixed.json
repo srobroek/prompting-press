@@ -5,17 +5,17 @@
   "variables": {
     "q": {
       "type": "string",
-      "provenance": "untrusted",
+      "origin": "untrusted",
       "description": "The user's untrusted question."
     },
     "ctx": {
       "type": "string",
-      "provenance": "external",
+      "origin": "external",
       "description": "Externally-sourced context."
     },
     "sys": {
       "type": "string",
-      "provenance": "trusted",
+      "origin": "trusted",
       "description": "Trusted system-supplied note."
     }
   }

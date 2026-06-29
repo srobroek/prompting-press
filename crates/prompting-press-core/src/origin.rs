@@ -1,8 +1,10 @@
-//! Provenance exposure + opt-in guard expansion (spec 002, T028/T029; FR-021..FR-025).
+//! Origin exposure + opt-in guard expansion (spec 002, T028/T029; FR-021..FR-025).
+//! (The per-variable trust tag was named `provenance` through spec 006; spec 008 renamed it
+//! to `origin`. This module's behavior is unchanged — only the vocabulary.)
 //!
 //! Two pure, additive concerns live here:
 //!
-//! 1. [`provenance_view`] (FR-021) — surfaces which declared fields are tagged
+//! 1. [`origin_view`] (FR-021) — surfaces which declared fields are tagged
 //!    `untrusted` / `external`, so a consumer can query the tags without re-reading the
 //!    generated shape. Pure derivation over `def.variables`; sorted (`BTreeSet`) ⇒
 //!    deterministic.
@@ -16,7 +18,7 @@
 
 use std::collections::BTreeSet;
 
-use crate::generated::prompt_definition::{PromptDefinition, VariableDeclProvenance};
+use crate::generated::prompt_definition::{PromptDefinition, VariableDeclOrigin};
 
 /// The kernel's default guard instruction template (FR-024).
 ///
@@ -62,50 +64,50 @@ pub struct GuardConfig {
     pub template: Option<String>,
 }
 
-/// The untrusted/external field-name sets exposed for a prompt (data-model §ProvenanceView;
+/// The untrusted/external field-name sets exposed for a prompt (data-model §OriginView;
 /// FR-021).
 ///
-/// Derived from `def.variables[*].provenance`. `trusted` is the complement and is **not**
+/// Derived from `def.variables[*].origin`. `trusted` is the complement and is **not**
 /// stored. Both sets are [`BTreeSet`]s, so iteration is sorted and the derived guard text
 /// is deterministic across runs and languages (Principle I / C-01).
 ///
 /// **These tags are declarative metadata, NOT runtime enforcement (critique X1 / SEC-002).**
 /// This view only *reports* which fields a definition declared as untrusted/external. The
 /// kernel never gates, blocks, sanitizes, or alters rendering based on a field's
-/// provenance — a template interpolating an `untrusted` field renders exactly as one
+/// origin — a template interpolating an `untrusted` field renders exactly as one
 /// interpolating a `trusted` field. Acting on the tag (an opt-in guard, a consumer-side
 /// lint) is the caller's choice; the kernel itself enforces nothing.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ProvenanceView {
-    /// Field names declared with `provenance: "untrusted"`.
+pub struct OriginView {
+    /// Field names declared with `origin: "untrusted"`.
     pub untrusted: BTreeSet<String>,
-    /// Field names declared with `provenance: "external"`.
+    /// Field names declared with `origin: "external"`.
     pub external: BTreeSet<String>,
 }
 
 /// Expose which declared fields are `untrusted` / `external` (spec 002, T028; FR-021).
 ///
-/// Iterates `def.variables`, bucketing each field name by its provenance tag. `trusted`
+/// Iterates `def.variables`, bucketing each field name by its origin tag. `trusted`
 /// fields are dropped (the complement is not stored). Pure: reads the definition, builds
 /// fresh sets, never mutates anything.
 #[must_use]
-pub fn provenance_view(def: &PromptDefinition) -> ProvenanceView {
+pub fn origin_view(def: &PromptDefinition) -> OriginView {
     let mut untrusted = BTreeSet::new();
     let mut external = BTreeSet::new();
 
     for (field, decl) in &def.variables {
-        match decl.provenance {
-            VariableDeclProvenance::Untrusted => {
+        match decl.origin {
+            VariableDeclOrigin::Untrusted => {
                 untrusted.insert(field.clone());
             }
-            VariableDeclProvenance::External => {
+            VariableDeclOrigin::External => {
                 external.insert(field.clone());
             }
-            VariableDeclProvenance::Trusted => {}
+            VariableDeclOrigin::Trusted => {}
         }
     }
 
-    ProvenanceView {
+    OriginView {
         untrusted,
         external,
     }
@@ -129,7 +131,7 @@ pub fn provenance_view(def: &PromptDefinition) -> ProvenanceView {
 ///   `view`; it never sees, inspects, strips, escapes, or rewrites a bound value
 ///   (FR-025). It is additive — it produces a separate string and mutates nothing
 ///   (FR-023).
-pub(crate) fn build_guard_text(view: &ProvenanceView, guard: &GuardConfig) -> Option<String> {
+pub(crate) fn build_guard_text(view: &OriginView, guard: &GuardConfig) -> Option<String> {
     if !guard.enabled {
         return None;
     }
