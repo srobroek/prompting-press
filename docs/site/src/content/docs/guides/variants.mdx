@@ -11,7 +11,7 @@ prompt (`concise`, `formal`, an experiment arm) — the caller selects one by na
 
 This guide covers **declaring** variants in a prompt document and **selecting** one at render. To add
 a variant to an already-constructed `Prompt` at runtime, see
-**[Deriving a prompt](/prompting-press/guides/derive/)**.
+**[Deriving a prompt](/guides/derive/)**.
 
 ## The default arm
 
@@ -266,11 +266,11 @@ feature flag, a per-tenant choice) is the application's decision; pass the chose
 
 Each variant can carry an opaque `metadata` map (weights, group labels) for the caller's selection
 logic — the library stores and echoes it but never acts on it. See
-**[Metadata](/prompting-press/guides/metadata/)** for how per-variant and prompt-level `metadata`
+**[Metadata](/guides/metadata/)** for how per-variant and prompt-level `metadata`
 work and how to read them back.
 
 ## Next
 
-- **[Deriving a prompt](/prompting-press/guides/derive/)** — add or change a variant on an
+- **[Deriving a prompt](/guides/derive/)** — add or change a variant on an
   already-constructed `Prompt` (immutable copy-with-overlay).
-- **[Template features](/prompting-press/templates/)** — what each variant body may use.
+- **[Template features](/templates/)** — what each variant body may use.

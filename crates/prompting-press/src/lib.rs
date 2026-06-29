@@ -155,7 +155,7 @@
 //!
 //! let vars = Greeting { name: "Ada".to_string(), count: 3 };
 //! // No guard expansion here, so a default (disabled) GuardConfig.
-//! let result = prompt.render(&vars, None, &GuardConfig::default())
+//! let result = prompt.render(&vars, None, &GuardConfig::default(), false)
 //!     .expect("valid vars render");
 //!
 //! assert_eq!(result.text, "Hi Ada, you have 3 messages");

@@ -143,7 +143,7 @@ request_messages = [guard_msg] + body_messages
 
 `check()` surfaces an advisory finding when a prompt declares `untrusted`/`external` variables
 but carries no `guard` key in its `metadata` map. The presence of the key (any value) suppresses
-the advisory. See [Lint prompts in CI](/prompting-press/guides/lint-in-ci/).
+the advisory. See [Lint prompts in CI](/guides/lint-in-ci/).
 
 ```yaml
 variables:
@@ -163,4 +163,4 @@ metadata:
 - It does **not** call an LLM or compose a provider request body.
 - `origin` tags on variables are **declarative metadata** — there is no runtime gate that prevents
   an `untrusted` field from being interpolated into the template (see
-  [FAQ](/prompting-press/faq/)).
+  [FAQ](/faq/)).

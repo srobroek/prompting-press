@@ -1,0 +1,25 @@
+# Nightly Rust toolchain pin — DOCS EXTRACTION ONLY.
+#
+# This file is for rustdoc-JSON extraction by docs/site/scripts/extract-rust-api.mjs.
+# It is NOT the active project toolchain; the repo's primary stable toolchain is in
+# rust-toolchain.toml (1.95.0). Keep the two files SEPARATE and DO NOT make this file
+# the default.
+#
+# The extractor invokes this toolchain explicitly:
+#   cargo +nightly-2026-05-15 rustdoc -p prompting-press -- -Z unstable-options --output-format json
+# (Never use a floating `+nightly`; a nightly bump is a deliberate, reviewed change.)
+#
+# rustdoc-JSON format_version observed with this pin: 57
+# If the format_version changes after a nightly bump, update the assertion in
+# docs/site/scripts/extract-rust-api.mjs (EXPECTED_FORMAT_VERSION) simultaneously.
+#
+# DELIBERATE-UPGRADE CONTRACT: bump this date only after verifying:
+#   1. The new nightly installs cleanly on CI.
+#   2. `cargo +nightly-YYYY-MM-DD rustdoc -p prompting-press -- -Z unstable-options --output-format json`
+#      produces target/doc/prompting_press.json.
+#   3. The new format_version (if changed) is updated here and in extract-rust-api.mjs.
+#   4. The freshness gate (check-api-refs-fresh.sh) passes on the regenerated output.
+
+[toolchain]
+channel = "nightly-2026-05-15"
+profile = "minimal"

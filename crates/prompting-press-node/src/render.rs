@@ -38,7 +38,7 @@ use prompting_press_core::{GuardConfig as KernelGuardConfig, RenderResult as Ker
 /// *expansion* (spec 002 / FR-022..025 — naming the declared untrusted/external fields, the
 /// `{fields}` substitution, the never-touches-`text` invariant); the binding only marshals these
 /// two fields across the boundary and surfaces whatever [`RenderResult::guard`] the kernel
-/// populates. As a `#[napi(object)]` it crosses as a plain TS object `{ enabled, template? }`.
+/// populates. Accepted from JS as a plain TS object `{ enabled, template? }`.
 #[napi(object)]
 pub struct GuardConfig {
     /// When `false`, the render is plain and [`RenderResult::guard`] is `None`.
@@ -60,9 +60,8 @@ impl From<GuardConfig> for KernelGuardConfig {
 ///
 /// The Node mirror of the kernel's [`prompting_press_core::RenderResult`] (data-model
 /// §RenderResult; FR-015). Surfaced **1:1** — the binding adds nothing and interprets nothing. A
-/// `#[napi]` class with read-only getters; the snake_case Rust getters surface as camelCase JS
-/// accessors (`template_hash` → `templateHash`). A result is produced by [`render`], never
-/// constructed from JS.
+/// Read-only class with camelCase JS accessors (`template_hash` → `templateHash`).
+/// A result is produced by [`render`], never constructed from JS.
 #[napi]
 pub struct RenderResult {
     text: String,

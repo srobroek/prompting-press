@@ -13,9 +13,13 @@ on:
       - "schemas/jsonschema/prompt-definition.schema.json"
       - ".github/workflows/docs.yml"
 
-# Allow one deploy at a time; cancel in-progress deploys on new push.
+# Serialize per ref, not globally: a single shared `pages` group made concurrent
+# PRs cancel each other's build (both touch docs/site/**). Scope the group by ref
+# so each PR/branch builds independently; only repeated pushes to the SAME ref
+# cancel their own in-progress run. The real GitHub Pages environment still
+# serializes actual deploys regardless.
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -25,24 +29,46 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4.2.2
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4.1.0
         with:
-          version: "10.11.0"
+          # The Astro prebuild runs gen-api-refs.mjs, whose Rust extractor shells
+          # out to cargo/rustdoc. Full history keeps `main` resolvable, matching
+          # ci.yml's Gates job.
+          fetch-depth: 0
 
-      - name: Set up Node
-        uses: actions/setup-node@v4.3.0
+      # The docs site's Astro prebuild generates the per-language API reference
+      # pages (spec 011): the Rust extractor needs the pinned nightly rustdoc, the
+      # Python extractor needs uv + griffe, and the TypeScript extractor needs the
+      # built napi addon (index.d.ts). All toolchains come from mise — the same
+      # bootstrap ci.yml's Gates job uses — so build with mise rather than a
+      # bespoke pnpm/node setup that lacks rust/uv (which made the prebuild's
+      # Python + Rust extractors fail once spec 011 wired them into prebuild).
+      - name: Install mise toolchain
+        uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac  # v2
         with:
-          node-version: "22.12.0"
-          cache: pnpm
-          cache-dependency-path: docs/site/pnpm-lock.yaml
+          experimental: true
 
-      - name: Install dependencies
-        run: pnpm -C docs/site install --frozen-lockfile
+      # See ci.yml: on a mise cache hit ~/.rustup is not restored, so re-add the
+      # components idempotently against the mise-active toolchain.
+      - name: 'Ensure rust components (rustfmt/clippy)'
+        run: mise exec -- rustup component add rustfmt clippy
+
+      - name: 'Install docs/site deps (pnpm)'
+        run: mise exec -- pnpm -C docs/site install --frozen-lockfile
+
+      # Build the napi addon → packages/typescript/index.d.ts, the input the TS
+      # API-ref extractor reads (without it the TS reference degrades; see ci.yml).
+      - name: 'Install TS package deps + build node addon'
+        run: |
+          mise exec -- pnpm -C packages/typescript install --frozen-lockfile
+          mise exec -- pnpm -C packages/typescript run build:addon
+
+      # Sync the Python codegen env so the griffe extractor can import the
+      # generated Pydantic shapes (mirrors ci.yml's Gates job).
+      - name: 'Install Python codegen deps (uv)'
+        run: mise exec -- uv sync --project packages/python --group codegen --no-install-project --frozen
 
       - name: Build
-        run: pnpm -C docs/site build
+        run: mise exec -- pnpm -C docs/site build
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3.0.1

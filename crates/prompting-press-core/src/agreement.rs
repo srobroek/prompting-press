@@ -40,7 +40,7 @@
 //!    PARSING THE TEMPLATE FIRST (via `add_template_owned`, which — with `macros` /
 //!    `multi_template` disabled — also rejects excluded features), returning a parse /
 //!    excluded-feature `Err` *before* it could ever observe an empty set. A non-parseable
-//!    source never yields a [`Template`] handle, so the empty-set branch is structurally
+//!    source never yields a `Template` handle, so the empty-set branch is structurally
 //!    unreachable from this code path.
 
 use std::collections::BTreeSet;
@@ -67,7 +67,7 @@ pub struct Agreement {
 /// Report the **per-variant** set of required root variable names for one variant's source
 /// (spec 002, T023–T025; FR-016, FR-016a, FR-017, FR-018, FR-019, FR-020).
 ///
-/// Resolves the variant (reusing [`resolve_variant`]; same `None`/`"default"` → root body
+/// Resolves the variant (reusing `resolve_variant`; same `None`/`"default"` → root body
 /// and unknown-variant rule as [`crate::render`]), parses the resolved source against the
 /// kernel's canonical [`minijinja::Environment`], and returns the engine's
 /// `undeclared_variables(false)` result minus the env-derived globals allowlist.

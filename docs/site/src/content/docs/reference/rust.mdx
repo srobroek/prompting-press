@@ -1,274 +1,613 @@
 ---
+# AUTO-GENERATED — do not edit by hand.
+# Source: rustdoc-json format_version 57 (nightly nightly-2026-05-15)
+# Regenerate: pnpm -C docs/site build  (runs scripts/gen-api-refs.mjs as prebuild).
 title: "Rust API reference"
-description: "Complete API reference for the prompting-press Rust crate: Prompt, PromptOverlay, ConsumerError, CheckReport, Composition."
+description: "API reference for the prompting-press rust binding. Generated from source doc comments."
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
-Crate: `prompting-press`. Source: `crates/prompting-press/`.
+<Aside type="note">
+Automatically generated from Rust source doc comments (rustdoc-json format_version 57 (nightly nightly-2026-05-15)).
+</Aside>
 
-The primary public type is `Prompt` — an immutable, fully-validated prompt object. All
-construction invariants are enforced at build time. The validator generic `V` is named at the
-`render<V>()` call site, giving compile-time coverage.
+Package: `prompting-press`. Version: `latest`.
 
----
+## Prompt
 
-## `Prompt`
+### `Prompt`
 
 ```rust
-pub struct Prompt { /* opaque */ }
+pub struct Prompt
 ```
 
-### Construction
+An immutable, fully-validated prompt. Wraps a [`PromptDefinition`]; all invariants (shape-valid, template-parseable, agreement-sound, reserved-name clean) are enforced at construction time. There are no setters; the sole mutator is [`Prompt::derive`].
 
-All constructors validate fully — they return `Err(ConsumerError)` on any violation; never panic.
-
-#### `Prompt::new`
+#### `body`
 
 ```rust
-pub fn new(def: PromptDefinition) -> Result<Self, ConsumerError>
-```
-
-Primary validating constructor. Accepts an already-parsed `PromptDefinition`. Enforces:
-- Template parseable and free of excluded features.
-- Agreement: all template references are declared in `variables`.
-- No variant named `"default"` (reserved for the root body).
-
-#### `Prompt::from_yaml`
-
-```rust
-pub fn from_yaml(text: &str) -> Result<Self, ConsumerError>
-```
-
-Deserialize from already-read YAML text, then validate. `ConsumerError::Load` on parse failure;
-same errors as `new` on validation failure. The crate reads no files.
-
-#### `Prompt::from_json`
-
-```rust
-pub fn from_json(text: &str) -> Result<Self, ConsumerError>
-```
-
-Same as `from_yaml` but for JSON input.
-
-#### `Prompt::from_toml`
-
-```rust
-pub fn from_toml(text: &str) -> Result<Self, ConsumerError>
-```
-
-Same as `from_yaml` but for TOML input (uses the `toml` crate internally).
-
-### Read-only accessors
-
-```rust
-pub fn name(&self) -> &str
-pub fn role(&self) -> &PromptDefinitionRole    // Display → "system" / "user" / "assistant"
 pub fn body(&self) -> &str
-pub fn variables(&self) -> &HashMap<String, PromptVariable>
-pub fn variants(&self)  -> &HashMap<String, PromptVariant>
-pub fn output_model(&self) -> Option<&str>
-pub fn metadata(&self) -> &serde_json::Map<String, serde_json::Value>
 ```
 
-### `render<V>`
+The root body template source (the default arm's unrendered template).
 
-```rust
-pub fn render<V>(
-    &self,
-    vars: &V,
-    variant: Option<&str>,
-    guard: &GuardConfig,
-) -> Result<RenderResult, ConsumerError>
-where
-    V: Serialize + Validate,
-    V::Context: Default,
-```
-
-Validates `vars` via garde, then delegates to the kernel. Steps:
-1. `vars.validate()` — garde runs once over the whole struct, before any templating.
-2. `minijinja::Value::from_serialize(vars)` — bridge to the kernel's value type.
-3. `prompting_press_core::render(...)` — kernel renders and computes the content hashes.
-
-`variant = None` selects the default (root body) arm. `guard = &GuardConfig::default()` opts out.
-
-**Errors:**
-- `ConsumerError::Validation` — garde rejected `vars`.
-- `ConsumerError::Kernel` — unknown variant, strict-undefined variable, parse/render failure.
-
-### `get_source`
-
-```rust
-pub fn get_source(&self, variant: Option<&str>) -> Result<&str, ConsumerError>
-```
-
-Returns the unrendered template source for the given variant (the exact bytes hashed into
-`template_hash`). `variant = None` returns the root body source. No vars, no validation.
-
-**Errors:** `ConsumerError::Kernel` — unknown variant name.
-
-### `check`
+#### `check`
 
 ```rust
 pub fn check(&self) -> CheckReport
 ```
 
-Pure advisory lint. Returns a `CheckReport` containing only `UntrustedWithoutGuard` findings
-(the only live advisory for a constructed `Prompt`). Never renders, never mutates. `#[must_use]`.
+Pure advisory lint: returns a [`CheckReport`] containing only the origin/guard finding class. Construction already enforces agreement, parse, and reserved-name invariants, so those arms are structurally unreachable for a constructed `Prompt`. The only LIVE finding `check()` can surface is [`FindingKind::UntrustedWithoutGuard`] — a prompt declaring `untrusted`/`external` vars but carrying no `"guard"` key in `metadata`. Pure: takes `&self`, never renders, never mutates.
 
-### `derive`
+#### `definition`
+
+```rust
+pub fn definition(&self) -> &PromptDefinition
+```
+
+Borrow the underlying [`PromptDefinition`] for use by binding crates (e.g. `prompting-press-node`, `prompting-press-py`) that need to call the kernel directly for render/get_source (their validation is owned in the binding layer, not in Rust garde, so the consumer's generic `render<V>` is not usable there). Bindings call `prompting_press_core::render(prompt.definition(), ...)` directly after doing their own validation — the same zero-engine-logic pattern as the registry render paths (critique E1 / C-01). Also used by `Composition::resolve` within this crate.
+
+#### `derive`
 
 ```rust
 pub fn derive(&self, overlay: PromptOverlay) -> Result<Self, ConsumerError>
 ```
 
-Shallow-replaces top-level fields from `overlay` onto a clone of this prompt's definition, routes
-the merged definition through `Prompt::new` (full re-validation). The original is untouched.
+The sole mutator: shallow-replace top-level fields from `overlay` onto a clone of this prompt's definition, then route the merged definition through [`Prompt::new`] (full re-validation). The original `Prompt` is untouched. Each `Some(field)` in `overlay` replaces the corresponding field; `None` fields are left as-is. `name` IS overlayable (the overlay can rename a prompt). After the merge, every construction invariant is re-checked over the whole merged definition — so an overlay that introduces an agreement violation or a reserved variant name is rejected. In Rust the validator is the generic `V` named at the `render` call site; `derive` takes `&self` and carries no runtime validator. `PromptOverlay` therefore contains only data fields (R6 — the Rust asymmetry). # Errors Same error classes as [`Prompt::new`]: a merged definition that fails any construction invariant returns the structured error.
 
-**Errors:** same as `Prompt::new` — any construction invariant violated by the merged definition.
-
----
-
-## `PromptOverlay`
+#### `from_json`
 
 ```rust
-#[derive(Debug, Clone, Default)]
-pub struct PromptOverlay {
-    pub name:         Option<PromptDefinitionName>,
-    pub role:         Option<PromptDefinitionRole>,
-    pub body:         Option<String>,
-    pub variables:    Option<HashMap<String, PromptVariable>>,
-    pub variants:     Option<HashMap<String, PromptVariant>>,
-    pub output_model: Option<Option<String>>,
-    pub metadata:     Option<serde_json::Map<String, serde_json::Value>>,
-}
+pub fn from_json(text: &str) -> Result<Self, ConsumerError>
 ```
 
-Each `Some(value)` replaces the corresponding field; `None` leaves it unchanged. Use
-`..Default::default()` to specify only the fields to replace.
+Deserialize a `Prompt` from already-read **JSON** text, then validate. Equivalent to `serde_json::from_str(..)` + [`Prompt::new`]. Error semantics mirror [`from_yaml`](Self::from_yaml). # Errors [`ConsumerError::Load`] if `text` is not valid JSON or does not match the `PromptDefinition` shape, or any error from [`Prompt::new`].
 
----
-
-## `RenderResult`
+#### `from_toml`
 
 ```rust
-pub struct RenderResult {
-    pub text:          String,
-    pub name:          String,   // the prompt name (def.name)
-    pub variant:       String,   // resolved variant name ("default" when none selected)
-    pub template_hash: String,   // lowercase-hex SHA256(variant template source)
-    pub render_hash:   String,   // lowercase-hex SHA256(rendered output)
-    pub guard:         Option<String>,  // advisory guard text; None when guard opt-out
-}
+pub fn from_toml(text: &str) -> Result<Self, ConsumerError>
 ```
 
----
+Deserialize a `Prompt` from already-read **TOML** text, then validate. Uses `toml::from_str` (the serde-native TOML crate — research R3 / `toml@1.1.2`). Error semantics mirror [`from_yaml`](Self::from_yaml). # Errors [`ConsumerError::Load`] if `text` is not valid TOML or does not match the `PromptDefinition` shape, or any error from [`Prompt::new`].
 
-## `ConsumerError`
+#### `from_yaml`
 
 ```rust
-pub enum ConsumerError {
-    Validation(Vec<FieldError>),  // garde validation failure
-    Kernel(Vec<FieldError>),      // kernel parse/render/agreement failure
-    Load(String),                 // malformed YAML/JSON/TOML
-}
+pub fn from_yaml(text: &str) -> Result<Self, ConsumerError>
 ```
 
-`FieldError`:
+Deserialize a `Prompt` from already-read **YAML** text, then validate. Equivalent to `serde_yaml_ng::from_str(..)` + [`Prompt::new`]. A parse/shape error returns [`ConsumerError::Load`]; a validation error returns the same errors as `new`. The crate reads no files — the caller supplies already-read text. # Errors [`ConsumerError::Load`] if `text` is not valid YAML or does not match the `PromptDefinition` shape, or any error from [`Prompt::new`].
+
+#### `get_source`
 
 ```rust
-pub struct FieldError {
-    pub field:   String,  // offending field / path; "" when not field-specific
-    pub code:    String,  // stable code from error::code::*
-    pub message: String,  // human-readable; the rejected value is never echoed
-}
+pub fn get_source(&self, variant: Option<&str>) -> Result<&str, ConsumerError>
 ```
 
-Stable error codes (from `prompting_press::error::code`):
+Return a variant's unrendered template source (the exact string the kernel hashes into `template_hash`). Delegates to the kernel; no vars, no validation. `variant = None` returns the root body source. # Errors [`ConsumerError::Kernel`] — the kernel rejected the lookup (unknown variant name).
 
-| Constant | Value | When |
-|----------|-------|------|
-| `VALIDATION` | `"validation"` | garde failure |
-| `UNKNOWN_VARIANT` | `"unknown_variant"` | variant name not declared |
-| `UNDEFINED_VARIABLE` | `"undefined_variable"` | template referenced undeclared variable |
-| `PARSE` | `"parse"` | template parse error (detail preserved — template syntax) |
-| `RENDER` | `"render"` | render-time error (detail scrubbed) |
-| `EXCLUDED_FEATURE` | `"excluded_feature"` | excluded template feature used |
-| `LOAD` | `"load"` | malformed YAML/JSON/TOML |
-
-<Aside type="caution" title="Render detail is scrubbed; parse detail is preserved">
-`ConsumerError::Kernel` for `Render` errors carries a fixed message — the raw kernel detail
-(which may contain bound-value content / PII) is discarded. `Parse` detail is preserved:
-parsing happens before any value is bound, so the message carries only template-syntax
-context (line/column, the offending construct) and never a bound value.
-</Aside>
-
----
-
-## `CheckReport` and `FindingKind`
+#### `metadata`
 
 ```rust
-pub struct CheckReport {
-    pub findings: Vec<Finding>,
-}
-impl CheckReport {
-    pub fn passed(&self) -> bool    // true iff findings is empty
-    pub fn is_empty(&self) -> bool  // alias for passed()
-}
-
-pub struct Finding {
-    pub prompt:  String,
-    pub variant: Option<String>,
-    pub kind:    FindingKind,
-    pub detail:  String,
-}
-
-pub enum FindingKind {
-    UntrustedWithoutGuard { field: String },  // the only advisory check() returns
-}
+pub fn metadata(&self) -> &Map<String, Value>
 ```
 
-Hard invariants (undeclared variable, un-analyzable template, reserved variant name) are
-enforced at construction and are never returned by `check()`.
+The `metadata` opaque map (library-defined top-level annotations, if any).
 
----
-
-## `Composition`
+#### `name`
 
 ```rust
-pub struct Composition { /* ordered Vec<Entry> */ }
-
-impl Composition {
-    pub fn new() -> Self
-    pub fn is_empty(&self) -> bool
-    pub fn len(&self) -> usize
-
-    // Validate + serialize vars eagerly; returns Err on garde failure (entry NOT stored).
-    pub fn append<V>(
-        &mut self,
-        prompt: &Prompt,
-        vars: &V,
-        variant: Option<&str>,
-    ) -> Result<(), ConsumerError>
-    where V: Serialize + Validate, V::Context: Default
-
-    // Render all entries in append order.
-    pub fn resolve(&self) -> Result<Vec<Message>, ConsumerError>
-}
-
-pub struct Message {
-    pub role: String,  // from the Prompt definition's role
-    pub text: String,  // rendered body text
-}
+pub fn name(&self) -> &str
 ```
 
----
+The prompt's name (the `name` field of the underlying definition).
 
-## Content hashes vs. origin
+#### `new`
 
-| Concept | Where | What |
-|---------|-------|------|
-| `template_hash` / `render_hash` | `RenderResult` fields | SHA-256 content-addressed hashes of the template source and the rendered output. Computed at render time. |
-| `origin` | `PromptVariable.origin` | Per-variable trust tag (`trusted` / `untrusted` / `external`). Declarative metadata; not enforced by the kernel. |
+```rust
+pub fn new(def: PromptDefinition) -> Result<Self, ConsumerError>
+```
 
-These are not the same thing. See [Prompt definition shape](/prompting-press/reference/prompt-definition/) for `PromptVariable.origin` details.
+The primary validating constructor. Runs the construction invariants on `def`: 1. For each variant arm (root body + every named variant), asks the kernel for the arm's [`required_roots`]. A kernel `Err` (parse failure or excluded feature) is a **construction failure** — the `Prompt` is not built (R7/Q4). 2. Each analyzable arm's referenced roots must be a subset of the declared `variables`. Any root not declared is an agreement violation. 3. A variant named literally `"default"` is rejected (CR-1 — the kernel reserves that name for the root body; the declared arm would be unreachable). On success the `Prompt` is returned. On any violation a structured [`ConsumerError`] is returned — never a panic. # Errors - [`ConsumerError::Kernel`] — a variant template could not be parsed or uses an excluded feature (`&#123;% include %&#125;` / macros / inheritance). - [`ConsumerError::Kernel`] — a variant template references a variable not declared in `variables` (agreement failure; `code::UNDEFINED_VARIABLE`). - [`ConsumerError::Kernel`] — a variant is literally named `"default"` (reserved; `code::UNDEFINED_VARIABLE` with field `"variant"`).
+
+#### `output_model`
+
+```rust
+pub fn output_model(&self) -> Option<&str>
+```
+
+The output model reference, if declared (`output_model` field). Carried as metadata only — never parsed or resolved by this library.
+
+#### `render`
+
+```rust
+pub fn render<V>(&self, vars: &V, variant: Option<&str>, guard: &GuardConfig, reveal_render_detail: bool) -> Result<RenderResult, ConsumerError>
+where
+    V: Serialize + Validate,
+    <V as Validate>::Context: Default
+```
+
+Validate-then-render this prompt. 1. Validates `vars` once via garde, BEFORE any templating. On failure returns [`ConsumerError::Validation`] — the kernel is never reached. 2. Bridges the validated struct to the kernel's value type via [`minijinja::Value::from_serialize`]. 3. Delegates to [`prompting_press_core::render`], normalizing any [`KernelError`] to [`ConsumerError::Kernel`]. `variant = None` selects the default (root body) arm. `guard` is plumbed straight through to the kernel; `RenderResult::guard` is surfaced unchanged (guard *expansion* is the kernel's contract — spec 002 / F5). `V::Context: Default` so the whole-struct [`Validate::validate`] convenience applies (one validation pass over the entire input set, FR-002). Context-carrying validation is intentionally out of v1 scope (scope discipline — C-11 / one concrete path per concern). ## Byte-identical output The kernel path is identical to the pre-reshape `render(reg, name, …)` path. The `RenderResult` hashes are therefore byte-identical. ## `reveal_render_detail` — unsafe, off-by-default render-error detail opt-in Pass `false` in all production call sites (the default). When `true`, the full underlying render-error detail is surfaced in the returned [`ConsumerError::Kernel`] message instead of the fixed scrubbed string. **Risk:** enabling this may place **bound-value content** — untrusted input, PII, secrets — into the returned error message and into any log line or stack trace derived from it. Use only in a controlled debug context where you own the log destination and deliberately accept that exposure. Never set `true` by default or in ambient/global configuration. # Errors - [`ConsumerError::Validation`] — garde rejected `vars`. - [`ConsumerError::Kernel`] — the kernel rejected the render (unknown variant, strict-undefined reference, parse/render failure). `Render` detail scrubbed unless `reveal_render_detail = true`. `Parse` detail always preserved (decision D2).
+
+#### `role`
+
+```rust
+pub fn role(&self) -> &PromptDefinitionRole
+```
+
+The conversational role (`system` / `user` / `assistant`).
+
+#### `variables`
+
+```rust
+pub fn variables(&self) -> &HashMap<String, PromptVariable>
+```
+
+The declared variables map (`name → PromptVariable`).
+
+#### `variants`
+
+```rust
+pub fn variants(&self) -> &HashMap<String, PromptVariant>
+```
+
+The named variants map (`name → PromptVariant`). Empty when the prompt has no named variants (only the implicit default arm).
+
+### `PromptOverlay`
+
+```rust
+pub struct PromptOverlay
+```
+
+A shallow-replacement overlay for [`Prompt::derive`]. Each field is `Option<T>`. A `Some(value)` replaces the corresponding field on the cloned definition; a `None` leaves it unchanged. All fields are optional — pass only what should change. `name` is overlayable: a prompt can be renamed (useful for template-derived variants). After merging, the full construction invariants (agreement, parse, reserved name) are re-checked over the merged whole. In Rust the validator is the generic `V` named at the call site; `PromptOverlay` carries **only data fields** — no runtime validator object (the Rust compile-time asymmetry documented in R6).
+
+#### `body`
+
+```rust
+pub body: Option<String>
+```
+
+Replace the root body template source.
+
+#### `metadata`
+
+```rust
+pub metadata: Option<Map<String, Value>>
+```
+
+Replace the `metadata` opaque map.
+
+#### `name`
+
+```rust
+pub name: Option<PromptDefinitionName>
+```
+
+Replace the prompt's `name`.
+
+#### `output_model`
+
+```rust
+pub output_model: Option<Option<String>>
+```
+
+Replace (or clear) the `output_model` reference.
+
+#### `role`
+
+```rust
+pub role: Option<PromptDefinitionRole>
+```
+
+Replace the prompt's `role`.
+
+#### `variables`
+
+```rust
+pub variables: Option<HashMap<String, PromptVariable>>
+```
+
+Replace the full `variables` map.
+
+#### `variants`
+
+```rust
+pub variants: Option<HashMap<String, PromptVariant>>
+```
+
+Replace the full `variants` map.
+
+### `core_version`
+
+```rust
+pub fn core_version() -> &'static str
+```
+
+Returns the underlying kernel version. Trivial placeholder that calls into the kernel, making the dependency edge load-bearing rather than declarative-only.
+
+## RenderResult
+
+### `RenderResult`
+
+```rust
+pub struct RenderResult
+```
+
+Render result + content-addressed provenance (data-model §RenderResult; FR-015). Plain data returned to the caller — no telemetry sink, no tracing coupling. There is deliberately **no** `vars_hash` field.
+
+#### `guard`
+
+```rust
+pub guard: Option<String>
+```
+
+The guard instruction text, present only when guard expansion was opted in (US3); `None` for US1's disabled config. Never concatenated into `text`. [FR-022]
+
+#### `name`
+
+```rust
+pub name: String
+```
+
+The prompt name (`def.name`). [FR-015]
+
+#### `render_hash`
+
+```rust
+pub render_hash: String
+```
+
+Lowercase-hex `SHA256(rendered text)`. [FR-013]
+
+#### `template_hash`
+
+```rust
+pub template_hash: String
+```
+
+Lowercase-hex `SHA256(resolved variant source)`. [FR-012]
+
+#### `text`
+
+```rust
+pub text: String
+```
+
+The rendered body text. The guard text is NEVER concatenated here.
+
+#### `variant`
+
+```rust
+pub variant: String
+```
+
+The resolved variant name (the reserved `default`, or the named arm). [FR-015]
+
+## GuardConfig
+
+### `GuardConfig`
+
+```rust
+pub struct GuardConfig
+```
+
+Per-render guard-expansion option (data-model §GuardConfig; FR-022..FR-025). Opt-in, per render. When [`enabled`](Self::enabled) is `false`, `build_guard_text` returns `None` and the render is a plain render with a byte-identical body. [`template`](Self::template) overrides the [`DEFAULT_GUARD_TEMPLATE`]; `None` ⇒ the default. **This is NOT a sanitizer (critique X1 / SEC-002).** Enabling the guard only produces a separate, advisory instruction string that *names* the untrusted/external fields. It never inspects, escapes, strips, or rewrites a bound value, and the rendered body is byte-identical whether the guard is on or off. The untrusted/external values still flow into the rendered `text` unchanged; the guard is a suggestion to the downstream model, never a runtime filter. ## Override-template contract The (default or override) template is expanded by a **plain string replacement** of the single `&#123;fields&#125;` placeholder with the comma-joined sorted union of untrusted/external field names (e.g. `q, ctx`). The substitution is **NOT** a MiniJinja render: the guard template is not a prompt template and MUST NOT re-enter the engine — that would open a recursive-injection path through caller-controlled template text. If an override omits `&#123;fields&#125;`, the text is used verbatim (no error).
+
+#### `enabled`
+
+```rust
+pub enabled: bool
+```
+
+When `false`, no guard field is produced and the render is a plain render.
+
+#### `template`
+
+```rust
+pub template: Option<String>
+```
+
+Caller override of the guard instruction text; `None` ⇒ [`DEFAULT_GUARD_TEMPLATE`].
+
+## CheckReport
+
+### `CheckReport`
+
+```rust
+pub struct CheckReport
+```
+
+The output of `Prompt::check()`: an ordered list of [`Finding`]s. Empty ⇒ pass. Carries **only** findings — no rendered text, no mutated state.
+
+#### `is_empty`
+
+```rust
+pub fn is_empty(&self) -> bool
+```
+
+Alias for [`passed`](Self::passed): `true` iff there are no findings.
+
+#### `passed`
+
+```rust
+pub fn passed(&self) -> bool
+```
+
+`true` iff there are no findings (the lint passed). Equivalent to `self.findings.is_empty()`; reads more clearly at a CI gate call site.
+
+#### `findings`
+
+```rust
+pub findings: Vec<Finding>
+```
+
+Every advisory finding, in deterministic order. Empty ⇒ pass.
+
+## Finding
+
+### `Finding`
+
+```rust
+pub struct Finding
+```
+
+One actionable lint finding: it names the prompt, the variant where applicable, the failure `kind`, and a human-readable `detail`.
+
+#### `detail`
+
+```rust
+pub detail: String
+```
+
+A human-readable, actionable description. Carries no bound-value content.
+
+#### `kind`
+
+```rust
+pub kind: FindingKind
+```
+
+The kind of failure (the discriminant a consumer matches on).
+
+#### `prompt`
+
+```rust
+pub prompt: String
+```
+
+The prompt's name.
+
+#### `variant`
+
+```rust
+pub variant: Option<String>
+```
+
+The variant the finding pertains to (`Some("default")` / `Some("<name>")` for an agreement or analysis finding); `None` for a prompt-level origin finding.
+
+### `FindingKind`
+
+```rust
+pub enum FindingKind
+```
+
+The closed set of lint-failure classes. `UntrustedWithoutGuard` is the only advisory class that `Prompt::check()` can surface. All other hard invariants (undeclared variables, analysis errors, reserved variant names) are enforced at construction and are structurally unreachable from a live `Prompt`.
+
+#### `UntrustedWithoutGuard`
+
+```rust
+UntrustedWithoutGuard { field: String }
+```
+
+The prompt declares `field` as `untrusted`/`external` but configures no guard for it (the origin advisory — FR-018; the `metadata.guard` convention, module docs). The only advisory class surfaced by `Prompt::check()`.
+
+## Composition
+
+### `Composition`
+
+```rust
+pub struct Composition
+```
+
+An explicit, ordered sequence of `(Prompt, vars, variant)` entries that resolves to a `Vec<Message>` in append order. Built with [`new`](Self::new) + [`append`](Self::append); there is no fluent `.chain()`. No `Registry` needed.
+
+#### `append`
+
+```rust
+pub fn append<V>(&mut self, prompt: &Prompt, vars: &V, variant: Option<&str>) -> Result<(), ConsumerError>
+where
+    V: Serialize + Validate,
+    <V as Validate>::Context: Default
+```
+
+Append one `(prompt, vars, variant)` entry, **validating + serializing `vars` eagerly** (option (a) — see module docs). `vars` is validated **once** via garde *now*; on success it is serialized to the kernel's value type ([`minijinja::Value::from_serialize`], FR-003a) and the entry is stored (alongside a clone of `prompt`). On failure the garde report is normalized to [`ConsumerError::Validation`] and **nothing is stored** — the composition is unchanged, so a later [`resolve`](Self::resolve) never sees a half-validated entry. Takes `&mut self` and returns `Result<(), ConsumerError>` (not `Self`): the builder is intentionally **not** fluent/chainable. `V::Context: Default` so the whole-struct [`Validate::validate`] convenience applies (one validation pass over the entry's entire input set). Context-carrying validation is intentionally out of v1 scope (scope discipline — TY-4 / one concrete path per concern). # Errors [`ConsumerError::Validation`] — garde rejected `vars`. The entry is not appended.
+
+#### `is_empty`
+
+```rust
+pub fn is_empty(&self) -> bool
+```
+
+`true` iff no entries have been appended.
+
+#### `len`
+
+```rust
+pub fn len(&self) -> usize
+```
+
+The number of appended entries (== the resolved-message count on success).
+
+#### `new`
+
+```rust
+pub fn new() -> Self
+```
+
+Create an empty composition. An empty composition resolves to `Ok(vec![])` (F7).
+
+#### `resolve`
+
+```rust
+pub fn resolve(&self) -> Result<Vec<Message>, ConsumerError>
+```
+
+Resolve the composition to an ordered `Vec<Message>`, rendering each entry — in append order — through the kernel. For each entry, in order: call [`prompting_press_core::render`] on the entry's `Prompt`'s definition with the entry's **pre-validated** value (vars were validated at [`append`](Self::append)). The render result becomes `Message &#123; role: <def.role stringified>, text: result.text &#125;`. Composition uses no guard expansion — a default [`GuardConfig`] is passed (guard text is never concatenated into `text`; spec 002). One entry's render failure (unknown variant, strict-undefined reference, parse/render error) propagates as the normalized [`ConsumerError`]; the partial result built so far is **discarded**, never returned as success (US4 scenario 3). An empty composition returns `Ok(vec![])` (F7). `resolve` does not mutate `self` (it takes `&self`); it reuses the kernel's render path rather than duplicating any rendering logic. # Errors [`ConsumerError::Kernel`] — the kernel rejected an entry's render (unknown variant, strict-undefined reference, parse/render failure). `Parse`/`Render` detail is scrubbed.
+
+## Message
+
+### `Message`
+
+```rust
+pub struct Message
+```
+
+One resolved message in a composition's output: a role-tagged rendered string (data-model §Message). `role` is the prompt definition's role stringified (`"system"` / `"user"` / `"assistant"`); `text` is that prompt rendered with the entry's own validated vars.
+
+#### `role`
+
+```rust
+pub role: String
+```
+
+The conversational role, taken from the prompt definition's `role`.
+
+#### `text`
+
+```rust
+pub text: String
+```
+
+The rendered body text for this entry.
+
+## Errors
+
+### `FieldError`
+
+```rust
+pub struct FieldError
+```
+
+One normalized failure row — the common structured shape shared across every binding (`[&#123;field, code, message&#125;]`). - `field`: the offending field / path (a garde dot-path, a variable name, `"variant"`, or `"template"`), or `""` when no single field applies. - `code`: a stable string from the [`code`] vocabulary. - `message`: a human-readable, **scrubbed** description safe to log.
+
+#### `code`
+
+```rust
+pub code: String
+```
+
+A stable code from the [`code`] vocabulary.
+
+#### `field`
+
+```rust
+pub field: String
+```
+
+The offending field or path; `""` when no single field applies.
+
+#### `message`
+
+```rust
+pub message: String
+```
+
+A human-readable, scrubbed message safe to log.
+
+### `ConsumerError`
+
+```rust
+pub enum ConsumerError
+```
+
+The single public error type for the consumer crate. Native error types ([`garde::Report`], [`prompting_press_core::KernelError`]) are mapped into this shape by the [`From`] impls in this module and never appear on a public signature. The enum is **closed** (no `#[non_exhaustive]`): the variant set is part of the compatibility surface.
+
+#### `Kernel`
+
+```rust
+Kernel(Vec<FieldError>)
+```
+
+The kernel rejected the render/source/analysis call. One [`FieldError`] per kernel failure, carrying the mapped code from the [`code`] vocabulary. `Render` detail is scrubbed; `Parse` detail is preserved (pre-binding template syntax).
+
+#### `Load`
+
+```rust
+Load(String)
+```
+
+Malformed input to the dual-input loader (bad YAML/JSON, or a deserialize error). Holds a short, loader-level description. Nothing is partially loaded.
+
+#### `Validation`
+
+```rust
+Validation(Vec<FieldError>)
+```
+
+Typed-Vars validation failed (garde). One [`FieldError`] per reported path, each carrying [`code::VALIDATION`].
+
+### `EXCLUDED_FEATURE`
+
+```rust
+pub const EXCLUDED_FEATURE: &str = "excluded_feature";
+```
+
+The template used an excluded feature ([`prompting_press_core::KernelError::ExcludedFeature`]).
+
+### `LOAD`
+
+```rust
+pub const LOAD: &str = "load";
+```
+
+Malformed YAML/JSON input, or a deserialize failure, in the dual-input loader.
+
+### `PARSE`
+
+```rust
+pub const PARSE: &str = "parse";
+```
+
+The template failed to parse ([`prompting_press_core::KernelError::Parse`]). The underlying detail is **scrubbed**.
+
+### `RENDER`
+
+```rust
+pub const RENDER: &str = "render";
+```
+
+A render-time failure other than an undefined variable ([`prompting_press_core::KernelError::Render`]). The underlying detail is **scrubbed**.
+
+### `UNDEFINED_VARIABLE`
+
+```rust
+pub const UNDEFINED_VARIABLE: &str = "undefined_variable";
+```
+
+A strict-undefined variable was hit at render time ([`prompting_press_core::KernelError::UndefinedVariable`]).
+
+### `UNKNOWN_VARIANT`
+
+```rust
+pub const UNKNOWN_VARIANT: &str = "unknown_variant";
+```
+
+The kernel was asked for a variant the definition does not declare ([`prompting_press_core::KernelError::UnknownVariant`]).
+
+### `VALIDATION`
+
+```rust
+pub const VALIDATION: &str = "validation";
+```
+
+A garde validation failure (the consumer synthesizes this; garde exposes no machine code — research D3). One row per reported path.
+
+## Shape types
+
+- [`PromptDefinition`](/reference/prompt-definition/) — see the Prompt definition shape.
+
+- [`PromptVariable`](/reference/prompt-definition/) — see the Prompt definition shape.
+
+- [`PromptVariant`](/reference/prompt-definition/) — see the Prompt definition shape.

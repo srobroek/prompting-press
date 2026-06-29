@@ -252,6 +252,7 @@ function decodeAddonError(thrown: unknown): PromptingPressError {
  * documented "cannot assert coverage" limitation.
  */
 export interface ZodLikeSchema<T = unknown> {
+	/** Validate `data` and return a tagged success/failure result without throwing. */
 	safeParse(data: unknown): ZodSafeParseResult<T>;
 	/**
 	 * Optional: `ZodObject.shape` — a record of field name → ZodType (Zod 4.4.3 API, research R2).
@@ -334,6 +335,17 @@ export interface RenderOptions {
 	variant?: string;
 	/** Opt-in guard config; absent / `{ enabled: false }` ⇒ a plain render (`RenderResult.guard === null`). */
 	guard?: GuardConfig | null;
+	/**
+	 * **Off by default.** When `true`, the full underlying render-error detail is surfaced in
+	 * the thrown {@link PromptRenderError}``.errors[0].message` instead of the fixed scrubbed
+	 * string (SEC-004 carve-out D3).
+	 *
+	 * **Risk:** enabling this may place **bound-value content** — untrusted input, PII, secrets —
+	 * into the thrown error and into any log line or stack trace derived from it. Use only in a
+	 * controlled debug context with a trusted log destination, and only after deliberately
+	 * accepting that exposure. Never set `true` by default or via ambient configuration.
+	 */
+	unsafeRevealRenderDetail?: boolean;
 }
 
 // --------------------------------------------------------------------------------------
@@ -395,6 +407,8 @@ declare const _CTOR_BRAND: unique symbol;
  * The internal construction token passed as the third argument to `new Prompt(...)` by the
  * static factories and `with()`. Its type uses a `unique symbol` brand so TypeScript rejects
  * any attempt to construct it outside this module.
+ *
+ * @internal
  */
 type InternalCtorArg = { readonly [_CTOR_BRAND]: true; handle: NapiPrompt };
 
@@ -460,6 +474,7 @@ export class Prompt {
 	constructor(
 		shape: PromptDefinition,
 		validators?: ValidatorMap,
+		/** @internal */
 		_internal?: InternalCtorArg,
 	) {
 		if (_internal !== undefined) {
@@ -666,6 +681,7 @@ export class Prompt {
 				value as Record<string, unknown>,
 				options?.variant ?? undefined,
 				options?.guard ?? undefined,
+				options?.unsafeRevealRenderDetail ?? false,
 			);
 		} catch (thrown) {
 			throw decodeAddonError(thrown);
@@ -765,9 +781,13 @@ export class Prompt {
  *  - `variant` — the selected variant arm (absent ⇒ the reserved `default`).
  */
 export interface CompositionEntry {
+	/** The `Prompt` object to render. */
 	prompt: Prompt;
+	/** Optional Zod-like schema. When present, `schema.safeParse(data)` runs at append time. */
 	schema?: ZodLikeSchema;
+	/** The vars value passed to the prompt renderer (validated against `schema` when present). */
 	data: unknown;
+	/** The selected variant arm. Absent means the reserved `default` variant. */
 	variant?: string;
 }
 
@@ -860,6 +880,7 @@ export class Composition {
 					entry.value as Record<string, unknown>,
 					entry.variant,
 					undefined, // composition uses no guard expansion
+					false, // composition never reveals render detail
 				);
 			} catch (thrown) {
 				throw decodeAddonError(thrown);

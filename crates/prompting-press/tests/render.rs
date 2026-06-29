@@ -60,7 +60,7 @@ fn valid_vars_render_with_provenance() {
     };
 
     let result = prompt
-        .render(&vars, None, &GuardConfig::default())
+        .render(&vars, None, &GuardConfig::default(), false)
         .expect("valid vars must render");
 
     assert_eq!(result.name, "greeting");
@@ -91,10 +91,10 @@ fn render_is_deterministic() {
     };
 
     let first = prompt
-        .render(&vars, None, &GuardConfig::default())
+        .render(&vars, None, &GuardConfig::default(), false)
         .expect("render 1");
     let second = prompt
-        .render(&vars, None, &GuardConfig::default())
+        .render(&vars, None, &GuardConfig::default(), false)
         .expect("render 2");
 
     assert_eq!(first.text, second.text, "text must be byte-identical");
@@ -113,7 +113,7 @@ fn guard_config_is_plumbed_through() {
     };
 
     let disabled = prompt
-        .render(&vars, None, &GuardConfig::default())
+        .render(&vars, None, &GuardConfig::default(), false)
         .expect("render disabled guard");
     assert!(
         disabled.guard.is_none(),
@@ -125,7 +125,7 @@ fn guard_config_is_plumbed_through() {
         template: None,
     };
     let enabled = prompt
-        .render(&vars, None, &enabled_cfg)
+        .render(&vars, None, &enabled_cfg, false)
         .expect("render enabled guard");
     assert!(
         enabled.guard.is_some(),
@@ -217,7 +217,7 @@ fn named_variant_render_selects_that_arm() {
         name: "Ada".to_string(),
     };
     let result = prompt
-        .render(&vars, Some("concise"), &GuardConfig::default())
+        .render(&vars, Some("concise"), &GuardConfig::default(), false)
         .expect("named variant must render");
 
     assert_eq!(result.name, "greet");
@@ -240,7 +240,7 @@ fn render_unknown_variant_is_kernel_error() {
         name: "Ada".to_string(),
     };
     let err = prompt
-        .render(&vars, Some("nope"), &GuardConfig::default())
+        .render(&vars, Some("nope"), &GuardConfig::default(), false)
         .expect_err("unknown variant must error");
     match err {
         ConsumerError::Kernel(rows) => {

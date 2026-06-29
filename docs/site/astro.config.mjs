@@ -2,13 +2,13 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 
-// GitHub Pages base path: the site is served from
-// https://<owner>.github.io/prompting-press/. `site` + `base` make internal
-// links + assets resolve under that subpath. Adjust `site` if a custom domain
-// is configured later.
+// GitHub Pages root site: the repo is named `prompting-press.github.io`, so it
+// is served at the org root https://prompting-press.github.io/ (no subpath).
+// `site` is the canonical origin; `base` is "/" because there is no project
+// subpath. Adjust `site` if a custom domain is configured later.
 export default defineConfig({
-  site: "https://srobroek.github.io",
-  base: "/prompting-press",
+  site: "https://prompting-press.github.io",
+  base: "/",
   integrations: [
     starlight({
       components: {
@@ -24,7 +24,7 @@ export default defineConfig({
         {
           icon: "github",
           label: "GitHub",
-          href: "https://github.com/srobroek/prompting-press",
+          href: "https://github.com/prompting-press/prompting-press.github.io",
         },
       ],
       sidebar: [

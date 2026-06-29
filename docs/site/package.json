@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "prebuild": "node scripts/gen-shape-table.mjs",
+    "prebuild": "node scripts/gen-shape-table.mjs && node scripts/gen-api-refs.mjs",
     "build": "astro build",
     "preview": "astro preview",
     "check-stale-surface": "node scripts/check-stale-surface.mjs"
@@ -17,5 +17,8 @@
   "dependencies": {
     "astro": "7.0.3",
     "@astrojs/starlight": "0.41.1"
+  },
+  "devDependencies": {
+    "typedoc": "0.28.19"
   }
 }

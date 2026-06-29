@@ -94,11 +94,11 @@ p.variants["terse"].metadata;  // => { weight: 0.2, group: "experiment-q4" }
 content hashes (`template_hash` / `render_hash`). A `model_hint` does not pick a model; a variant
 `weight` does not pick a variant — those are decisions the application makes after reading the
 values back. (Variant *selection* itself is caller-owned — see
-[Variants](/prompting-press/guides/variants/).)
+[Variants](/guides/variants/).)
 </Aside>
 
 ## Updating metadata on a derived prompt
 
 `metadata` is overlayable like any other top-level field — `derive` replaces the whole map
 (shallow), so read-then-spread to add a key without dropping the rest. See
-[Deriving a prompt](/prompting-press/guides/derive/).
+[Deriving a prompt](/guides/derive/).

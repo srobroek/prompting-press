@@ -15,14 +15,14 @@ empty render.
 
 ## Documentation
 
-**[Full docs site →](https://srobroek.github.io/prompting-press/)**
+**[Full docs site →](https://prompting-press.github.io/)**
 
 The docs site covers:
-- [Getting started](https://srobroek.github.io/prompting-press/getting-started/rust/) (Rust / Python / TypeScript)
-- [API reference](https://srobroek.github.io/prompting-press/reference/rust/) per language
-- [Template features](https://srobroek.github.io/prompting-press/templates/) (what MiniJinja features are supported)
-- [How-to guides](https://srobroek.github.io/prompting-press/guides/lint-in-ci/) (CI lint, variants, composition, guard)
-- [FAQ](https://srobroek.github.io/prompting-press/faq/)
+- [Getting started](https://prompting-press.github.io/getting-started/rust/) (Rust / Python / TypeScript)
+- [API reference](https://prompting-press.github.io/reference/rust/) per language
+- [Template features](https://prompting-press.github.io/templates/) (what MiniJinja features are supported)
+- [How-to guides](https://prompting-press.github.io/guides/lint-in-ci/) (CI lint, variants, composition, guard)
+- [FAQ](https://prompting-press.github.io/faq/)
 
 ## Quick start
 

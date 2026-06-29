@@ -1,0 +1,76 @@
+version: 2
+updates:
+  # Rust workspace (root Cargo.toml)
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      minor-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - dependencies
+
+  # TypeScript binding (packages/typescript)
+  - package-ecosystem: npm
+    directory: /packages/typescript
+    schedule:
+      interval: weekly
+    groups:
+      minor-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - dependencies
+
+  # Docs site (docs/site — Astro/Starlight)
+  - package-ecosystem: npm
+    directory: /docs/site
+    schedule:
+      interval: weekly
+    groups:
+      minor-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - dependencies
+
+  # Python binding (packages/python)
+  - package-ecosystem: pip
+    directory: /packages/python
+    schedule:
+      interval: weekly
+    groups:
+      minor-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - dependencies
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      minor-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - dependencies

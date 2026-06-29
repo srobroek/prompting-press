@@ -17,7 +17,7 @@
 //! - Storing a bound Pydantic model class (or `None`) for `render`.
 //! - Marshaling validated Pydantic vars → [`to_kernel_value`] (reusing the same bridge
 //!   the old `render.rs` uses).
-//! - Wrapping errors via [`consumer_error_to_pyerr`] / [`kernel_error_to_pyerr`]
+//! - Wrapping errors via [`consumer_error_to_pyerr`] (SEC-004 scrub preserved throughout).
 //!   (SEC-004 scrub preserved throughout).
 //!
 //! ## validators kwarg — a single Pydantic model CLASS (not a map)
@@ -50,7 +50,7 @@ use prompting_press::{ConsumerError, FieldError as ConsumerFieldError};
 use prompting_press_core::GuardConfig as KernelGuardConfig;
 
 use crate::check::CheckReport;
-use crate::error::{consumer_error_to_pyerr, kernel_error_to_pyerr};
+use crate::error::consumer_error_to_pyerr;
 use crate::marshal::to_kernel_value;
 use crate::render::{validate_in_python, GuardConfig, RenderResult};
 
@@ -289,7 +289,8 @@ impl Prompt {
     /// signature, adapted for the object surface (C-11 keyword-only tail):
     ///
     /// ```python
-    /// p.render(model, *, data=None, variant=None, guard=None)
+    /// p.render(model, *, data=None, variant=None, guard=None,
+    ///          unsafe_reveal_render_detail=False)
     /// ```
     ///
     /// - When `data` is provided, `model` is treated as a Pydantic model **class** and
@@ -309,14 +310,27 @@ impl Prompt {
     /// `variant = None` selects the default (root body) arm. `guard` is the opt-in
     /// [`GuardConfig`] plumbed straight through to the kernel (FR-009).
     ///
+    /// ## `unsafe_reveal_render_detail` — off-by-default render-error detail opt-in
+    ///
+    /// Default `False`. When `True`, the full underlying render-error detail is surfaced in
+    /// the raised [`PromptRenderError`](crate::error::PromptRenderError)``.errors[0].message`
+    /// instead of the fixed scrubbed string.
+    ///
+    /// **Risk:** enabling this may place **bound-value content** — untrusted input, PII,
+    /// secrets — into the raised exception and into any log line or traceback derived from
+    /// it. Use only in a controlled debug context with a trusted log destination and only
+    /// after deliberately accepting that exposure. Never set `True` by default or via
+    /// ambient configuration (SEC-004 carve-out D3).
+    ///
     /// # Errors
     ///
     /// - [`PromptValidationError`](crate::error::PromptValidationError) — Pydantic rejected
     ///   the vars. Raised **before** any templating (FR-002).
     /// - [`PromptRenderError`](crate::error::PromptRenderError) — the kernel rejected the
-    ///   render (unknown variant, strict-undefined reference, parse/render failure). Detail
-    ///   scrubbed (SEC-004).
-    #[pyo3(signature = (model = None, *, data = None, variant = None, guard = None))]
+    ///   render (unknown variant, strict-undefined reference, parse/render failure). `Render`
+    ///   detail scrubbed unless `unsafe_reveal_render_detail=True` (SEC-004 / decision D3).
+    ///   `Parse` detail always preserved (decision D2).
+    #[pyo3(signature = (model = None, *, data = None, variant = None, guard = None, unsafe_reveal_render_detail = false))]
     fn render(
         &self,
         py: Python<'_>,
@@ -324,6 +338,7 @@ impl Prompt {
         data: Option<&Bound<'_, PyAny>>,
         variant: Option<&str>,
         guard: Option<&GuardConfig>,
+        unsafe_reveal_render_detail: bool,
     ) -> PyResult<RenderResult> {
         // Resolve the effective (model, data) pair:
         //  - explicit model given: use it directly (same dual path as the module-level render).
@@ -369,9 +384,19 @@ impl Prompt {
         // Plumb the guard config and call the kernel DIRECTLY (critique E1 / C-01).
         let guard_cfg = guard.map_or_else(KernelGuardConfig::default, KernelGuardConfig::from);
 
+        // Normalize the KernelError through the consumer seam with the per-call opt-in,
+        // then map the resulting ConsumerError to a Python exception. When
+        // unsafe_reveal_render_detail=false (the default) this is byte-for-byte
+        // identical to the previous kernel_error_to_pyerr path (SEC-004 unchanged).
         prompting_press_core::render(self.inner.definition(), variant, values, &guard_cfg)
             .map(RenderResult::from)
-            .map_err(|e| kernel_error_to_pyerr(py, e))
+            .map_err(|e| {
+                let consumer = prompting_press::ConsumerError::from_kernel_revealing(
+                    e,
+                    unsafe_reveal_render_detail,
+                );
+                consumer_error_to_pyerr(py, consumer)
+            })
     }
 
     /// Return a variant's **unrendered** template source.

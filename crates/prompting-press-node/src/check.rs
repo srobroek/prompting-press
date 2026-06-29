@@ -35,7 +35,7 @@ use prompting_press::FindingKind;
 /// The output of [`check`]: an ordered, read-only list of [`Finding`]s. Empty ⇒ the lint passed.
 ///
 /// The Node mirror of the consumer's [`prompting_press::CheckReport`] (data-model §CheckReport;
-/// FR-020). Surfaced **1:1** — the binding adds nothing and interprets nothing. A `#[napi]` class
+/// FR-020). Surfaced **1:1** — the binding adds nothing and interprets nothing. Read-only class
 /// with read-only accessors; a report is produced by [`check`], never constructed from JS.
 #[napi]
 pub struct CheckReport {
@@ -90,7 +90,7 @@ impl CheckReport {
 /// `variant` where applicable (`null` for a prompt-level provenance finding), the failure `kind`
 /// (a stable snake_case discriminant string — see the module docs), and a human-readable `detail`.
 /// The `detail` carries no bound-value content (SEC-004 — it is built by the consumer from names
-/// only). A `#[napi(object)]` so a `Finding` crosses as a plain JS object with all four fields
+/// only). Surfaced as a plain JS object with all four fields
 /// (the natural shape for the `findings` array the TS facade iterates / matches on).
 #[derive(Clone)]
 #[napi(object)]
