@@ -32,4 +32,13 @@ jq = "1.8.1"
 # the wheel build (spec 004/007) will resolve it via uv/build-system at that time.
 # Neither tool needs a pipx pin here; removing both eliminates the H-2 redundant/unverified mechanism.
 
+# --- Docs extraction toolchain (spec 011) ---
+# A SECOND, SEPARATE nightly toolchain used ONLY by docs/site/scripts/extract-rust-api.mjs
+# for `rustdoc -Z unstable-options --output-format json`. It does NOT replace the stable
+# 1.95.0 pin above; the extractor calls it explicitly via `cargo +nightly-2026-05-15`.
+# Pinned in rust-toolchain-nightly.toml; recorded here so `mise install` provisions it.
+# DELIBERATE-UPGRADE: bump only after verifying the new date + format_version per
+# rust-toolchain-nightly.toml's upgrade contract.
+# rust-nightly = "nightly-2026-05-15"   # uncomment if mise gains rustup-channel support
+
 [tasks]

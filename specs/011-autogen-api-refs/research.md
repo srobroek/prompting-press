@@ -9,7 +9,7 @@ registry checks; the nightly date is pinned at implementation time (see R1).
 |------|---------|-------|----------|
 | TypeDoc | `0.28.19` | dev (docs) | TypeScript extraction → JSON (`--json`) |
 | griffe | `2.1.0` | dev (docs, via uv) | Python extraction → structured object model |
-| Rust nightly toolchain | `nightly-<PINNED-DATE>` (set at impl; e.g. `nightly-2026-06-15`) | dev (docs) | `rustdoc -Z unstable-options --output-format json` |
+| Rust nightly toolchain | `nightly-2026-05-15` (rustc 1.97.0-nightly; rustdoc-JSON `format_version` 57) | dev (docs) | `rustdoc -Z unstable-options --output-format json` |
 | (existing) Node | `25.3.0` | dev | runs the renderer + TypeDoc |
 | (existing) uv | `0.11.8` | dev | runs griffe hermetically |
 
@@ -19,12 +19,29 @@ out of the bindings' published manifests).
 
 ## R1 — Rust extraction: pinned nightly rustdoc JSON (the second-toolchain wrinkle)
 
-- **Decision**: Extract Rust API docs via `cargo +nightly-<PINNED-DATE> rustdoc -p prompting-press -- -Z unstable-options --output-format json`, reading the emitted `target/doc/prompting_press.json`.
+- **Decision**: Extract Rust API docs via `cargo +nightly-2026-05-15 rustdoc -p prompting-press -- -Z unstable-options --output-format json`, reading the emitted `target/doc/prompting_press.json`. Pinned date verified 2026-06-29; rustdoc-JSON `format_version` = **57**.
 - **Rationale**: rustdoc JSON gives resolved signatures, doc-comment text (already markdown), visibility, and item kinds as structured data — exactly the IR the renderer needs. Clarify chose this over a stable syn-based parser (which loses resolution and needs custom parity work).
 - **The wrinkle (load-bearing)**: the repo pins ONE **stable** toolchain (`1.95.0`) in lockstep across `rust-toolchain.toml` + `mise.toml` + `Cargo.toml`, specifically so `rustfmt` is byte-stable for the `schemas:codegen-check` determinism gate. rustdoc JSON is nightly-only, so this feature adds a **second, separate** pinned nightly toolchain used **only** for extraction. It does NOT replace or alter the stable pin; the codegen gate keeps running on stable 1.95.0.
 - **How pinned**: a dedicated `rust-toolchain-nightly.toml` (or a `mise.toml` second-toolchain entry) names the exact `nightly-YYYY-MM-DD`. The extractor invokes that toolchain explicitly (`cargo +nightly-YYYY-MM-DD …`), never a floating `+nightly`. A nightly bump is a deliberate, reviewed change (the rustdoc-JSON `format_version` can change between nightlies — see R5).
 - **CI reachability**: nightly is installed by `mise`/`rustup` on the CI runner that runs the docs gate; build-time only, so it never ships. Confirmed feasible (same mechanism that installs the stable toolchain).
 - **Alternatives considered**: stable syn-based extraction (rejected — clarify); `cargo doc` HTML scraping (rejected — fragile, unstructured).
+
+## R1b — griffe invocation pattern (T002, pinned)
+
+Phase 2's `extract-python-api.py` MUST be invoked via this exact command so griffe never
+touches the runtime deps of `packages/python`:
+
+```sh
+uv run --with griffe==2.1.0 python3 docs/site/scripts/extract-python-api.py \
+  --package packages/python/python/prompting_press \
+  --out <path-to-ir.json>
+```
+
+- `griffe==2.1.0` is the exact pin; do not use a range or omit the version.
+- `uv run --with` installs griffe into an isolated ephemeral environment; it does NOT
+  modify `packages/python/pyproject.toml` or any published manifest.
+- Verified 2026-06-29: `uv run --with griffe==2.1.0 python3 -c "import griffe; griffe.load('os')"` succeeds.
+- The `gen-api-refs.mjs` orchestrator spawns this command via `child_process.execFile` or `spawn`.
 
 ## R2 — TypeScript extraction: TypeDoc JSON
 

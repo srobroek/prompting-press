@@ -17,5 +17,8 @@
   "dependencies": {
     "astro": "7.0.3",
     "@astrojs/starlight": "0.41.1"
+  },
+  "devDependencies": {
+    "typedoc": "0.28.19"
   }
 }
