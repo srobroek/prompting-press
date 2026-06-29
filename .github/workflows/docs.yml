@@ -12,14 +12,17 @@ on:
       - "docs/site/**"
       - "schemas/jsonschema/prompt-definition.schema.json"
       - ".github/workflows/docs.yml"
+  # Manual trigger: rebuild + republish the docs site on demand (e.g. to bootstrap
+  # the docs repo, or to pick up a code change that didn't touch docs/site paths).
+  workflow_dispatch:
 
-# Serialize per ref, not globally: a single shared `pages` group made concurrent
-# PRs cancel each other's build (both touch docs/site/**). Scope the group by ref
-# so each PR/branch builds independently; only repeated pushes to the SAME ref
-# cancel their own in-progress run. The real GitHub Pages environment still
-# serializes actual deploys regardless.
+# Serialize per ref, not globally: a single shared group would make concurrent
+# PRs cancel each other's build (both touch docs/site/**). Scope by ref so each
+# PR/branch builds independently; only repeated pushes to the SAME ref cancel
+# their own in-progress run. This also prevents two main pushes from racing the
+# cross-repo publish (the deploy job force-replaces the docs repo's content).
 concurrency:
-  group: pages-${{ github.ref }}
+  group: docs-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -70,24 +73,76 @@ jobs:
       - name: Build
         run: mise exec -- pnpm -C docs/site build
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3.0.1
+      # Hand the built site to the deploy job. On PRs the deploy job is skipped,
+      # so this is just a build-success check; on main it carries dist/ forward.
+      - name: Upload built site artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
+          name: docs-dist
           path: docs/site/dist
+          retention-days: 1
+          if-no-files-found: error
 
+  # ---------------------------------------------------------------------------
+  # deploy — SPLIT TOPOLOGY: this code repo (prompting-press) builds the docs;
+  # the rendered site is PUBLISHED from the sibling `prompting-press.github.io`
+  # repo, which owns the org root site (https://prompting-press.github.io/).
+  #
+  # `actions/deploy-pages` can only deploy to its OWN repo's Pages, so a cross-repo
+  # publish is a git push of the built `dist/` to that repo's `main`, which serves
+  # it via branch-based Pages. Auth: the `DOCS_DEPLOY_KEY` secret (an SSH deploy
+  # key with write access registered on the docs repo) — no PAT, no expiry.
+  #
+  # The docs site is generated FROM this repo's source (Astro + spec-011 API-ref
+  # extractors over the Rust/TS/Python crates), so the build MUST live here; only
+  # the rendered artifact crosses over.
+  # ---------------------------------------------------------------------------
   deploy:
-    name: Deploy to GitHub Pages
-    # Deploy only on push to main, not on pull requests.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    name: Publish to docs site (prompting-press.github.io)
+    # Publish only on a push to main or a manual dispatch — never on PRs.
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      || github.event_name == 'workflow_dispatch'
     needs: build
     runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4.0.5
+      - name: Download built site artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        with:
+          name: docs-dist
+          path: dist
+
+      - name: Publish dist/ to prompting-press.github.io
+        env:
+          DOCS_DEPLOY_KEY: ${{ secrets.DOCS_DEPLOY_KEY }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          # --- SSH setup (write deploy key for the docs repo) ---
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DOCS_DEPLOY_KEY" > ~/.ssh/docs_deploy
+          chmod 600 ~/.ssh/docs_deploy
+          ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/docs_deploy -o IdentitiesOnly=yes"
+
+          # --- Clone the docs repo (shallow; we replace its entire content) ---
+          git clone --depth 1 git@github.com:prompting-press/prompting-press.github.io.git out
+
+          # --- Replace published content with the freshly built dist/ ---
+          # Wipe everything tracked except .git, then copy the new build in.
+          find out -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+          cp -a dist/. out/
+          # Disable Jekyll so directories like /_astro/ are served verbatim.
+          touch out/.nojekyll
+
+          cd out
+          git config user.name  "prompting-press-docs[bot]"
+          git config user.email "docs-deploy@prompting-press.github.io"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No documentation changes to publish."
+            exit 0
+          fi
+          git commit -m "docs: publish site from prompting-press@${SOURCE_SHA}"
+          git push origin HEAD:main
