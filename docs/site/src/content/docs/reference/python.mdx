@@ -83,7 +83,13 @@ prompt.metadata      # dict
 ### `render`
 
 ```python
-prompt.render(model=None, *, data=None, variant=None, guard=None) -> RenderResult
+prompt.render(
+    model=None, *,
+    data=None,
+    variant=None,
+    guard=None,
+    unsafe_reveal_render_detail: bool = False,
+) -> RenderResult
 ```
 
 Validate-then-render. All keyword arguments after `model` are keyword-only.
@@ -99,6 +105,35 @@ Two call forms:
 **Raises:**
 - `PromptValidationError` — Pydantic rejected the vars (before any templating).
 - `PromptRenderError` — kernel error (unknown variant, undefined variable, parse/render failure).
+  `Render` detail scrubbed by default; see [Render-error detail opt-in](#render-error-detail-opt-in-1).
+
+#### Render-error detail opt-in
+
+By default the library scrubs `KernelError::Render` detail from the raised `PromptRenderError`
+(SEC-004): `errors[0].message` is always `"render error"`. Pass `unsafe_reveal_render_detail=True`
+to receive the full underlying detail instead.
+
+:::caution[Risk — bound-value exposure]
+Enabling this may place **bound-value content** — untrusted input, PII, secrets — into the raised
+exception and into any log line or traceback derived from it. Use only in a controlled debug context
+where you own the log destination and deliberately accept that exposure. Never set `True` by default,
+never via ambient/global configuration (decision D3).
+:::
+
+```python
+# Default (safe for production): render detail is always scrubbed.
+result = prompt.render(Vars, data=data)
+
+# Opt-in (debug only): full render-error detail in the raised exception.
+try:
+    result = prompt.render(Vars, data=data, unsafe_reveal_render_detail=True)
+except PromptRenderError as e:
+    print(e.errors[0].message)  # contains the full engine detail
+```
+
+The flag affects **only** the `Render` error case. `Parse` detail is always preserved (decision D2).
+A successful render is byte-identical (`text`, `template_hash`, `render_hash`) whether the flag is
+`True` or `False`.
 
 ### `get_source`
 

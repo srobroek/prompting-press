@@ -79,6 +79,7 @@ pub fn render<V>(
     vars: &V,
     variant: Option<&str>,
     guard: &GuardConfig,
+    reveal_render_detail: bool,
 ) -> Result<RenderResult, ConsumerError>
 where
     V: Serialize + Validate,
@@ -91,10 +92,39 @@ Validates `vars` via garde, then delegates to the kernel. Steps:
 3. `prompting_press_core::render(...)` — kernel renders and computes the content hashes.
 
 `variant = None` selects the default (root body) arm. `guard = &GuardConfig::default()` opts out.
+Pass `reveal_render_detail: false` in all production call sites (the safe default).
 
 **Errors:**
 - `ConsumerError::Validation` — garde rejected `vars`.
 - `ConsumerError::Kernel` — unknown variant, strict-undefined variable, parse/render failure.
+  `Render` detail scrubbed by default; see [Render-error detail opt-in](#render-error-detail-opt-in).
+
+#### Render-error detail opt-in
+
+By default the library scrubs `KernelError::Render` detail from the returned `ConsumerError` (SEC-004):
+the message is always the fixed string `"render error"`, never the raw engine output. Pass
+`reveal_render_detail: true` to receive the full underlying detail instead.
+
+:::caution[Risk — bound-value exposure]
+Enabling this may place **bound-value content** — untrusted input, PII, secrets — into the
+returned `ConsumerError` message and into any log line or stack trace derived from it. Use
+only in a controlled debug context where you own the log destination and deliberately accept
+that exposure. Never set `true` by default, never via ambient/global configuration (decision D3).
+:::
+
+```rust
+// Default (safe for production): render detail is always scrubbed.
+let result = prompt.render(&vars, None, &GuardConfig::default(), false);
+
+// Opt-in (debug only): full render-error detail surfaced in the returned error.
+let result = prompt.render(&vars, None, &GuardConfig::default(), true);
+// On error: ConsumerError::Kernel[0].message contains the engine detail.
+```
+
+The flag affects **only** `KernelError::Render`. `Parse` detail is always preserved (decision D2),
+and `ExcludedFeature` / `UnknownVariant` / `UndefinedVariable` are unchanged regardless of the flag.
+A successful render is byte-identical (`text`, `template_hash`, `render_hash`) whether the flag is
+`true` or `false`.
 
 ### `get_source`
 

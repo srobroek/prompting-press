@@ -103,6 +103,12 @@ render(data: unknown, opts?: RenderOptions | null): RenderResult
 interface RenderOptions {
   variant?: string;
   guard?: GuardConfig | null;
+  /**
+   * Off by default. When true, the full render-error detail is surfaced in the thrown
+   * PromptRenderError.errors[0].message instead of the fixed scrubbed string.
+   * See Render-error detail opt-in below.
+   */
+  unsafeRevealRenderDetail?: boolean;
 }
 ```
 
@@ -110,6 +116,38 @@ interface RenderOptions {
 
 **Throws:** `PromptValidationError` — Zod validation failed (before any templating).
 `PromptRenderError` — kernel error (unknown variant, undefined variable, parse/render failure).
+`Render` detail scrubbed by default; see [Render-error detail opt-in](#render-error-detail-opt-in-2).
+
+#### Render-error detail opt-in
+
+By default the library scrubs `KernelError::Render` detail from the thrown `PromptRenderError`
+(SEC-004): `errors[0].message` is always `"render error"`. Set `unsafeRevealRenderDetail: true`
+in `RenderOptions` to receive the full underlying detail instead.
+
+:::caution[Risk — bound-value exposure]
+Enabling this may place **bound-value content** — untrusted input, PII, secrets — into the thrown
+error and into any log line or stack trace derived from it. Use only in a controlled debug context
+where you own the log destination and deliberately accept that exposure. Never set `true` by default,
+never via ambient/global configuration (decision D3).
+:::
+
+```ts
+// Default (safe for production): render detail is always scrubbed.
+const result = p.render(Vars, data);
+
+// Opt-in (debug only): full render-error detail in the thrown error.
+try {
+  const result = p.render(Vars, data, { unsafeRevealRenderDetail: true });
+} catch (e) {
+  if (e instanceof PromptRenderError) {
+    console.log(e.errors[0].message); // contains the full engine detail
+  }
+}
+```
+
+The flag affects **only** the `Render` error case. `Parse` detail is always preserved (decision D2).
+A successful render is byte-identical (`text`, `templateHash`, `renderHash`) whether the flag is
+`true` or `false`.
 
 ### `getSource`
 
@@ -221,7 +259,8 @@ PromptingPressError          // base
 interface FieldError {
   readonly field:   string;  // offending field / path; "" when not field-specific
   readonly code:    string;  // stable code (see table above)
-  readonly message: string;  // human-readable; render detail scrubbed (no bound values);
+  readonly message: string;  // human-readable; render detail scrubbed by default (SEC-004);
+                             // use unsafeRevealRenderDetail to receive full detail (decision D3);
                              // parse detail preserved (template-syntax context, pre-binding)
 }
 ```
