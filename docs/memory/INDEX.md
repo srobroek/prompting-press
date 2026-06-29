@@ -18,6 +18,7 @@ _(none yet)_
 ## Decisions
 
 - [D1 — Cross-binding type parity via canonical serialized form](decisions/2026-06-28-canonical-serialized-form-marshaling.md) — date/decimal pinned by serialized string, not native objects (which recanonicalize: Pydantic `Z`/`1E-17`, JS `Date` `.000Z`). (spec 006)
+- [D2 — Parse detail preserved, Render detail scrubbed](decisions/2026-06-29-parse-detail-preserved-render-scrubbed.md) — SEC-004 refinement: parse errors are pre-binding template syntax (safe to surface); only render errors can carry bound values (scrubbed). (spec 008/010 follow-up)
 
 _The load-bearing design decisions C-01…C-09 still live as constitution principles in
 `.specify/memory/roadmap.md` and `docs/research/feature-scope.md`; migrate technical implementation

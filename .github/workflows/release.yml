@@ -6,11 +6,8 @@
 # components move to the SAME version on every release.
 #
 # Action pin:
-#   googleapis/release-please-action@v5
-#   SHA: 45996ed1f6d02564a971a2fa1b5860e934307cf7  (tag v5.0.0, 2026-04-22)
-#   PIN ME: replace the @v5 tag below with @<SHA> once you confirm the SHA
-#   against https://github.com/googleapis/release-please-action/releases/tag/v5.0.0
-#   and update this comment accordingly.
+#   googleapis/release-please-action pinned to 45996ed1f6d02564a971a2fa1b5860e934307cf7
+#   (tag v5.0.0, published 2026-04-22 — verified against the repo's git ref).
 #
 # Publishing: intentionally disabled. See the `publish` job below.
 
@@ -42,9 +39,7 @@ jobs:
     steps:
       - name: Run release-please
         id: release
-        # PIN ME: swap @v5 for @45996ed1f6d02564a971a2fa1b5860e934307cf7 once
-        # you have verified the SHA matches tag v5.0.0 in the repo.
-        uses: googleapis/release-please-action@v5
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7  # v5.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
