@@ -24,7 +24,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
-import { Registry, render } from "prompting-press";
+import { Prompt } from "prompting-press";
 
 // --------------------------------------------------------------------------------------
 // Repo-root discovery — walk up from this file's dir until a `conformance/` dir is found, so the
@@ -142,14 +142,15 @@ for (const file of fixtureFiles) {
   const { case: caseName, definition, variant, input, expected } = fixture;
 
   test(`marshaling/${caseName}: TS render reproduces the Rust golden byte-for-byte`, () => {
-    const reg = new Registry();
-    reg.loadJson(JSON.stringify(definition));
+    // Build a Prompt from the fixture's definition, then render with the static (no-Zod) path.
+    // Uses Prompt.fromJson (consistent with the old Registry.loadJson path — same consumer loader).
+    const p = Prompt.fromJson(JSON.stringify(definition));
 
     const vars = buildVars(input);
     const opts = variant === null ? undefined : { variant };
 
     // Static (no-Zod) render path — the corpus carries no per-fixture schema (Q4 form).
-    const result = render(reg, definition.name, vars, opts);
+    const result = p.render(vars, opts);
 
     assert.equal(
       result.text,

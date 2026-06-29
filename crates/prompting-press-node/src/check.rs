@@ -80,6 +80,15 @@ impl From<prompting_press::CheckReport> for CheckReport {
     }
 }
 
+impl CheckReport {
+    /// Crate-internal constructor used by sibling modules (e.g. `prompt::NapiPrompt::check_prompt`)
+    /// that build a `CheckReport` from an already-converted `Vec<Finding>`. The `findings` field
+    /// is private to prevent JS construction; this is the one safe crate-internal path.
+    pub(crate) fn from_findings(findings: Vec<Finding>) -> Self {
+        Self { findings }
+    }
+}
+
 /// One actionable lint finding, read-only from JS (FR-020).
 ///
 /// The Node mirror of the consumer's [`prompting_press::Finding`]. It names the `prompt`, the
@@ -130,82 +139,86 @@ fn kind_discriminant(kind: &FindingKind) -> &'static str {
     }
 }
 
-/// Run the agreement + provenance lint over `reg` (FR-016..020) and surface the report to JS.
+/// Run the advisory origin/guard lint over each definition in `reg`.
 ///
-/// **Pure** (FR-019): never mutates the registry, never renders, no side effects. Marshals to the
-/// Rust consumer's [`prompting_press::check`] (C-01 — the binding re-derives nothing) and returns
-/// its [`CheckReport`] converted to the napi class, preserving the consumer's deterministic finding
-/// order.
+/// **Not a `#[napi]` function** (SC-001 / T046): the registry-keyed `check(reg)` is gone from
+/// the public JS surface. Kept as a plain Rust function for `#[cfg(test)]` coverage only.
 ///
-/// An empty registry yields an empty report (`report.passed() === true`).
-#[napi]
+/// The public check path is `NapiPrompt::check_prompt` (see `prompt.rs`).
 #[must_use]
 pub fn check(reg: &Registry) -> CheckReport {
-    prompting_press::check(reg.inner()).into()
+    // Iterate in deterministic order; for each definition build a temporary Prompt handle
+    // and run the advisory check. The only live finding for a constructed Prompt is
+    // UntrustedWithoutGuard (construction enforces agreement/parse/reserved-name).
+    let mut findings: Vec<Finding> = Vec::new();
+    for (_, def) in reg.definitions() {
+        // Safety: the definition was already validated when it was loaded into the registry
+        // (via Prompt::from_yaml/from_json/from_json-via-insert), so this from_json call
+        // on a re-serialized def is infallible in practice. On the impossible error, skip.
+        let json = match serde_json::to_string(def) {
+            Ok(j) => j,
+            Err(_) => continue,
+        };
+        if let Ok(prompt) = prompting_press::Prompt::from_json(&json) {
+            let report = prompt.check();
+            findings.extend(report.findings.into_iter().map(Finding::from));
+        }
+    }
+    CheckReport { findings }
 }
 
 #[cfg(test)]
 mod tests {
     //! Lint coverage drivable in Rust WITHOUT the TS facade.
     //!
-    //! The binding only marshals to the consumer's `check`, whose per-class lint behavior (every
-    //! `FindingKind`, the reserved-`default` handling, the provenance convention) is exhaustively
-    //! tested in the consumer crate. Here we prove the *binding wiring*: a registry with a known
-    //! defect surfaces a `Finding` with the expected discriminant string + prompt name, and a clean
-    //! registry passes. The JS-driven proof (matching on `finding.kind` from TS) lives in the T018
-    //! suite.
+    //! Post-reshape, agreement / parse / reserved-name violations are enforced at construction
+    //! (Prompt::new), so `check(reg)` surfaces only the advisory `UntrustedWithoutGuard` finding
+    //! for prompts that declare untrusted/external variables without a configured guard. The
+    //! registry-level `check` iterates entries and calls `Prompt::check()` per entry.
 
     use super::*;
     use prompting_press::PromptDefinition;
 
-    /// Build a `PromptDefinition` from JSON (the idiomatic in-test construction — the generated
-    /// newtypes validate, so a struct literal is awkward; mirrors the render-test helper).
     fn def_from_json(json: &str) -> PromptDefinition {
         serde_json::from_str(json).expect("valid prompt definition")
     }
 
-    /// A prompt whose template references a variable it never declares surfaces one
-    /// `undeclared_variable` finding naming that prompt — the headline agreement defect, marshaled
-    /// through the binding and exposed with the stable discriminant string JS matches on.
+    /// A prompt declaring an `untrusted` variable without a guard configured surfaces one
+    /// `untrusted_without_guard` finding — the only LIVE finding class for a constructed Prompt.
     #[test]
-    fn undeclared_variable_surfaces_with_discriminant_string() {
-        // `body` references `{{ name }}` but declares no `variables` ⇒ undeclared.
-        let def = def_from_json(r#"{ "name": "greet", "role": "user", "body": "Hi {{ name }}" }"#);
+    fn untrusted_without_guard_surfaces_with_discriminant_string() {
+        let def = def_from_json(
+            r#"{
+                "name": "ask",
+                "role": "user",
+                "body": "{{ topic }}",
+                "variables": { "topic": { "type": "string", "origin": "untrusted" } }
+            }"#,
+        );
         let reg = Registry::from_defs_for_test([def]);
 
         let report = check(&reg);
         assert!(
             !report.passed(),
-            "an undeclared template variable must fail the lint"
+            "unguarded untrusted var must fail the lint"
         );
 
-        let undeclared: Vec<&Finding> = report
+        let advisory: Vec<&Finding> = report
             .findings
             .iter()
-            .filter(|f| f.kind == "undeclared_variable")
+            .filter(|f| f.kind == "untrusted_without_guard")
             .collect();
-        assert_eq!(
-            undeclared.len(),
-            1,
-            "exactly one undeclared-variable finding"
-        );
-        let f = undeclared[0];
-        assert_eq!(f.prompt, "greet", "the finding names the offending prompt");
-        assert_eq!(
-            f.variant.as_deref(),
-            Some("default"),
-            "the agreement finding pins the default (root-body) arm"
-        );
+        assert_eq!(advisory.len(), 1, "exactly one advisory finding");
+        let f = advisory[0];
+        assert_eq!(f.prompt, "ask", "the finding names the offending prompt");
         assert!(
-            f.detail.contains("name"),
-            "the detail echoes the undeclared root, got {:?}",
+            f.detail.contains("topic"),
+            "the detail echoes the untrusted field, got {:?}",
             f.detail
         );
     }
 
-    /// A clean registry — a prompt whose template references only declared variables, with no
-    /// untrusted/external inputs — passes the lint: an empty report, `passed()` true, `isEmpty()`
-    /// true.
+    /// A clean registry — a prompt with trusted variables and no advisory issues — passes.
     #[test]
     fn clean_registry_passes() {
         let def = def_from_json(
@@ -213,13 +226,13 @@ mod tests {
                 "name": "greet",
                 "role": "user",
                 "body": "Hi {{ name }}",
-                "variables": { "name": { "type": "string", "provenance": "trusted" } }
+                "variables": { "name": { "type": "string", "origin": "trusted" } }
             }"#,
         );
         let reg = Registry::from_defs_for_test([def]);
 
         let report = check(&reg);
-        assert!(report.passed(), "a fully-declared prompt passes the lint");
+        assert!(report.passed(), "a trusted-only prompt passes the lint");
         assert!(report.is_empty(), "no findings ⇒ isEmpty()");
         assert!(report.findings.is_empty());
     }

@@ -104,16 +104,20 @@ from `1`; the int-vs-float case uses an integer `1` vs a **fractional** float `2
 }
 ```
 
-It **reuses** the existing `schemas/jsonschema/fixtures/{valid,invalid}/` set (does not fork it) and adds
-one valid + one invalid YAML twin so each binding's `load_yaml` path is exercised (`FR-011`).
+It **reuses** the existing `schemas/jsonschema/tests/fixtures/{valid,invalid}/` set (does not fork it;
+relocated under `tests/` in spec 008) and adds one valid + one invalid YAML twin so each binding's TOML/
+YAML/JSON text-factory path is exercised (`FR-011`).
 
 ## How a runner works (contract)
 
-For each marshaling fixture: load `definition` into a `Registry`, construct the native Vars from the
-`type`-tagged `input`, call the binding's **real public render**, and assert text + both hashes equal the
-golden. For each schema fixture: feed the doc through the binding's `load_json`/`load_yaml` matching
-`form`, and assert accept (loads cleanly) or reject (structured error — assert on error **type/code**,
-never on scrubbed detail; no partial load, no crash). Runners **never** regenerate goldens at test time.
+For each marshaling fixture: construct a `Prompt` from `definition` (the spec-008 object surface — `new
+Prompt(shape)` / `Prompt(shape)` / `Prompt::new(shape)`, or a `from_json`/`from_yaml`/`from_toml` factory),
+construct the native Vars from the `type`-tagged `input`, call the prompt's **real public render**, and
+assert text + both hashes equal the golden. For each schema fixture: construct a `Prompt` from the doc via
+the factory matching `form`, and assert accept (constructs cleanly) or reject (structured error — assert on
+error **type/code**, never on scrubbed detail; no partial load, no crash). Runners **never** regenerate
+goldens at test time. (Pre-spec-008 these used a `Registry` + `load_json`/`load_yaml`; the registry was
+dropped and the operations moved onto the `Prompt` object.)
 
 The full contract — runner obligations, golden provenance, the CI gate, and the scope guards — is in
 [`specs/006-conformance-corpus/contracts/corpus-format.md`](../specs/006-conformance-corpus/contracts/corpus-format.md);

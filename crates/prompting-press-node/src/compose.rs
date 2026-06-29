@@ -1,45 +1,17 @@
-//! Multi-message composition for the Node binding (spec 004, US4; T022; FR-012/FR-013).
+//! Composition types and the `Message` napi object (spec 004, US4; T022; FR-012/FR-013).
 //!
-//! A [`Composition`] is an **explicit, ordered** sequence of `(prompt-name, value, variant)`
-//! entries that [`resolve`](Composition::resolve)s — in append order — to a `Message[]`, where each
-//! [`Message`] is the named prompt rendered with its own (already-validated) value and tagged with
-//! that prompt definition's `role` (FR-012). It is the few-shot / system+user sequence builder.
-//! Construction is `new Composition()` + [`append`](Composition::append), or the
-//! [`from_messages`](Composition::from_messages) (`fromMessages`) bulk constructor — there is
-//! deliberately **no** fluent `.chain()` API (FR-013; it cannot cross the napi boundary and
-//! collides with `Iterator::chain`).
-//!
-//! ## Why a binding-OWNED `Composition` (critique E1 / C-01)
-//!
-//! The Rust consumer's [`prompting_press::Composition`] is generic over `V: Serialize + Validate`
-//! — a **garde** type. This binding has no such type: validation is owned in **TypeScript** (the
-//! facade's `safeParse` — Q1), so there is no `V` to instantiate the consumer's `Composition` with.
-//! Therefore this module owns its **own** `Composition` `#[napi]` class holding already-marshaled
-//! entries, and [`resolve`](Composition::resolve) calls the **kernel directly** per entry —
-//! exactly mirroring how the binding's [`render`](crate::render::render) works (US1). This is still
-//! **zero engine logic** (Principle I): the kernel renders; the binding only marshals (the value
-//! the TS facade already validated) and surfaces results. Render byte-parity with the Rust/Python
-//! bindings stays structural because each entry's value is built by the same
-//! [`to_kernel_value`](crate::marshal::to_kernel_value) path single-render uses.
-//!
-//! ## Eager marshaling at `append` — no partial state
-//!
-//! Each entry's value is **already validated** in the TS facade before the addon's `append` is
-//! called (mirroring US1's `safeParse`-at-boundary). `append` marshals that validated value to the
-//! kernel's [`minijinja::Value`] and stores the entry. The prompt `name` is **not** resolved at
-//! `append` — an unknown name surfaces at [`resolve`](Composition::resolve). Because marshaling is
-//! infallible (the value already crossed napi), an `append` cannot leave a half-built entry.
-//!
-//! ## resolve: prompt resolution + render, in order
-//!
-//! [`resolve`](Composition::resolve) walks the stored entries in append order. For each it resolves
-//! the prompt by name against the [`Registry`](crate::registry::Registry) (absent ⇒ an
-//! `unknown_prompt` error, never a panic) and delegates rendering to the kernel via
-//! [`prompting_press_core::render`] with the entry's pre-marshaled value. Each result becomes
-//! `Message { role: <def.role stringified>, text: result.text }`. One entry's failure (unknown
-//! prompt, unknown variant, a strict-undefined reference) propagates as the mapped napi error and
-//! the partial result built so far is **discarded** — never returned as success. An empty
-//! composition resolves to `[]`.
+//! Post-spec-008 reshape:
+//! - The TS facade owns its own `Composition` class that stores `NapiPrompt` handles and
+//!   calls `NapiPrompt::render_prompt` directly — no registry needed, no `#[napi] Composition`.
+//! - The napi `Composition` class and its `append`/`resolve`/`fromMessages` methods are
+//!   **demoted to plain Rust** (no `#[napi]`) so they no longer appear on the JS surface
+//!   (SC-001 / T046).
+//! - [`Message`] is kept as a `#[napi(object)]` because the TS facade imports it as a type
+//!   from the addon's generated `index.d.ts`.
+//! - [`MessageEntry`] is demoted to plain Rust (the TS facade no longer uses it as a napi type;
+//!   the facade's own `CompositionEntry` interface takes a `Prompt` object, not a name string).
+//! - The `#[cfg(test)]` suites below are kept in Rust so `cargo test -p prompting-press-node`
+//!   exercises the kernel-direct resolve path without a Node runtime.
 
 use napi_derive::napi;
 
@@ -66,13 +38,10 @@ pub struct Message {
     pub text: String,
 }
 
-/// One input entry for [`Composition::from_messages`]: an explicit `(name, value, variant?)`.
+/// One input entry for the Rust `Composition::from_messages` test helper.
 ///
-/// A `#[napi(object)]` so the TS facade passes a plain array of `{ name, value, variant? }`
-/// objects (the idiomatic JS shape for an ordered `(prompt-ref, vars)` array — FR-012). `value` is
-/// the already-Zod-validated payload for that entry; `variant` is optional (absent ⇒ the reserved
-/// `default` arm).
-#[napi(object)]
+/// Plain Rust — no longer a `#[napi(object)]` (SC-001 / T046). The TS facade's `CompositionEntry`
+/// interface takes a `Prompt` object directly; this struct survives only for `#[cfg(test)]` use.
 pub struct MessageEntry {
     /// The prompt's registry name (resolved at `resolve`, not at construction).
     pub name: String,
@@ -96,20 +65,17 @@ struct Entry {
     variant: Option<String>,
 }
 
-/// An explicit, ordered sequence of `(prompt-name, value, variant)` entries that resolves to a
-/// `Message[]` in append order (FR-012). Built with `new Composition()` +
-/// [`append`](Self::append) or [`from_messages`](Self::from_messages); there is **no** fluent
-/// `.chain()` (FR-013).
-#[napi]
+/// An explicit, ordered sequence of `(prompt-name, value, variant)` entries.
+///
+/// Plain Rust — no longer a `#[napi]` class (SC-001 / T046). The TS facade owns its own
+/// `Composition` class. This struct survives only for `#[cfg(test)]` use.
 pub struct Composition {
     /// Entries in append order — the resolved-message order (FR-012).
     entries: Vec<Entry>,
 }
 
-#[napi]
 impl Composition {
-    /// `new Composition()` — create an empty composition. An empty composition resolves to `[]`.
-    #[napi(constructor)]
+    /// Create an empty composition.
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -117,14 +83,7 @@ impl Composition {
         }
     }
 
-    /// `Composition.fromMessages(entries)` — build a composition from an ordered array of
-    /// `(name, value, variant?)` entries, marshaling each in order.
-    ///
-    /// `entries` is an array of [`MessageEntry`] objects (`{ name, value, variant? }`). Each
-    /// `value` is the already-Zod-validated payload (validation runs in the TS facade — Q1); this
-    /// marshals + stores each in append order. Because marshaling is infallible, the whole
-    /// construction succeeds and returns the populated `Composition`.
-    #[napi(factory)]
+    /// Build a composition from an ordered array of `(name, value, variant?)` entries.
     #[must_use]
     pub fn from_messages(entries: Vec<MessageEntry>) -> Self {
         let mut composition = Self::new();
@@ -134,55 +93,31 @@ impl Composition {
         composition
     }
 
-    /// `composition.append(name, value, variant?)` — marshal + store one entry.
-    ///
-    /// `value` is the already-Zod-validated payload (validation runs in the TS facade — Q1); it is
-    /// marshaled to the kernel's value type and the entry is stored. The prompt `name` is **not**
-    /// resolved here — an unknown name surfaces at [`resolve`](Self::resolve) as an
-    /// `unknown_prompt` error.
-    ///
-    /// Returns `void` (not `this`): the builder is intentionally **not** fluent/chainable (FR-013).
-    #[napi]
+    /// Marshal + store one entry.
     pub fn append(&mut self, name: String, value: serde_json::Value, variant: Option<String>) {
         self.append_entry(&name, value, variant);
     }
 
-    /// `composition.length` — the number of appended entries (== the resolved-message count on
-    /// success). Surfaces as a `length` getter on the JS class.
-    #[napi(getter)]
+    /// The number of appended entries.
     #[must_use]
     pub fn length(&self) -> u32 {
-        // entry counts are tiny; a saturating cast keeps the JS-side `number` honest.
         u32::try_from(self.entries.len()).unwrap_or(u32::MAX)
     }
 
-    /// `composition.resolve(registry)` — resolve the composition to an ordered `Message[]`
-    /// (FR-012), rendering each entry — in append order — through the kernel.
+    /// Resolve the composition to an ordered `Message[]` by rendering each entry through the kernel.
     ///
-    /// For each entry, in order: resolve the prompt by name against `reg` (absent ⇒ an
-    /// `unknown_prompt` error, never a panic), then delegate rendering to
-    /// [`prompting_press_core::render`] **directly** (critique E1 / C-01) with the entry's
-    /// **pre-marshaled** value. The render result becomes
-    /// `Message { role: <def.role stringified>, text: result.text }`. Composition uses no guard
-    /// expansion — a default [`GuardConfig`](prompting_press_core::GuardConfig) is passed, which
-    /// leaves `text` unchanged.
-    ///
-    /// One entry's render failure (unknown prompt, unknown variant, a strict-undefined reference, a
-    /// parse/render error) propagates as the mapped napi error and the partial result built so far
-    /// is **discarded** — never returned as success. An empty composition resolves to `[]`.
+    /// Used by `#[cfg(test)]` suites; the public JS path is the TS facade's own `Composition`
+    /// class (which calls `NapiPrompt::render_prompt` directly, no registry needed).
     ///
     /// # Errors
     /// - `unknown_prompt` — an entry's name is absent from `reg`.
-    /// - a kernel code (`unknown_variant` / `undefined_variable` / `parse` / `render` /
-    ///   `excluded_feature`) — the kernel rejected an entry's render. `parse`/`render` detail is
-    ///   scrubbed (SEC-004).
-    #[napi]
+    /// - kernel codes — the kernel rejected an entry's render.
     pub fn resolve(&self, reg: &Registry) -> napi::Result<Vec<Message>> {
         let mut messages = Vec::with_capacity(self.entries.len());
 
         for entry in &self.entries {
             // Resolve the prompt by name (absent ⇒ structured error, never a panic).
-            let Some(def) = reg.inner().get(&entry.name) else {
+            let Some(def) = reg.get(&entry.name) else {
                 return Err(consumer_error_to_napi_err(ConsumerError::UnknownPrompt(
                     entry.name.clone(),
                 )));

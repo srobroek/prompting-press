@@ -59,7 +59,7 @@ trap 'rm -rf "${VENV_DIR}"' EXIT
 
 echo ""
 echo "==> uv venv + build extension (maturin develop) into ${VENV_DIR}"
-uv venv "${VENV_DIR}" --python 3.10
+uv venv "${VENV_DIR}" --python 3.12
 # pydantic: the wheel's runtime dep (Vars facade + generated shape). pytest: the runner.
 VIRTUAL_ENV="${VENV_DIR}" uv pip install --python "${VENV_DIR}/bin/python" pytest pydantic
 

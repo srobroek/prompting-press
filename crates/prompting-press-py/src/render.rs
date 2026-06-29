@@ -1,33 +1,25 @@
-//! The Python render path — validate (in Python) → marshal → kernel-direct render, plus
-//! `get_source` and the [`RenderResult`] pyclass (FR-002, FR-009..011; US1).
+//! The Python render helpers — the [`RenderResult`] and [`GuardConfig`] pyclasses, plus the
+//! [`validate_in_python`] helper shared by `prompt.rs` and `compose.rs` (FR-002, FR-009..011).
+//!
+//! ## Spec 008 Phase 4 note
+//!
+//! The pre-reshape module-level `render(reg, name, vars, ...)` and `get_source(reg, name, ...)`
+//! free functions are removed. Render and source lookup are now methods on
+//! [`Prompt`](crate::prompt::Prompt): `prompt.render(...)` and `prompt.get_source(...)`.
+//!
+//! This module retains:
+//! - The [`RenderResult`] and [`GuardConfig`] pyclasses (Python-visible output / config types).
+//! - The [`validate_in_python`] helper: owns Pydantic validation in Python (FR-002 / Q1), shared
+//!   by `prompt.rs` and `compose.rs`.
+//! - The SEC-004-PY Pydantic error scrubbing helpers.
 //!
 //! ## Why the kernel is called DIRECTLY (critique E1 / C-01)
 //!
-//! [`render`] does **not** call the Rust consumer's `prompting_press::render`. That entry
-//! point is generic over `V: Serialize + Validate` — a *garde* type — and this binding has no
-//! such type: validation is owned in **Python** (against the caller's Pydantic Vars model),
-//! not in Rust. So after validating in Python and marshaling the dumped values, this module
-//! calls [`prompting_press_core::render`] directly. That is still **zero engine logic**
-//! (Principle I): the kernel *is* the shared core; the binding only marshals into it and
-//! surfaces its result 1:1. Render byte-parity with the Rust/TS bindings stays structural
-//! because the value handed to the kernel is built by the same `marshal::to_kernel_value`
-//! → `minijinja::Value::from_serialize` path the consumer uses.
-//!
-//! ## The validate → marshal → render chain (Q1)
-//!
-//! 1. **Resolve** the prompt by name against the registry's inner consumer registry; absent ⇒
-//!    [`UnknownPromptError`](crate::error::UnknownPromptError), never a panic (FR-008a).
-//! 2. **Validate in Python**, *before any templating* (FR-002): the binding owns validation
-//!    (clarify Q1). It calls Pydantic's `model_validate` (see [the signature](render)) and, on
-//!    a `pydantic.ValidationError`, raises [`PromptValidationError`](crate::error) with one row
-//!    per offending field — **no render is performed**. Pydantic's native error type never
-//!    crosses the boundary (C-06).
-//! 3. **Marshal** the now-validated, JSON-dumped payload through the single value bridge
-//!    [`crate::marshal::to_kernel_value`] (FR-003a).
-//! 4. **Render** by calling [`prompting_press_core::render`] directly; map any returned
-//!    [`KernelError`](prompting_press_core::KernelError) through the consumer's tested scrubber
-//!    via [`crate::error::kernel_error_to_pyerr`] (preserves SEC-004 — critique E2). The raw
-//!    `KernelError::detail` is never read here.
+//! `prompt.rs` calls [`prompting_press_core::render`] directly — not the Rust consumer's
+//! `prompting_press::render` which is generic over `V: Serialize + Validate` (a *garde* type).
+//! Validation is owned in Python (the caller's Pydantic Vars model), so after validating in
+//! Python and marshaling, the kernel is reached directly. That is still **zero engine logic**
+//! (Principle I): the kernel *is* the shared core; the binding only marshals into it.
 //!
 //! ## SEC-004-PY — Pydantic error scrubbing
 //!
@@ -43,9 +35,7 @@ use prompting_press::error::code;
 use prompting_press::{ConsumerError, FieldError as ConsumerFieldError};
 use prompting_press_core::{GuardConfig as KernelGuardConfig, RenderResult as KernelRenderResult};
 
-use crate::error::{consumer_error_to_pyerr, kernel_error_to_pyerr};
-use crate::marshal::to_kernel_value;
-use crate::registry::Registry;
+use crate::error::consumer_error_to_pyerr;
 
 /// The opt-in guard-expansion config, surfaced to Python and **plumbed through** to the kernel
 /// (FR-009).
@@ -166,98 +156,6 @@ impl From<KernelRenderResult> for RenderResult {
 }
 
 /// Validate `vars` in Python, then render `name`'s resolved variant through the kernel (FR-009).
-///
-/// **Validation is owned here** (clarify Q1) and runs *before any templating* (FR-002):
-///
-/// - When `data` is provided, `vars` is treated as a Pydantic model **class** and validated via
-///   `vars.model_validate(data)`.
-/// - When `data` is `None`, `vars` is treated as an already-constructed model **instance** and
-///   **re-validated** via `type(vars).model_validate(vars.model_dump(mode="json"))` — so an
-///   instance built with `model_construct` (validation-skipped) is still checked here.
-///
-/// Either way the validated model is dumped with `model_dump(mode="json")` (so `datetime` /
-/// `Decimal` arrive as deterministic JSON primitives — research D2) and that payload is the only
-/// thing marshaled into the kernel.
-///
-/// `variant` selects an arm (`None` ⇒ the reserved `default` = root body). `guard` is the opt-in
-/// [`GuardConfig`] **plumbed straight through** to the kernel (FR-009): `None` ⇒ a plain render
-/// (kernel default, disabled). The binding does no guard logic — when the guard is enabled and the
-/// prompt declares an untrusted/external field, the kernel populates [`RenderResult::guard`]; the
-/// binding only surfaces it.
-///
-/// # Errors (all raised as a [`PromptingPressError`](crate::error) subtype — C-06)
-/// - [`UnknownPromptError`](crate::error::UnknownPromptError) — `name` absent from `reg`
-///   (FR-008a). Raised **before** validation; nothing is rendered.
-/// - [`PromptValidationError`](crate::error::PromptValidationError) — Pydantic rejected the vars.
-///   Raised **before** any templating (FR-002); the kernel is never reached. Every offending
-///   field is named (`msg` only — SEC-004-PY).
-/// - [`PromptRenderError`](crate::error::PromptRenderError) — the kernel rejected the render
-///   (unknown variant, a strict-undefined reference, a parse / render failure). `parse` /
-///   `render` / `excluded_feature` detail is scrubbed (SEC-004 / critique E2).
-#[pyfunction]
-#[pyo3(signature = (reg, name, vars, *, data=None, variant=None, guard=None))]
-pub fn render(
-    py: Python<'_>,
-    reg: &Registry,
-    name: &str,
-    vars: &Bound<'_, PyAny>,
-    data: Option<&Bound<'_, PyAny>>,
-    variant: Option<&str>,
-    guard: Option<&GuardConfig>,
-) -> PyResult<RenderResult> {
-    // 1. Resolve the prompt by name once (absent ⇒ structured error, never a panic — FR-008a).
-    //    Done first and entirely in Rust against the inner consumer registry. The `&PromptDefinition`
-    //    borrow is held immutably across validation + marshaling below — sound because `reg` is a
-    //    shared `&Registry` here, so no `&mut` (and thus no mutation) can intervene.
-    let Some(def) = reg.inner().get(name) else {
-        return Err(consumer_error_to_pyerr(
-            py,
-            ConsumerError::UnknownPrompt(name.to_string()),
-        ));
-    };
-
-    // 2. Validate in Python, BEFORE any templating (FR-002 / Q1). Returns the JSON-dumped,
-    //    validated payload (a Python object) on success; raises PromptValidationError on a
-    //    Pydantic ValidationError. The kernel is not reached on failure.
-    let dumped = validate_in_python(py, vars, data)?;
-
-    // 3. Marshal the validated payload through the single value bridge (FR-003a). A shape the
-    //    serde data model cannot represent surfaces as a LoadError (never bound-value content).
-    let values = to_kernel_value(&dumped).map_err(|e| consumer_error_to_pyerr(py, e))?;
-
-    // 4. Plumb the guard config through (FR-009) and render by calling the KERNEL DIRECTLY
-    //    (critique E1 / C-01). `None` ⇒ the kernel default (disabled). The binding does NO guard
-    //    logic — it only marshals the two config fields; the kernel decides the `guard` field.
-    let guard_cfg = guard.map_or_else(KernelGuardConfig::default, KernelGuardConfig::from);
-
-    prompting_press_core::render(def, variant, values, &guard_cfg)
-        .map(RenderResult::from)
-        .map_err(|e| kernel_error_to_pyerr(py, e))
-}
-
-/// Return a prompt variant's **unrendered** template source (FR-010).
-///
-/// Pure source lookup: there are no vars, so this performs no validation and no marshaling. It
-/// delegates to the Rust consumer's [`prompting_press::get_source`] — which has **no** generic
-/// `V` (it is reusable as-is) — and maps a [`ConsumerError`] through the error hierarchy.
-///
-/// # Errors
-/// - [`UnknownPromptError`](crate::error::UnknownPromptError) — `name` absent from `reg`.
-/// - [`PromptRenderError`](crate::error::PromptRenderError) — the kernel rejected the lookup
-///   (e.g. an unknown variant).
-#[pyfunction]
-#[pyo3(signature = (reg, name, *, variant=None))]
-pub fn get_source(
-    py: Python<'_>,
-    reg: &Registry,
-    name: &str,
-    variant: Option<&str>,
-) -> PyResult<String> {
-    prompting_press::get_source(reg.inner(), name, variant)
-        .map(str::to_owned)
-        .map_err(|e| consumer_error_to_pyerr(py, e))
-}
-
 /// Validate `vars`/`data` in Python and return the validated payload, dumped with
 /// `model_dump(mode="json")` (Q1; SEC-004-PY).
 ///
@@ -413,7 +311,8 @@ mod tests {
     use prompting_press::PromptDefinition;
     use pyo3::types::PyDict;
 
-    use crate::error::PromptRenderError;
+    use crate::error::{kernel_error_to_pyerr, PromptRenderError};
+    use crate::marshal::to_kernel_value;
 
     /// Build a `PromptDefinition` from JSON (the idiomatic in-test construction the consumer's
     /// own tests use — the generated newtypes validate, so a struct literal is awkward).
@@ -556,7 +455,7 @@ mod tests {
                     "name": "ask",
                     "role": "user",
                     "body": "Answer: {{ q }}",
-                    "variables": { "q": { "type": "string", "provenance": "untrusted" } }
+                    "variables": { "q": { "type": "string", "origin": "untrusted" } }
                 }"#,
             );
 
@@ -596,26 +495,32 @@ mod tests {
         });
     }
 
-    /// `get_source` returns the unrendered source for the resolved variant (FR-010), and an
-    /// unknown name maps to `UnknownPromptError` (via the inner-registry resolution).
+    /// `get_source` via the kernel directly — the `Prompt` object surface (spec 008 Phase 4).
+    /// The registry-based `get_source(reg, name, variant)` free function is removed; the Rust
+    /// test uses `prompting_press_core::get_source` directly as `prompt.rs` does.
     #[test]
     fn get_source_returns_unrendered_source() {
-        Python::attach(|py| {
+        Python::attach(|_py| {
             let def = def_from_json(
                 r#"{ "name": "greet", "role": "user", "body": "Hello {{ name }}!" }"#,
             );
-            let reg = Registry::from_defs_for_test([def]);
 
-            let src = get_source(py, &reg, "greet", None).expect("source");
+            let src = prompting_press_core::get_source(&def, None).expect("source");
             assert_eq!(
                 src, "Hello {{ name }}!",
                 "source is UNrendered (no interpolation)"
             );
 
-            // Unknown name ⇒ UnknownPromptError.
-            let err = get_source(py, &reg, "absent", None).expect_err("unknown name");
-            let value = err.value(py);
-            assert!(value.is_instance_of::<crate::error::UnknownPromptError>());
+            // Unknown variant ⇒ KernelError.
+            let err = prompting_press_core::get_source(&def, Some("absent"))
+                .expect_err("unknown variant → kernel error");
+            assert!(
+                matches!(
+                    err,
+                    prompting_press_core::KernelError::UnknownVariant { .. }
+                ),
+                "unknown variant must be a KernelError::UnknownVariant, got {err:?}"
+            );
         });
     }
 }

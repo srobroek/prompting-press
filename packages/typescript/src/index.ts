@@ -15,9 +15,20 @@
  *     SEC-004-scrubbed in Rust — see `crates/prompting-press-node/src/error.rs`). This facade
  *     decodes that payload into the right `PromptingPressError` subclass so callers get
  *     `instanceof` + a structured `.errors` array, never a raw napi error or a `ZodError`.
+ *  3. **The `Prompt` class (spec 008, T042–T045).** A validated, immutable object wrapping a
+ *     `NapiPrompt` handle. Construction is validating (`new Prompt()` throws on invalid),
+ *     read-only accessors are getters, and `with(overlay)` is the sole mutator (re-validates
+ *     the merged whole). The optional `validators` argument enables `validation_required`
+ *     coverage checking at construction via `ZodObject.shape` (R2 / T043).
+ *  4. **The `Composition` class (spec 008, T046).** Updated to aggregate `Prompt` objects
+ *     (not names against a Registry). `resolve()` takes no arguments; each entry holds an owned
+ *     `Prompt` and its own already-validated value.
  *
- * Everything else (rendering, hashing, variant resolution, the agreement/provenance lint,
- * composition resolution) is performed once in Rust and surfaced here unchanged (Principle I).
+ * **Removed (spec 008 reshape):** `Registry`, `render(reg, name, …)`, `getSource(reg, …)`,
+ * `check(reg)`. The `Prompt` object is now the primary surface (T046).
+ *
+ * Everything else (rendering, hashing, variant resolution, the agreement lint) is performed
+ * once in Rust and surfaced here unchanged (Principle I).
  *
  * Layout: this source compiles to `dist/index.js` (+ `.d.ts`); the package `exports`/`main`/
  * `types` point at it, so `import "prompting-press"` resolves to this facade. The facade imports
@@ -26,25 +37,23 @@
  */
 
 import {
-  // The low-level NAPI addon surface. The classes/functions whose error paths the facade must
-  // decode are imported under `Napi*` aliases and re-wrapped below; the inert ones are re-exported
-  // 1:1 (`RenderResult`, `CheckReport`, `check`).
-  Registry as NapiRegistry,
+  // Prompt-level addon surface (spec 008 Phase 5 additions).
+  NapiPrompt,
+  promptNew,
+  promptFromYaml,
+  promptFromJson,
+  promptFromToml,
+  // Result types — surfaced unchanged.
   RenderResult,
   CheckReport,
-  Composition as NapiComposition,
-  check as napiCheck,
-  getSource as napiGetSource,
   coreVersion,
-  render as napiRender,
   type Finding,
   type GuardConfig,
   type Message,
-  type MessageEntry,
 } from "../index.js";
 
 // The generated, freshness-gated prompt-definition shape (constitution C-07; never hand-edited).
-import type { PromptDefinition } from "./generated/prompt-definition.js";
+import type { PromptDefinition, VariableDecl } from "./generated/prompt-definition.js";
 
 // --------------------------------------------------------------------------------------
 // The normalized cross-language error contract (Principle VII / C-06): `[{field, code, message}]`.
@@ -108,7 +117,7 @@ export class PromptRenderError extends PromptingPressError {}
 export class UnknownPromptError extends PromptingPressError {}
 
 /**
- * Raised when a document fails to load: malformed YAML/JSON, or a prompt-definition shape
+ * Raised when a document fails to load: malformed YAML/JSON/TOML, or a prompt-definition shape
  * violation. Nothing is partially loaded (FR-007). Top-level code `"load"`.
  */
 export class LoadError extends PromptingPressError {}
@@ -227,88 +236,6 @@ function decodeAddonError(thrown: unknown): PromptingPressError {
 }
 
 // --------------------------------------------------------------------------------------
-// Registry (US2) — the facade wrapper whose loader methods decode addon errors into LoadError.
-//
-// The low-level napi `Registry.loadYaml/loadJson/insert` throw a RAW `napi::Error` whose `message`
-// is the `{code:"load", ...}` JSON payload — NOT a `LoadError`. Re-exporting the napi class 1:1
-// would leak that raw error onto the public surface (a plain `Error`, failing `instanceof
-// LoadError`). So the public Registry is this facade class: it owns a napi registry and decodes
-// each loader method's error through the same payload decoder used for render/resolve. The napi
-// registry instance is read back (via the module-private accessor below) when handed to
-// `render`/`check`/`getSource`/`Composition.resolve`.
-// --------------------------------------------------------------------------------------
-
-/** Module-private slot holding each facade Registry's underlying napi registry. */
-const NAPI_REGISTRY = Symbol("napiRegistry");
-
-/**
- * A library-owned map of prompt name → loaded definition (US2). All three input paths normalize
- * through the **one** Rust consumer loader (Q3); YAML↔JSON↔object parity is structural (Principle I).
- *
- * A malformed document (bad YAML/JSON, or a prompt-definition shape violation) throws a
- * {@link LoadError} and inserts **nothing** (FR-007). The loader methods decode the addon's raw
- * error into the facade hierarchy so callers branch on `instanceof LoadError`, never a native error.
- */
-export class Registry {
-  /** The wrapped low-level napi registry — the single source of truth for the loaded prompts. */
-  readonly [NAPI_REGISTRY]: NapiRegistry;
-
-  constructor() {
-    this[NAPI_REGISTRY] = new NapiRegistry();
-  }
-
-  /**
-   * Load a prompt definition from an already-read **YAML** document, keyed by its `name` (an
-   * existing entry with the same name is replaced). The binding parses no YAML itself — the text
-   * is marshaled to the Rust consumer, so accept/reject and YAML↔JSON parity are structural (Q3).
-   *
-   * @throws {LoadError} if `text` is not valid YAML or does not match the prompt-definition shape;
-   *   nothing is inserted (FR-007).
-   */
-  loadYaml(text: string): void {
-    try {
-      this[NAPI_REGISTRY].loadYaml(text);
-    } catch (thrown) {
-      throw decodeAddonError(thrown);
-    }
-  }
-
-  /**
-   * Load a prompt definition from an already-read **JSON** document, keyed by its `name` (replace
-   * on duplicate name). The binding parses nothing; the text is marshaled to the consumer.
-   *
-   * @throws {LoadError} if `text` is not valid JSON or does not match the shape (FR-007).
-   */
-  loadJson(text: string): void {
-    try {
-      this[NAPI_REGISTRY].loadJson(text);
-    } catch (thrown) {
-      throw decodeAddonError(thrown);
-    }
-  }
-
-  /**
-   * Insert a constructed prompt-definition object (the {@link PromptDefinition} shape, FR-005 third
-   * path), keyed by its `name`. It is re-serialized to JSON and fed to the **same** consumer loader
-   * as the text paths — one loader, one representation, no parallel shape (Q3 / FR-008).
-   *
-   * @throws {LoadError} if `definition` does not match the prompt-definition shape (FR-007).
-   */
-  insert(definition: PromptDefinition | Record<string, unknown>): void {
-    try {
-      this[NAPI_REGISTRY].insert(definition);
-    } catch (thrown) {
-      throw decodeAddonError(thrown);
-    }
-  }
-}
-
-/** Read a facade {@link Registry}'s underlying napi registry for the addon-level calls. */
-function napiRegistryOf(reg: Registry): NapiRegistry {
-  return reg[NAPI_REGISTRY];
-}
-
-// --------------------------------------------------------------------------------------
 // The Zod validation boundary (Q1 / research D3 / SEC-004).
 // --------------------------------------------------------------------------------------
 
@@ -317,9 +244,20 @@ function napiRegistryOf(reg: Registry): NapiRegistry {
  * tagged result. Typing it structurally (rather than importing Zod's concrete `ZodType`) keeps the
  * facade decoupled from a specific Zod minor and lets a caller pass any object exposing the same
  * shape — the library never depends on Zod's identity, only on `safeParse` (Principle VI).
+ *
+ * The optional `shape` field supports the `validation_required` coverage check at construction
+ * (T043 / R2): if present (it is on a `ZodObject`), `field in schema.shape` proves that a
+ * `validation_required` variable is covered. If absent, the coverage check is skipped with a
+ * documented "cannot assert coverage" limitation.
  */
 export interface ZodLikeSchema<T = unknown> {
   safeParse(data: unknown): ZodSafeParseResult<T>;
+  /**
+   * Optional: `ZodObject.shape` — a record of field name → ZodType (Zod 4.4.3 API, research R2).
+   * Present on a `ZodObject`; absent on other schema types. When absent, `validation_required`
+   * coverage cannot be introspected and the check is skipped (documented limitation).
+   */
+  shape?: Record<string, unknown>;
 }
 
 /** The structural shape of a Zod `safeParse` result (success | failure with `issues`). */
@@ -336,11 +274,10 @@ interface ZodLikeIssue {
 }
 
 /**
- * Type guard: does `value` expose a `safeParse` method (i.e. is it a schema, not plain data)?
- * Distinguishes the `render(reg, name, schema, data)` form (Q1) from the static
- * `render(reg, name, data)` form (Q4) by structural duck-typing.
+ * Type guard: does `value` expose a `safeParse` method — i.e. is it a schema, not plain data?
+ * Used in `Prompt.render()` overload dispatch.
  */
-function isSchema(value: unknown): value is ZodLikeSchema {
+function isZodLikeSchema(value: unknown): value is ZodLikeSchema {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -373,41 +310,22 @@ function validateOrThrow<T>(schema: ZodLikeSchema<T>, data: unknown): T {
 }
 
 // --------------------------------------------------------------------------------------
-// render (US1) — the validate-at-render wrapper (Q1 / Q4).
+// ValidatorMap — the optional Zod validator bound at Prompt construction.
 // --------------------------------------------------------------------------------------
 
 /**
- * Render a prompt's resolved variant with typed inputs, validating first (Q1).
- *
- * Two call forms, selected by the third argument:
- *
- *  - **Schema form (Q1):** `render(reg, name, schema, data, opts?)`. `schema.safeParse(data)` runs
- *    here, before any templating; on failure a {@link PromptValidationError} is thrown and the
- *    kernel is **never** reached (no render happens). On success the validated plain value is
- *    marshaled to the addon.
- *  - **Static form (Q4):** `render(reg, name, data, opts?)`. Already-typed plain data with no Zod
- *    schema — marshaled directly. (The third argument is the data; the fourth is `opts`.)
- *
- * `opts` is an optional `{ variant?, guard? }` object — the TS-idiomatic equivalent of Python's
- * `variant=` / `guard=` keyword arguments (constitution Principle VI: uniform capability, native
- * idiom). It carries:
- *  - `variant` — select a named variant arm (Principle V / FR-009; caller-owned). Absent ⇒ the
- *    reserved `default` arm. An unknown name ⇒ a {@link PromptRenderError} with `code:
- *    "unknown_variant"`.
- *  - `guard` — the opt-in {@link GuardConfig}, plumbed straight through: absent / `{ enabled: false }`
- *    ⇒ a plain render and `RenderResult.guard === null`. The facade adds no guard logic; the kernel
- *    populates `RenderResult.guard` when enabled and the prompt declares an untrusted/external field.
- *
- * Any addon error is decoded into the matching {@link PromptingPressError} subclass:
- * `UnknownPromptError` (name absent — thrown before marshaling, nothing rendered), or a
- * {@link PromptRenderError} for a kernel rejection (`unknown_variant` / `undefined_variable` /
- * `parse` / `render` / `excluded_feature`; SEC-004 scrubs parse/render/excluded detail).
- *
- * @param reg    the registry to resolve `name` against.
- * @param name   the prompt name.
- * @param schemaOrData a Zod-like schema (schema form) **or** the already-typed plain data (static form).
- * @param dataOrOpts   the data to validate (schema form) **or** the `opts` object (static form).
- * @param opts   `{ variant?, guard? }` (schema form only).
+ * A validator bound at `Prompt` construction. In practice this is a Zod schema (a `ZodObject`)
+ * whose `shape` property the construction-time `validation_required` coverage check introspects.
+ * Typed as `ZodLikeSchema` so callers aren't forced to import Zod types.
+ */
+export type ValidatorMap = ZodLikeSchema;
+
+// --------------------------------------------------------------------------------------
+// RenderOptions — options object for Prompt.render().
+// --------------------------------------------------------------------------------------
+
+/**
+ * Options for {@link Prompt.render} (C-11: named-field options object over positional args).
  */
 export interface RenderOptions {
   /** Select a named variant arm; absent ⇒ the reserved `default` arm (FR-009 / Principle V). */
@@ -415,137 +333,453 @@ export interface RenderOptions {
   /** Opt-in guard config; absent / `{ enabled: false }` ⇒ a plain render (`RenderResult.guard === null`). */
   guard?: GuardConfig | null;
 }
-export function render<T>(
-  reg: Registry,
-  name: string,
-  schema: ZodLikeSchema<T>,
-  data: unknown,
-  opts?: RenderOptions | null,
-): RenderResult;
-export function render(
-  reg: Registry,
-  name: string,
-  data: unknown,
-  opts?: RenderOptions | null,
-): RenderResult;
-export function render(
-  reg: Registry,
-  name: string,
-  schemaOrData: unknown,
-  dataOrOpts?: unknown,
-  opts?: RenderOptions | null,
-): RenderResult {
-  let value: unknown;
-  let options: RenderOptions | null | undefined;
 
-  if (isSchema(schemaOrData)) {
-    // Schema form (Q1): validate `dataOrOpts` against the schema; `opts` is the 5th arg.
-    value = validateOrThrow(schemaOrData, dataOrOpts);
-    options = opts;
-  } else {
-    // Static form (Q4): `schemaOrData` IS the plain data; `dataOrOpts` is the `opts` object.
-    value = schemaOrData;
-    options = dataOrOpts as RenderOptions | null | undefined;
+// --------------------------------------------------------------------------------------
+// coverage-check helpers (T043 / R2 — validation_required + ZodObject.shape).
+// --------------------------------------------------------------------------------------
+
+/**
+ * Check that every variable with `validation_required: true` in `variables` is covered by
+ * `validators.shape`. Throws a {@link PromptValidationError} naming the first uncovered variable.
+ *
+ * Skipped when `validators` is absent or `validators.shape` is absent (R2 documented limitation:
+ * "cannot assert coverage" when the schema does not expose `.shape`).
+ */
+function assertValidatorCoverage(
+  variables: Record<string, unknown> | undefined,
+  validators: ValidatorMap | undefined,
+): void {
+  if (validators === undefined || validators.shape === undefined) {
+    return; // no introspectable schema → skip (R2 documented limitation)
+  }
+  if (variables === undefined) {
+    return; // no declared variables → nothing to check
+  }
+  for (const [fieldName, decl] of Object.entries(variables)) {
+    const variableDecl = decl as Partial<VariableDecl>;
+    if (variableDecl.validation_required === true && !(fieldName in validators.shape)) {
+      const msg = `validation_required variable "${fieldName}" is not covered by the supplied validators schema`;
+      throw new PromptValidationError(msg, [{ field: fieldName, code: "validation", message: msg }]);
+    }
+  }
+}
+
+// --------------------------------------------------------------------------------------
+// Module-private symbols — defined before Prompt to avoid temporal dead zone errors.
+// --------------------------------------------------------------------------------------
+
+/**
+ * Module-private Symbol used to access a `Prompt`'s underlying `NapiPrompt` handle from
+ * `Composition` (which lives in the same module). Not exported.
+ */
+const PROMPT_HANDLE_KEY = Symbol("promptHandle");
+
+/**
+ * Module-private runtime key for the internal construction token object.
+ * Combined with the type-brand below, only code in this module can construct an
+ * `InternalCtorArg` value, making the third Prompt constructor parameter opaque to callers.
+ */
+const _CTOR_KEY = Symbol("promptInternalCtor");
+
+/** Type brand that prevents external code from forming a valid `InternalCtorArg`. */
+declare const _CTOR_BRAND: unique symbol;
+
+/**
+ * The internal construction token passed as the third argument to `new Prompt(...)` by the
+ * static factories and `with()`. Its type uses a `unique symbol` brand so TypeScript rejects
+ * any attempt to construct it outside this module.
+ */
+type InternalCtorArg = { readonly [_CTOR_BRAND]: true; handle: NapiPrompt };
+
+/** Construct an `InternalCtorArg` — module-private; the type is opaque to callers. */
+function makeInternalArg(handle: NapiPrompt): InternalCtorArg {
+  return { [_CTOR_KEY]: true, handle } as unknown as InternalCtorArg;
+}
+
+// --------------------------------------------------------------------------------------
+// Prompt (spec 008, T042–T045) — the primary public type post-reshape.
+// --------------------------------------------------------------------------------------
+
+/**
+ * An immutable, fully-validated prompt.
+ *
+ * Wraps a `NapiPrompt` handle; all construction invariants (shape-valid, template-parseable,
+ * agreement-sound, reserved-name clean) are enforced by the Rust consumer at construction time
+ * (Principle I / T042). There are no setters; the sole mutator is {@link Prompt.with} (T045).
+ *
+ * ## Construction — four entry points, all throwing on invalid input (Q6)
+ *
+ * ```ts
+ * const p = new Prompt(shape, validators?);
+ * const p = Prompt.fromYaml(text, validators?);
+ * const p = Prompt.fromJson(text, validators?);
+ * const p = Prompt.fromToml(text, validators?);   // TOML routed to Rust, no smol-toml dep
+ * ```
+ *
+ * ## validators? — validation_required coverage check (T043 / R2)
+ *
+ * When supplied, any variable with `validation_required: true` must appear in `validators.shape`.
+ * Construction throws a {@link PromptValidationError} if a required variable is uncovered.
+ * When `validators.shape` is absent (non-`ZodObject` schema), the check is skipped.
+ *
+ * ## render() — validate-then-render (T044 / Q1)
+ *
+ * ```ts
+ * p.render(schema, data, opts?);   // schema form: safeParse before templating
+ * p.render(data, opts?);           // static form (or uses bound validators when present)
+ * ```
+ *
+ * ## with(overlay, validators?) — sole mutator (T045 / R6)
+ *
+ * Shallow-replaces top-level fields; re-validates the merged whole. Validators carry forward
+ * from the source by default (R6); pass `validators` to override.
+ */
+export class Prompt {
+  /** The underlying napi handle. Private — never exposed outside this class. */
+  readonly #handle: NapiPrompt;
+  /** The bound validator (if any) stored for render() and with(). */
+  readonly #validators: ValidatorMap | undefined;
+
+  /**
+   * Primary public constructor — constructs a `Prompt` from a `PromptDefinition`-shaped object.
+   *
+   * The optional third parameter `_internal` is a module-private token (type `InternalCtorArg`)
+   * that can only be formed by code within this module. External callers cannot construct a valid
+   * `InternalCtorArg` value (its type uses a `unique symbol` brand), so `new Prompt(shape, v?)` is
+   * effectively the only publicly-callable form. The static factories (`fromYaml`, `fromJson`,
+   * `fromToml`) and `with()` use the internal path to avoid re-running the Rust validator on an
+   * already-validated handle.
+   */
+  constructor(
+    shape: PromptDefinition | Record<string, unknown>,
+    validators?: ValidatorMap,
+    _internal?: InternalCtorArg,
+  ) {
+    if (_internal !== undefined) {
+      // Internal path: handle already constructed externally (fromYaml / fromJson / fromToml /
+      // with). Coverage check already ran at the call site.
+      this.#handle = (_internal as unknown as { handle: NapiPrompt }).handle;
+      this.#validators = validators;
+      return;
+    }
+
+    // Public path: shape is a PromptDefinition-shaped object. Run coverage check BEFORE
+    // calling Rust so coverage failures surface as PromptValidationError, not LoadError.
+    const vars = (shape as Record<string, unknown>)["variables"] as
+      | Record<string, unknown>
+      | undefined;
+    assertValidatorCoverage(vars, validators);
+
+    try {
+      this.#handle = promptNew(shape as Record<string, unknown>);
+    } catch (thrown) {
+      throw decodeAddonError(thrown);
+    }
+    this.#validators = validators;
   }
 
-  try {
-    // napi `render(reg, name, value, variant?, guard?)`. Variant + guard are caller-owned via `opts`
-    // (the TS analogue of Python's variant=/guard= kwargs); the facade adds no engine logic, it only
-    // forwards them. Absent variant ⇒ the kernel's reserved default arm.
-    return napiRender(
-      napiRegistryOf(reg),
-      name,
-      value,
-      options?.variant ?? undefined,
-      options?.guard ?? undefined,
+  // ── static factories ─────────────────────────────────────────────────────────────────────
+
+  /**
+   * Construct a `Prompt` from already-read **YAML** text.
+   *
+   * The text is routed to the Rust consumer's `Prompt::from_yaml` — no JS YAML parsing (Q3 /
+   * Principle I). Error semantics mirror `new Prompt()`.
+   *
+   * @throws {LoadError}             malformed YAML or shape violation.
+   * @throws {PromptRenderError}     template/agreement error.
+   * @throws {PromptValidationError} uncovered `validation_required` variable.
+   */
+  static fromYaml(text: string, validators?: ValidatorMap): Prompt {
+    let handle: NapiPrompt;
+    try {
+      handle = promptFromYaml(text);
+    } catch (thrown) {
+      throw decodeAddonError(thrown);
+    }
+    assertValidatorCoverage(
+      handle.variables as Record<string, unknown> | undefined,
+      validators,
     );
-  } catch (thrown) {
-    throw decodeAddonError(thrown);
+    return new Prompt({} as PromptDefinition, validators, makeInternalArg(handle));
+  }
+
+  /**
+   * Construct a `Prompt` from already-read **JSON** text.
+   *
+   * @throws {LoadError}             malformed JSON or shape violation.
+   * @throws {PromptRenderError}     template/agreement error.
+   * @throws {PromptValidationError} uncovered `validation_required` variable.
+   */
+  static fromJson(text: string, validators?: ValidatorMap): Prompt {
+    let handle: NapiPrompt;
+    try {
+      handle = promptFromJson(text);
+    } catch (thrown) {
+      throw decodeAddonError(thrown);
+    }
+    assertValidatorCoverage(
+      handle.variables as Record<string, unknown> | undefined,
+      validators,
+    );
+    return new Prompt({} as PromptDefinition, validators, makeInternalArg(handle));
+  }
+
+  /**
+   * Construct a `Prompt` from already-read **TOML** text.
+   *
+   * TOML parsing is done by the Rust consumer (`toml@1.1.2` via `Prompt::from_toml`). Raw text
+   * is routed to the addon — no `smol-toml` or other JS TOML library needed (Q3 / Principle I).
+   *
+   * @throws {LoadError}             malformed TOML or shape violation.
+   * @throws {PromptRenderError}     template/agreement error.
+   * @throws {PromptValidationError} uncovered `validation_required` variable.
+   */
+  static fromToml(text: string, validators?: ValidatorMap): Prompt {
+    let handle: NapiPrompt;
+    try {
+      handle = promptFromToml(text);
+    } catch (thrown) {
+      throw decodeAddonError(thrown);
+    }
+    assertValidatorCoverage(
+      handle.variables as Record<string, unknown> | undefined,
+      validators,
+    );
+    return new Prompt({} as PromptDefinition, validators, makeInternalArg(handle));
+  }
+
+  // ── read-only accessors ───────────────────────────────────────────────────────────────────
+
+  /** The prompt's name (the `name` field of the underlying definition). */
+  get name(): string {
+    return this.#handle.name;
+  }
+
+  /** The conversational role (`"system"` / `"user"` / `"assistant"`). */
+  get role(): string {
+    return this.#handle.role;
+  }
+
+  /** The root body template source (the default arm's unrendered template text). */
+  get body(): string {
+    return this.#handle.body;
+  }
+
+  /**
+   * The declared variables map (`{ [name]: VariableDecl }`). Read-only metadata. Each entry
+   * carries the variable's `type`, `origin`, and optional `validation_required`.
+   */
+  get variables(): PromptDefinition["variables"] {
+    return this.#handle.variables as PromptDefinition["variables"];
+  }
+
+  /**
+   * The named variants map (`{ [name]: Variant }`). Empty object when the prompt has no named
+   * variants (only the implicit `default` arm).
+   */
+  get variants(): PromptDefinition["variants"] {
+    return this.#handle.variants as PromptDefinition["variants"];
+  }
+
+  /**
+   * The `output_model` reference, if declared. Carried as metadata only — the library never
+   * parses against it (Principle III).
+   */
+  get outputModel(): string | undefined {
+    return this.#handle.outputModel ?? undefined;
+  }
+
+  /**
+   * The `metadata` opaque map (library-defined top-level annotations, if any).
+   */
+  get metadata(): Record<string, unknown> {
+    return (this.#handle.metadata as Record<string, unknown>) ?? {};
+  }
+
+  /**
+   * The `meta` opaque map (author-defined freeform annotations, if any).
+   */
+  get meta(): Record<string, unknown> {
+    return (this.#handle.meta as Record<string, unknown>) ?? {};
+  }
+
+  // ── operations ────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Render this prompt's resolved variant with typed inputs, validating first (Q1).
+   *
+   * Three call forms, selected at runtime:
+   *  - **Schema form:** `render(schema, data, opts?)` — `schema.safeParse(data)` runs here,
+   *    before any templating; on failure a {@link PromptValidationError} is thrown and the
+   *    kernel is **never reached**.
+   *  - **Static form:** `render(data, opts?)` — already-typed plain data, marshaled directly
+   *    (no Zod check at render time).
+   *  - **Bound-validator form:** `render(data, opts?)` when the prompt was constructed with
+   *    `validators` — the bound schema's `safeParse(data)` runs automatically.
+   *
+   * `opts` carries `{ variant?, guard? }` (C-11: named fields over positionals; Principle VI).
+   *
+   * @throws {PromptValidationError} validation failed (schema form or bound-validator form).
+   * @throws {PromptRenderError}     the kernel rejected the render.
+   */
+  render<T>(schema: ZodLikeSchema<T>, data: unknown, opts?: RenderOptions | null): RenderResult;
+  render(data: unknown, opts?: RenderOptions | null): RenderResult;
+  render(schemaOrData: unknown, dataOrOpts?: unknown, opts?: RenderOptions | null): RenderResult {
+    let value: unknown;
+    let options: RenderOptions | null | undefined;
+
+    if (isZodLikeSchema(schemaOrData)) {
+      // Schema form: validate dataOrOpts against the schema; opts is the third arg.
+      value = validateOrThrow(schemaOrData, dataOrOpts);
+      options = opts;
+    } else if (this.#validators !== undefined) {
+      // Bound-validator form: the first arg IS the data; run the bound validator.
+      value = validateOrThrow(this.#validators, schemaOrData);
+      options = dataOrOpts as RenderOptions | null | undefined;
+    } else {
+      // Static form: schemaOrData IS the already-typed data.
+      value = schemaOrData;
+      options = dataOrOpts as RenderOptions | null | undefined;
+    }
+
+    try {
+      return this.#handle.renderPrompt(
+        value as Record<string, unknown>,
+        options?.variant ?? undefined,
+        options?.guard ?? undefined,
+      );
+    } catch (thrown) {
+      throw decodeAddonError(thrown);
+    }
+  }
+
+  /**
+   * Return a variant's **unrendered** template source (the exact string the kernel hashes into
+   * `templateHash`). Pure: no vars, no validation. `opts.variant` selects an arm (absent ⇒
+   * the reserved `default`).
+   *
+   * @throws {PromptRenderError} unknown variant name.
+   */
+  getSource(opts?: { variant?: string } | null): string {
+    try {
+      return this.#handle.getSourcePrompt(opts?.variant ?? undefined);
+    } catch (thrown) {
+      throw decodeAddonError(thrown);
+    }
+  }
+
+  /**
+   * Pure advisory lint: returns a {@link CheckReport} containing only the origin/guard finding
+   * class (`"untrusted_without_guard"`). Construction already enforces agreement, parse, and
+   * reserved-name invariants; those are structurally unreachable here (R7 / Q4).
+   *
+   * Pure (FR-019): never renders, never mutates.
+   */
+  check(): CheckReport {
+    return this.#handle.checkPrompt();
+  }
+
+  /**
+   * The sole mutator: shallow-replace top-level fields from `overlay` onto a clone of this
+   * prompt's definition, then re-validate the merged whole via the Rust consumer. The original
+   * `Prompt` is untouched (SC-004).
+   *
+   * Validators carry forward from the source by default (R6); pass `validators` to
+   * override/augment. Coverage is re-checked against the merged definition.
+   *
+   * @param overlay    A partial `PromptDefinition` object — any subset of top-level fields to replace.
+   * @param validators Optional new validator. If omitted, the source's bound validator is inherited.
+   * @throws {LoadError}             overlay causes a shape violation.
+   * @throws {PromptRenderError}     merged template/agreement error.
+   * @throws {PromptValidationError} uncovered `validation_required` variable after merge.
+   */
+  with(
+    overlay: Partial<PromptDefinition> | Record<string, unknown>,
+    validators?: ValidatorMap,
+  ): Prompt {
+    // Effective validator: overlay's (if explicitly provided) else inherit from this.
+    const effectiveValidators = validators !== undefined ? validators : this.#validators;
+
+    let derivedHandle: NapiPrompt;
+    try {
+      derivedHandle = this.#handle.withPrompt(overlay as Record<string, unknown>);
+    } catch (thrown) {
+      throw decodeAddonError(thrown);
+    }
+
+    // Coverage check on the derived handle's merged variables.
+    assertValidatorCoverage(
+      derivedHandle.variables as Record<string, unknown> | undefined,
+      effectiveValidators,
+    );
+
+    return new Prompt({} as PromptDefinition, effectiveValidators, makeInternalArg(derivedHandle));
+  }
+
+  /**
+   * Module-private accessor: expose the underlying `NapiPrompt` handle to sibling code in this
+   * module (e.g. `Composition.append`). Not exported — the Symbol ensures it cannot be called
+   * from outside this module.
+   */
+  [PROMPT_HANDLE_KEY](): NapiPrompt {
+    return this.#handle;
   }
 }
 
 // --------------------------------------------------------------------------------------
-// getSource (US1) + check (US3) — the two remaining registry-reading entry points.
-// --------------------------------------------------------------------------------------
-
-/** Options for {@link getSource}. */
-export interface GetSourceOptions {
-  /** Select a named variant arm; absent ⇒ the reserved `default` arm. */
-  variant?: string;
-}
-
-/**
- * Return a prompt variant's **unrendered** template source (FR-010). Pure source lookup: no vars,
- * no validation, no marshaling. `opts.variant` selects an arm (absent ⇒ the reserved `default`).
- *
- * @throws {UnknownPromptError} if `name` is absent from `reg`.
- * @throws {PromptRenderError} for a kernel rejection (e.g. an unknown variant).
- */
-export function getSource(reg: Registry, name: string, opts?: GetSourceOptions | null): string {
-  try {
-    return napiGetSource(napiRegistryOf(reg), name, opts?.variant ?? undefined);
-  } catch (thrown) {
-    throw decodeAddonError(thrown);
-  }
-}
-
-/**
- * Run the agreement + provenance lint over `reg` (the headline check, US3) and return the report.
- *
- * **Pure** (FR-019): never mutates the registry, never renders, no side effects. The analysis is
- * performed once in Rust (Principle I/IV); this only unwraps the facade registry and surfaces the
- * consumer's {@link CheckReport} unchanged, preserving its deterministic finding order. An empty
- * registry yields an empty, passing report (`report.passed() === true`).
- */
-export function check(reg: Registry): CheckReport {
-  return napiCheck(napiRegistryOf(reg));
-}
-
-// --------------------------------------------------------------------------------------
-// Composition (US4) — the TS facade wrapper that validates each entry before the addon.
+// Composition (spec 008, T046) — aggregates Prompt objects, no Registry.
 // --------------------------------------------------------------------------------------
 
 /**
- * One composition entry, as an **options object** (codebase convention: named fields over positional
- * tuples — this also removes the `[name, schema, data]`-vs-`[name, data]` shape ambiguity that a
- * positional tuple forces a reader/parser to duck-type):
+ * One composition entry, as an **options object** (C-11: named fields over positional tuples).
  *
- *  - `name` — the prompt's registry name (resolved at {@link Composition.resolve}, not at append).
- *  - `schema` — an optional Zod-like schema. Present ⇒ `schema.safeParse(data)` runs at append
- *    (schema form, Q1); absent ⇒ `data` is marshaled directly (static form, Q4).
- *  - `data` — the vars value (validated against `schema` when present).
+ *  - `prompt`  — the `Prompt` object to render (owned; Principle V: caller-owned selection).
+ *  - `schema`  — optional Zod-like schema. Present ⇒ `schema.safeParse(data)` runs at append.
+ *  - `data`    — the vars value (validated against `schema` when present).
  *  - `variant` — the selected variant arm (absent ⇒ the reserved `default`).
  */
 export interface CompositionEntry {
-  name: string;
+  prompt: Prompt;
   schema?: ZodLikeSchema;
   data: unknown;
   variant?: string;
 }
 
+/** Internal representation of a stored composition entry (after validation and handle extraction). */
+interface StoredEntry {
+  /** The already-validated value for this entry. */
+  value: unknown;
+  /** The selected variant (`undefined` ⇒ the reserved `default`). */
+  variant: string | undefined;
+  /** The NapiPrompt handle (extracted at append time for kernel-direct render at resolve). */
+  handle: NapiPrompt;
+  /** The role from the prompt definition (needed for Message construction). */
+  role: string;
+}
+
 /**
- * An explicit, ordered composition of `(prompt, vars, variant?)` entries that resolves to an
- * ordered `Message[]` (FR-012). The **public** Composition is this TS-facade class (critique E2):
- * it owns the Zod validation of each entry before handing the validated value to the low-level
- * addon `Composition`. There is **no** fluent `.chain()` (FR-013) — `append` returns `void`.
+ * An explicit, ordered composition of `(Prompt, vars, variant?)` entries that resolves to an
+ * ordered `Message[]` (FR-012). Built with `new Composition()` + `append()` or
+ * `Composition.fromMessages([...])`. No fluent `.chain()` (FR-013).
  *
- * No-partial guarantee (FR-013): if any entry fails validation at construction/append, the whole
- * call throws and **nothing** is stored; if an entry fails at `resolve` (unknown prompt, unknown
- * variant, undefined variable, parse/render), `resolve` throws and the partial result is discarded.
+ * **No Registry** (spec 008 T046): each entry holds an owned `Prompt` object. `resolve()`
+ * takes no arguments — it renders using each entry's stored `Prompt` handle directly.
+ *
+ * No-partial guarantee (FR-013): if any entry fails validation at `append`/`fromMessages`, the
+ * whole call throws and **nothing** is stored. If an entry fails at `resolve` (unknown variant,
+ * undefined variable, parse/render), `resolve` throws and the partial result is discarded.
  */
 export class Composition {
-  /** The wrapped low-level addon composition; entries are appended in order after validation. */
-  readonly #inner: NapiComposition;
+  /** Entries in append order — the resolved-message order (FR-012). */
+  readonly #entries: StoredEntry[] = [];
 
-  constructor() {
-    this.#inner = new NapiComposition();
-  }
+  constructor() {}
 
   /**
-   * Build a composition from an ordered array of {@link CompositionEntry} objects, validating each
-   * in order. The first entry whose `schema.safeParse(data)` fails throws a
+   * Build a composition from an ordered array of {@link CompositionEntry} objects, validating
+   * each in order. The first entry whose `schema.safeParse(data)` fails throws a
    * {@link PromptValidationError} and **no** `Composition` is returned (no partial state — FR-013).
-   * The prompt `name` is **not** resolved here; an unknown name surfaces at {@link resolve}.
    */
   static fromMessages(entries: readonly CompositionEntry[]): Composition {
     const composition = new Composition();
@@ -556,42 +790,66 @@ export class Composition {
   }
 
   /**
-   * Marshal + store one {@link CompositionEntry}. When `entry.schema` is present, validation runs
-   * here (`schema.safeParse(entry.data)`); on failure a {@link PromptValidationError} is thrown and
-   * nothing is stored. Returns `void` (not `this`): intentionally **not** fluent/chainable (FR-013).
+   * Marshal + store one {@link CompositionEntry}. When `entry.schema` is present, validation
+   * runs here (`schema.safeParse(entry.data)`); on failure a {@link PromptValidationError} is
+   * thrown and nothing is stored. Returns `void` (not `this`): intentionally **not** fluent
+   * (FR-013).
    */
   append(entry: CompositionEntry): void {
     const value =
       entry.schema === undefined ? entry.data : validateOrThrow(entry.schema, entry.data);
-    this.#inner.append(entry.name, value, entry.variant);
+    this.#entries.push({
+      value,
+      variant: entry.variant,
+      handle: entry.prompt[PROMPT_HANDLE_KEY](),
+      role: entry.prompt.role,
+    });
   }
 
   /** The number of appended entries (== the resolved-message count on success). */
   get length(): number {
-    return this.#inner.length;
+    return this.#entries.length;
   }
 
   /**
    * Resolve the composition to an ordered `Message[]` (FR-012), rendering each entry in append
-   * order through the kernel. One entry's failure (unknown prompt, unknown variant, undefined
-   * variable, parse/render) throws the mapped {@link PromptingPressError} subclass and the partial
-   * result is discarded — never returned as success. An empty composition resolves to `[]`.
+   * order through the kernel (via `NapiPrompt.renderPrompt` on each stored handle).
+   *
+   * **No Registry** — each entry holds its own `NapiPrompt` handle (T046).
+   *
+   * One entry's failure (unknown variant, undefined variable, parse/render error) throws the
+   * mapped {@link PromptingPressError} subclass and the partial result is discarded — never
+   * returned as success. An empty composition resolves to `[]`.
+   *
+   * @throws {PromptRenderError} kernel rejection for any entry.
    */
-  resolve(reg: Registry): Message[] {
-    try {
-      return this.#inner.resolve(napiRegistryOf(reg));
-    } catch (thrown) {
-      throw decodeAddonError(thrown);
+  resolve(): Message[] {
+    const messages: Message[] = [];
+
+    for (const entry of this.#entries) {
+      let result: RenderResult;
+      try {
+        result = entry.handle.renderPrompt(
+          entry.value as Record<string, unknown>,
+          entry.variant,
+          undefined, // composition uses no guard expansion
+        );
+      } catch (thrown) {
+        throw decodeAddonError(thrown);
+      }
+      messages.push({ role: entry.role, text: result.text });
     }
+
+    return messages;
   }
 }
 
-// --------------------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────────────────
 // Re-exports: the inert addon classes/functions surfaced 1:1, plus the generated shape.
-// (`Registry`, `render`, `getSource`, `check`, `Composition` are the facade-wrapped versions
-// defined above; `RenderResult`/`CheckReport` are read-only result types surfaced unchanged, and
+// (`Prompt`, `Composition`, and the error hierarchy are the primary surface above;
+// `RenderResult`/`CheckReport` are read-only result types surfaced unchanged, and
 // `coreVersion` is a trivial callable with no error path.)
-// --------------------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────────────────
 
 export {
   // Read-only result classes + the trivial version probe, surfaced unchanged (Principle I).
@@ -600,4 +858,4 @@ export {
   coreVersion,
 };
 
-export type { Finding, GuardConfig, Message, MessageEntry, PromptDefinition };
+export type { Finding, GuardConfig, Message, PromptDefinition };

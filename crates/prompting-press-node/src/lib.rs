@@ -37,6 +37,7 @@ pub mod check;
 pub mod compose;
 pub mod error;
 pub mod marshal;
+pub mod prompt;
 pub mod registry;
 pub mod render;
 

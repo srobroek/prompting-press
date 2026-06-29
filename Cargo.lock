@@ -421,7 +421,9 @@ dependencies = [
  "prompting-press-core",
  "pyo3",
  "pythonize",
+ "serde",
  "serde_json",
+ "serde_yaml_ng",
 ]
 
 [[package]]

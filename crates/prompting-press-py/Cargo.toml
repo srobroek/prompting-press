@@ -38,6 +38,14 @@ prompting-press = { path = "../prompting-press" }
 # Principle I). A value-type dependency, NOT engine logic: no rendering happens in this crate.
 minijinja = { workspace = true }
 
+# `serde` is the trait bound used in `prompt.rs`'s `map_to_pydict` helper (serializing
+# `HashMap<String, T>` to a Python dict via `serde_json::to_value`).
+serde = { workspace = true }
+
+# `serde_yaml_ng` is the YAML parser used by the backward-compat registry shim
+# (registry.rs `load_yaml`). Same version pin as the consumer crate.
+serde_yaml_ng = "0.10"
+
 # `serde_json` is the lossless serde intermediate for the marshaling bridge: a Python
 # object is `depythonize`d into a `serde_json::Value`, then re-serialized into a
 # `minijinja::Value` via `from_serialize` (the same primitive the Rust consumer uses).

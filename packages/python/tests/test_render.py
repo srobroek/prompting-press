@@ -1,14 +1,13 @@
-"""US1 render-path tests for the PyO3 binding (`prompting_press`) — spec 004, T009.
+"""Render-path tests for the PyO3 binding (`prompting_press`) — spec 008 Phase 4 surface.
 
-These exercise the *Python-observable* render path that the Rust `#[cfg(test)]` suite
+These exercise the Python-observable render path that the Rust `#[cfg(test)]` suite
 cannot reach because it needs a real Pydantic Vars model: validate-in-Python (FR-002),
 the normalized error contract (FR-014, C-06), the SEC-004-PY scrub, the three-sets
 agreement gap (loud `undefined_variable`, never a silent empty render), and the guard
 plumb-through (FR-009).
 
-Construction note (US2 loaders are not implemented yet): a prompt is built by
-validating a plain dict into the generated `PromptDefinition` and handing it to
-`Registry.insert`, which extracts the kernel struct via `pythonize::depythonize`.
+The spec 008 Phase 4 reshape uses `Prompt(shape).render(...)` instead of the removed
+`render(reg, name, vars, ...)` free function.
 
 Model invariant under test: a single `render` returns the BODY as `.text` and any
 guard instruction as the SEPARATE `.guard` field — the library never concatenates the
@@ -26,15 +25,11 @@ from pydantic import BaseModel, field_validator
 import prompting_press
 from prompting_press import (
     GuardConfig,
+    Prompt,
     PromptingPressError,
     PromptRenderError,
     PromptValidationError,
-    Registry,
-    UnknownPromptError,
-    get_source,
-    render,
 )
-from prompting_press.generated import PromptDefinition
 
 # A lowercase 64-char hex string — the SHA-256 provenance hash shape (FR-012/FR-013).
 HEX64 = re.compile(r"\A[0-9a-f]{64}\Z")
@@ -130,34 +125,16 @@ class TwoFields(BaseModel):
 
 
 # --------------------------------------------------------------------------------------
-# Registry helpers
+# Prompt fixtures
 # --------------------------------------------------------------------------------------
-
-
-def _registry(definition: dict) -> Registry:
-    """Validate `definition` into a generated `PromptDefinition`, then insert it.
-
-    `Registry.insert` reads the object via `pythonize::depythonize`, which requires a
-    plain Mapping (a Pydantic model *instance* is not a Mapping, and an explicit
-    ``null`` for an absent sequence field is rejected by the kernel's serde struct).
-    So we validate the dict through the generated `PromptDefinition` (proving the
-    shape) and hand `insert` the canonical JSON dump with absent fields omitted
-    (`mode="json"` stringifies enums/dates; `exclude_none=True` drops the optional
-    nulls). This is the US2-precursor of the eventual `load_json` path.
-    """
-    model = PromptDefinition.model_validate(definition)
-    reg = Registry()
-    reg.insert(model.model_dump(mode="json", exclude_none=True))
-    return reg
-
 
 GREET_DEF = {
     "name": "greet",
     "role": "user",
     "body": "Hi {{ name }}, you have {{ count }} messages",
     "variables": {
-        "name": {"type": "string", "provenance": "trusted"},
-        "count": {"type": "integer", "provenance": "trusted"},
+        "name": {"type": "string", "origin": "trusted"},
+        "count": {"type": "integer", "origin": "trusted"},
     },
 }
 
@@ -168,7 +145,7 @@ ASK_DEF = {
     "role": "user",
     "body": "Tell me about {{ topic }}.",
     "variables": {
-        "topic": {"type": "string", "provenance": "untrusted"},
+        "topic": {"type": "string", "origin": "untrusted"},
     },
 }
 
@@ -179,9 +156,8 @@ ASK_DEF = {
 
 
 def test_valid_render_produces_text_and_hex_hashes() -> None:
-    reg = _registry(GREET_DEF)
-
-    result = render(reg, "greet", Greeting, data={"name": "Ada", "count": 3})
+    p = Prompt(GREET_DEF)
+    result = p.render(Greeting, data={"name": "Ada", "count": 3})
 
     assert result.text == "Hi Ada, you have 3 messages"
     assert result.name == "greet"
@@ -199,10 +175,9 @@ def test_valid_render_produces_text_and_hex_hashes() -> None:
 
 
 def test_validation_failure_raises_before_render() -> None:
-    reg = _registry(GREET_DEF)
-
+    p = Prompt(GREET_DEF)
     with pytest.raises(PromptValidationError) as excinfo:
-        render(reg, "greet", Greeting, data={"name": "Ada", "count": -1})
+        p.render(Greeting, data={"name": "Ada", "count": -1})
 
     exc = excinfo.value
     # The normalized contract: a list of {field, code, message} rows.
@@ -217,11 +192,10 @@ def test_validation_failure_names_every_offending_field() -> None:
     # SC-002: a structured exception naming EVERY offending field — exercise the real
     # Pydantic→rows extraction (collect_validation_rows) with a multi-error
     # ValidationError, not a single field.
-    reg = _registry(GREET_DEF)
-
+    p = Prompt(GREET_DEF)
     with pytest.raises(PromptValidationError) as excinfo:
         # Both fields violate their validators in one model_validate pass.
-        render(reg, "greet", TwoFields, data={"name": "", "count": -1})
+        p.render(TwoFields, data={"name": "", "count": -1})
 
     fields = {r.field for r in excinfo.value.errors}
     assert {"name", "count"} <= fields, (
@@ -236,10 +210,9 @@ def test_validation_failure_names_every_offending_field() -> None:
 
 
 def test_validation_error_is_not_a_pydantic_error() -> None:
-    reg = _registry(GREET_DEF)
-
+    p = Prompt(GREET_DEF)
     with pytest.raises(PromptingPressError) as excinfo:
-        render(reg, "greet", Greeting, data={"name": "Ada", "count": -1})
+        p.render(Greeting, data={"name": "Ada", "count": -1})
 
     exc = excinfo.value
     # The raised type is the binding's, and is specifically the validation subtype ...
@@ -255,17 +228,16 @@ def test_validation_error_is_not_a_pydantic_error() -> None:
 
 def test_rejected_sensitive_input_is_not_leaked() -> None:
     secret = "sk-super-secret-token-9f8a7b6c5d4e"
-    reg = _registry(
+    p = Prompt(
         {
             "name": "leaky",
             "role": "user",
             "body": "Using {{ token }}",
-            "variables": {"token": {"type": "string", "provenance": "trusted"}},
+            "variables": {"token": {"type": "string", "origin": "trusted"}},
         }
     )
-
     with pytest.raises(PromptValidationError) as excinfo:
-        render(reg, "leaky", Secretful, data={"token": secret})
+        p.render(Secretful, data={"token": secret})
 
     exc = excinfo.value
     # Neither str(exc) nor any row message may contain the rejected value — only the
@@ -290,17 +262,16 @@ def test_secret_in_a_kernel_render_error_is_not_leaked() -> None:
     secret must appear in neither `str(exc)`, `repr(exc)`, nor any row.
     """
     secret = "sk-super-secret-token-9f8a7b6c5d4e"
-    reg = _registry(
+    p = Prompt(
         {
             "name": "kernely",
             "role": "user",
             "body": "Using {{ token + 1 }}",  # string + int ⇒ kernel render error
-            "variables": {"token": {"type": "string", "provenance": "trusted"}},
+            "variables": {"token": {"type": "string", "origin": "trusted"}},
         }
     )
-
     with pytest.raises(PromptRenderError) as excinfo:
-        render(reg, "kernely", Secret, data={"token": secret})
+        p.render(Secret, data={"token": secret})
 
     exc = excinfo.value
     assert secret not in str(exc), f"str(exc) leaked the secret: {exc}"
@@ -320,18 +291,17 @@ def test_secret_in_a_kernel_render_error_is_not_leaked() -> None:
 
 def test_field_name_mismatch_is_loud_undefined_variable() -> None:
     # The Vars model has `nam`; the template references `{{ name }}`.
-    reg = _registry(
+    p = Prompt(
         {
             "name": "greet",
             "role": "user",
             "body": "Hi {{ name }}!",
-            "variables": {"name": {"type": "string", "provenance": "trusted"}},
+            "variables": {"name": {"type": "string", "origin": "trusted"}},
         }
     )
-
     # Validation passes (Misnamed is internally consistent) — the failure is at render.
     with pytest.raises(PromptRenderError) as excinfo:
-        render(reg, "greet", Misnamed, data={"nam": "Ada"})
+        p.render(Misnamed, data={"nam": "Ada"})
 
     exc = excinfo.value
     codes = [r.code for r in exc.errors]
@@ -346,12 +316,10 @@ def test_field_name_mismatch_is_loud_undefined_variable() -> None:
 
 
 def test_guard_is_plumbed_through_and_separate_from_text() -> None:
-    reg = _registry(ASK_DEF)
+    p = Prompt(ASK_DEF)
 
-    plain = render(reg, "ask", Topic, data={"topic": "rivers"})
-    guarded = render(
-        reg, "ask", Topic, data={"topic": "rivers"}, guard=GuardConfig(enabled=True)
-    )
+    plain = p.render(Topic(topic="rivers"))
+    guarded = p.render(Topic(topic="rivers"), guard=GuardConfig(enabled=True))
 
     # Default render ⇒ no guard.
     assert plain.guard is None
@@ -369,12 +337,10 @@ def test_guard_is_plumbed_through_and_separate_from_text() -> None:
 
 
 def test_disabled_guard_config_matches_no_guard() -> None:
-    reg = _registry(ASK_DEF)
+    p = Prompt(ASK_DEF)
 
-    no_guard = render(reg, "ask", Topic, data={"topic": "rivers"})
-    disabled = render(
-        reg, "ask", Topic, data={"topic": "rivers"}, guard=GuardConfig(enabled=False)
-    )
+    no_guard = p.render(Topic(topic="rivers"))
+    disabled = p.render(Topic(topic="rivers"), guard=GuardConfig(enabled=False))
 
     # GuardConfig() / enabled=False is equivalent to passing no guard at all.
     assert no_guard.guard is None
@@ -388,9 +354,8 @@ def test_disabled_guard_config_matches_no_guard() -> None:
 
 
 def test_render_accepts_a_model_instance() -> None:
-    reg = _registry(GREET_DEF)
-
-    result = render(reg, "greet", Greeting(name="Bo", count=1))
+    p = Prompt(GREET_DEF)
+    result = p.render(Greeting(name="Bo", count=1))
 
     assert result.text == "Hi Bo, you have 1 messages"
     assert result.variant == "default"
@@ -400,8 +365,7 @@ def test_render_accepts_a_model_instance() -> None:
 
 def test_module_exposes_us1_surface() -> None:
     # A light smoke check that the US1 public names are importable and callable shapes.
-    assert callable(prompting_press.render)
-    assert callable(prompting_press.get_source)
+    assert hasattr(prompting_press, "Prompt")
     assert prompting_press.GuardConfig(enabled=True).enabled is True
 
 
@@ -411,27 +375,18 @@ def test_module_exposes_us1_surface() -> None:
 
 
 def test_get_source_returns_unrendered_template() -> None:
-    reg = _registry(GREET_DEF)
-
-    source = get_source(reg, "greet")
+    p = Prompt(GREET_DEF)
+    source = p.get_source()
 
     # The KEY property: get_source returns the raw template, it does NOT interpolate.
     assert source == "Hi {{ name }}, you have {{ count }} messages"
     assert "{{" in source, "get_source must return the unrendered source"
 
 
-def test_get_source_unknown_name_raises_unknown_prompt() -> None:
-    reg = _registry(GREET_DEF)
-
-    with pytest.raises(UnknownPromptError):
-        get_source(reg, "does-not-exist")
-
-
 def test_get_source_unknown_variant_raises_render_error() -> None:
-    reg = _registry(GREET_DEF)
-
+    p = Prompt(GREET_DEF)
     with pytest.raises(PromptRenderError) as excinfo:
-        get_source(reg, "greet", variant="nope")
+        p.get_source(variant="nope")
 
     assert any(r.code == "unknown_variant" for r in excinfo.value.errors), [
         r.code for r in excinfo.value.errors

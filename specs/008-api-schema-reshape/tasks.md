@@ -91,13 +91,13 @@ determinism).
 **Goal**: `Prompt` pyclass with validators bound at construction; drop `Registry`. **Gate**:
 `cargo test -p prompting-press-py` + `pytest packages/python/tests`.
 
-- [ ] T035 Add the `Prompt` pyclass (`crates/prompting-press-py/src/`): primary constructor `Prompt(shape, *, validators=None)` (raises `PromptValidationError` on invalid shape/parse/agreement); `from_yaml`/`from_json`/`from_toml` (stdlib `tomllib` — free at 3.12); read-only `@property` accessors. Kernel-direct render. (FR-010..013, FR-020; US1, US3, SC-010)
-- [ ] T036 Bind validators at construction: accept a Pydantic-model-based validator map; check every `validation_required: true` variable is covered (introspect `model_fields`) and RAISE naming the uncovered variable if not. (FR-022, FR-023, FR-024; US7, SC-009)
-- [ ] T037 Move `render`/`get_source`/`check` onto the pyclass (keyword-only optional tail — C-11); SEC-004 scrub on every new error path (route `KernelError` through the consumer `From` first; Pydantic mapper copies `msg`/`loc` only). (FR-015, FR-025; SC-008)
-- [ ] T038 Implement the sole mutator on the pyclass — **A8-7: pick the non-reserved name** (`with_` recommended); validators carry forward + optional override; re-validate merged whole. (FR-017, FR-023; US2, SC-004)
-- [ ] T039 Migrate `Composition` to aggregate `Prompt` objects; remove `Registry` from the pyclass module + the facade `__init__.py` `__all__`/imports (Registry out, Prompt in). (FR-018, FR-019; US4, US5, SC-001)
-- [ ] T040 Update `pytest` tests for the object surface: construct valid/invalid, coverage-raise, `with_` immutability, `from_toml`, no-`Registry`. (SC-001, SC-004, SC-005, SC-009, SC-010)
-- [ ] T041 GATE: `cargo test -p prompting-press-py` + `moon run ci:test-python` green (build maturin from `packages/python/`). (FR-028)
+- [X] T035 Add the `Prompt` pyclass (`crates/prompting-press-py/src/`): primary constructor `Prompt(shape, *, validators=None)` (raises `PromptValidationError` on invalid shape/parse/agreement); `from_yaml`/`from_json`/`from_toml` (stdlib `tomllib` — free at 3.12); read-only `@property` accessors. Kernel-direct render. (FR-010..013, FR-020; US1, US3, SC-010)
+- [X] T036 Bind validators at construction: accept a Pydantic-model-based validator map; check every `validation_required: true` variable is covered (introspect `model_fields`) and RAISE naming the uncovered variable if not. (FR-022, FR-023, FR-024; US7, SC-009)
+- [X] T037 Move `render`/`get_source`/`check` onto the pyclass (keyword-only optional tail — C-11); SEC-004 scrub on every new error path (route `KernelError` through the consumer `From` first; Pydantic mapper copies `msg`/`loc` only). (FR-015, FR-025; SC-008)
+- [X] T038 Implement the sole mutator on the pyclass — **A8-7: pick the non-reserved name** (`with_` recommended); validators carry forward + optional override; re-validate merged whole. (FR-017, FR-023; US2, SC-004)
+- [X] T039 Migrate `Composition` to aggregate `Prompt` objects; remove `Registry` from the pyclass module + the facade `__init__.py` `__all__`/imports (Registry out, Prompt in). (FR-018, FR-019; US4, US5, SC-001)
+- [X] T040 Update `pytest` tests for the object surface: construct valid/invalid, coverage-raise, `with_` immutability, `from_toml`, no-`Registry`. (SC-001, SC-004, SC-005, SC-009, SC-010)
+- [X] T041 GATE: `cargo test -p prompting-press-py` + `moon run ci:test-python` green (build maturin from `packages/python/`). (FR-028)
 
 ---
 
@@ -106,13 +106,13 @@ determinism).
 **Goal**: `Prompt` class (`new` throws), Zod-schema-backed, drop `Registry` + duck-typing. **Gate**:
 `cargo test -p prompting-press-node` + `node --test`.
 
-- [ ] T042 Add the `Prompt` class to `packages/typescript/src/index.ts`: primary constructor `new Prompt(shape, validators?)` that **throws** `PromptValidationError` (carrying `[{field,code,message}]`) on invalid shape/parse/agreement; static `fromYaml`/`fromJson`/`fromToml` (add `smol-toml@1.7.0` to package.json); read-only accessors. (FR-010..014, FR-020; US1, US3, US6, SC-010)
-- [ ] T043 Bind validators at construction; check `validation_required` coverage via `ZodObject.shape` (`field in schema.shape`) and throw naming the uncovered variable; extend `ZodLikeSchema` with optional `shape` (absent → documented "cannot assert coverage"). (FR-022..024; US7, SC-009)
-- [ ] T044 Move `render`/`getSource`/`check` onto the class (options-object tail — C-11); **remove the `isSchema()` duck-typing** (the named validators arg removes the ambiguity). (FR-015; US1)
-- [ ] T045 Implement `with(overlay, validators?)` (throws on invalid merged; validators carry forward + override). (FR-017, FR-023; US2, SC-004)
-- [ ] T046 Migrate `Composition` to aggregate `Prompt` objects; remove the `Registry` class + registry-keyed `render`/`getSource`/`check` exports from `index.ts`. (FR-018, FR-019; US4, US5, SC-001)
-- [ ] T047 Update `node --test` suites for the object surface: construct valid/invalid (throw), coverage-throw, `with` immutability, `fromToml`, no-`Registry`. (SC-001, SC-004, SC-005, SC-009, SC-010)
-- [ ] T048 GATE: `cargo test -p prompting-press-node` + `moon run ci:test-node` green. (FR-028)
+- [X] T042 Add the `Prompt` class to `packages/typescript/src/index.ts`: primary constructor `new Prompt(shape, validators?)` that **throws** `PromptValidationError` (carrying `[{field,code,message}]`) on invalid shape/parse/agreement; static `fromYaml`/`fromJson`/`fromToml` (add `smol-toml@1.7.0` to package.json); read-only accessors. (FR-010..014, FR-020; US1, US3, US6, SC-010)
+- [X] T043 Bind validators at construction; check `validation_required` coverage via `ZodObject.shape` (`field in schema.shape`) and throw naming the uncovered variable; extend `ZodLikeSchema` with optional `shape` (absent → documented "cannot assert coverage"). (FR-022..024; US7, SC-009)
+- [X] T044 Move `render`/`getSource`/`check` onto the class (options-object tail — C-11); **remove the `isSchema()` duck-typing** (the named validators arg removes the ambiguity). (FR-015; US1)
+- [X] T045 Implement `with(overlay, validators?)` (throws on invalid merged; validators carry forward + override). (FR-017, FR-023; US2, SC-004)
+- [X] T046 Migrate `Composition` to aggregate `Prompt` objects; remove the `Registry` class + registry-keyed `render`/`getSource`/`check` exports from `index.ts`. (FR-018, FR-019; US4, US5, SC-001)
+- [X] T047 Update `node --test` suites for the object surface: construct valid/invalid (throw), coverage-throw, `with` immutability, `fromToml`, no-`Registry`. (SC-001, SC-004, SC-005, SC-009, SC-010)
+- [X] T048 GATE: `cargo test -p prompting-press-node` + `moon run ci:test-node` green. (FR-028)
 
 ---
 

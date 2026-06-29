@@ -327,10 +327,14 @@ impl Prompt {
         Self::new(merged)
     }
 
-    /// Borrow the underlying [`PromptDefinition`] for use by crate-internal callers
-    /// (e.g. `Composition::resolve`). Not public: consumers reach the definition via the
-    /// typed accessors or through `render`/`get_source`.
-    pub(crate) fn definition(&self) -> &PromptDefinition {
+    /// Borrow the underlying [`PromptDefinition`] for use by binding crates
+    /// (e.g. `prompting-press-node`, `prompting-press-py`) that need to call the kernel
+    /// directly for render/get_source (their validation is owned in the binding layer, not
+    /// in Rust garde, so the consumer's generic `render<V>` is not usable there). Bindings
+    /// call `prompting_press_core::render(prompt.definition(), ...)` directly after doing
+    /// their own validation — the same zero-engine-logic pattern as the registry render
+    /// paths (critique E1 / C-01). Also used by `Composition::resolve` within this crate.
+    pub fn definition(&self) -> &PromptDefinition {
         &self.def
     }
 }

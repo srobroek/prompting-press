@@ -8,16 +8,16 @@
 """Code-generated Pydantic v2 shapes (do not hand-edit)."""
 
 from prompting_press.generated.prompt_definition import (
+    Origin,
     PromptDefinition,
-    Provenance,
     Role,
     VariableDecl,
     Variant,
 )
 
 __all__ = [
+    "Origin",
     "PromptDefinition",
-    "Provenance",
     "Role",
     "VariableDecl",
     "Variant",

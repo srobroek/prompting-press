@@ -2,8 +2,8 @@
 
 This is a TEST HARNESS, not engine logic. It drives the shared
 `conformance/marshaling/*.json` fixtures through the **real** Python render path
-(``prompting_press.render`` → validate-in-Python → marshal → kernel) and pins the
-golden ``text`` + provenance hashes that the Rust core produced.
+(``Prompt(definition).render(vars_model, data=native)``) and pins the golden
+``text`` + provenance hashes that the Rust core produced.
 
 What it guards (Principle VII): that the Python binding marshals each logical type
 — string / int / float / bool / null / absent / datetime / date / decimal / nested
@@ -52,7 +52,7 @@ from typing import Any
 import pytest
 from pydantic import BaseModel, create_model
 
-from prompting_press import Registry, render
+from prompting_press import Prompt
 
 # Records the value-construction choice for the canonical-serialized types — the form that
 # reproduces each golden byte-for-byte (see the module docstring's DECISION). Asserted by
@@ -149,20 +149,18 @@ _FIXTURES = _load_fixtures()
 def test_marshaling_fixture_renders_to_golden(fixture: dict[str, Any]) -> None:
     """Each marshaling fixture renders to its exact golden text + provenance hashes.
 
-    The whole chain is real: `load_json` of the spec-001 definition, a native Vars dict
-    built from the type-tag table, then `render` through validate → marshal → kernel.
+    The whole chain is real: `Prompt(definition)` to construct the prompt, a native Vars
+    dict built from the type-tag table, then `prompt.render(vars_model, data=native)`
+    through validate → marshal → kernel.
     """
     case = fixture["case"]
 
-    reg = Registry()
-    reg.load_json(json.dumps(fixture["definition"]))
+    p = Prompt(fixture["definition"])
 
     native = _native_inputs(fixture["input"])
     vars_model = _vars_model(list(native.keys()))
 
-    result = render(
-        reg,
-        fixture["definition"]["name"],
+    result = p.render(
         vars_model,
         data=native,
         variant=fixture["variant"],  # str or None — None ⇒ the reserved `default` arm

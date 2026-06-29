@@ -138,23 +138,17 @@ impl From<KernelRenderResult> for RenderResult {
     }
 }
 
-/// Render `name`'s resolved variant through the kernel with the already-validated `value`
-/// (FR-009).
+/// Render `name`'s resolved variant through the kernel with the already-validated `value`.
 ///
-/// Validation is owned in the **TS facade** (Q1) and has already run before this is called — the
-/// `value` is the validated, plain payload. `variant` selects an arm (absent ⇒ the reserved
-/// `default` = root body). `guard` is the opt-in [`GuardConfig`] **plumbed straight through** to
-/// the kernel (FR-009): absent ⇒ a plain render (kernel default, disabled). The binding does no
-/// guard logic — when the guard is enabled and the prompt declares an untrusted/external field,
-/// the kernel populates [`RenderResult::guard`]; the binding only surfaces it.
+/// **Not a `#[napi]` function** (SC-001 / T046): the registry-keyed render path is gone from
+/// the public JS surface. This plain Rust function is kept only for the `#[cfg(test)]` suites
+/// that exercise the kernel-direct render + napi error mapping without a Node runtime.
 ///
-/// # Errors (all thrown as a napi error carrying the structured, scrubbed payload — C-06)
-/// - `unknown_prompt` — `name` absent from `reg` (FR-008a). Thrown **before** marshaling; nothing
-///   is rendered.
-/// - a kernel code (`unknown_variant` / `undefined_variable` / `parse` / `render` /
-///   `excluded_feature`) — the kernel rejected the render. `parse` / `render` / `excluded_feature`
-///   detail is scrubbed (SEC-004 / critique E2).
-#[napi]
+/// The public render path is `NapiPrompt::render_prompt` (see `prompt.rs`).
+///
+/// # Errors
+/// - `unknown_prompt` — `name` absent from `reg`.
+/// - kernel codes — the kernel rejected the render (SEC-004 scrubbed).
 pub fn render(
     reg: &Registry,
     name: String,
@@ -164,7 +158,7 @@ pub fn render(
 ) -> napi::Result<RenderResult> {
     // 1. Resolve the prompt by name once (absent ⇒ structured error, never a panic — FR-008a).
     //    Done first and entirely in Rust against the inner consumer registry.
-    let Some(def) = reg.inner().get(&name) else {
+    let Some(def) = reg.get(&name) else {
         return Err(consumer_error_to_napi_err(ConsumerError::UnknownPrompt(
             name,
         )));
@@ -183,20 +177,29 @@ pub fn render(
         .map_err(kernel_error_to_napi_err)
 }
 
-/// Return a prompt variant's **unrendered** template source (FR-010).
+/// Return a prompt variant's **unrendered** template source.
 ///
-/// Pure source lookup: there are no vars, so this performs no validation and no marshaling. It
-/// delegates to the Rust consumer's [`prompting_press::get_source`] — which has **no** generic `V`
-/// (it is reusable as-is) — and maps a [`ConsumerError`] through the error normalization.
+/// **Not a `#[napi]` function** (SC-001 / T046): registry-keyed getSource is gone from the
+/// public JS surface. Kept as a plain Rust function for `#[cfg(test)]` coverage only.
+///
+/// The public getSource path is `NapiPrompt::get_source_prompt` (see `prompt.rs`).
 ///
 /// # Errors
 /// - `unknown_prompt` — `name` absent from `reg`.
 /// - a kernel code (e.g. `unknown_variant`) — the kernel rejected the lookup.
-#[napi]
 pub fn get_source(reg: &Registry, name: String, variant: Option<String>) -> napi::Result<String> {
-    prompting_press::get_source(reg.inner(), &name, variant.as_deref())
+    // 1. Resolve the definition by name (absent ⇒ structured error, never a panic).
+    let Some(def) = reg.get(&name) else {
+        return Err(consumer_error_to_napi_err(ConsumerError::UnknownPrompt(
+            name,
+        )));
+    };
+
+    // 2. Delegate to the kernel directly (the consumer's free-fn get_source is gone
+    //    post-reshape; calling the kernel is the same zero-engine-logic pattern as render).
+    prompting_press_core::get_source(def, variant.as_deref())
         .map(str::to_owned)
-        .map_err(consumer_error_to_napi_err)
+        .map_err(crate::error::kernel_error_to_napi_err)
 }
 
 #[cfg(test)]
@@ -331,7 +334,7 @@ mod tests {
                 "name": "ask",
                 "role": "user",
                 "body": "Answer: {{ q }}",
-                "variables": { "q": { "type": "string", "provenance": "untrusted" } }
+                "variables": { "q": { "type": "string", "origin": "untrusted" } }
             }"#,
         );
 

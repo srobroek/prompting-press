@@ -14,13 +14,18 @@
 //! - [`marshal`] — the one FFI value bridge (Python value → `minijinja::Value`).
 //! - [`error`] — the exception hierarchy + `ConsumerError`/`KernelError` → `PyErr` translation
 //!   (SEC-004 scrub preserved).
-//! - [`registry`] — the `Registry` `#[pyclass]` (construct + insert; loaders are US2).
 //!
 //! Later phases add the render/check/compose paths:
-//! - [`render`] — validate-in-Python → marshal → kernel-direct render + `get_source` (US1).
-//! - [`check`] — `check(registry)` + the `CheckReport` / `Finding` pyclasses (US3).
+//! - [`render`] — the `RenderResult` and `GuardConfig` pyclasses + the `validate_in_python`
+//!   helper (used by `prompt.rs` and `compose.rs`).
+//! - [`check`] — the `CheckReport` / `Finding` pyclasses; the lint is `prompt.check()` now.
 //! - [`compose`] — the binding-owned `Composition` / `Message` pyclasses: eager-validate each
 //!   entry (reusing the US1 validation path), then a kernel-direct resolve loop (US4).
+//!
+//! Phase 4 (spec 008 T035–T038) adds the immutable `Prompt` object:
+//! - [`prompt`] — the `Prompt` pyclass: validating construction, `from_yaml`/`from_json`/
+//!   `from_toml`, read-only properties, `render`/`get_source`/`check`, and `with_` (the sole
+//!   mutator). Primary public type; replaces the former Registry-based split surface.
 //!
 //! [PyO3]: https://pyo3.rs
 
@@ -30,7 +35,7 @@ pub mod check;
 pub mod compose;
 pub mod error;
 pub mod marshal;
-pub mod registry;
+pub mod prompt;
 pub mod render;
 
 /// Returns the kernel version, reached through the Rust consumer surface.
@@ -54,30 +59,27 @@ fn core_version() -> &'static str {
 fn prompting_press_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(core_version, m)?)?;
 
-    // The Registry pyclass (T007).
-    m.add_class::<registry::Registry>()?;
-
     // The exception hierarchy + the FieldError row class (T006).
     error::register(m)?;
 
-    // The render path: render / get_source + the RenderResult and GuardConfig pyclasses
-    // (US1, T010/T011). GuardConfig is the opt-in guard plumbed through to the kernel (FR-009).
+    // The render output + guard config pyclasses (US1, T010/T011). GuardConfig is the opt-in
+    // guard plumbed through to the kernel (FR-009). The module-level render/get_source free
+    // functions are removed (spec 008 Phase 4) — use Prompt.render / Prompt.get_source.
     m.add_class::<render::RenderResult>()?;
     m.add_class::<render::GuardConfig>()?;
-    m.add_function(wrap_pyfunction!(render::render, m)?)?;
-    m.add_function(wrap_pyfunction!(render::get_source, m)?)?;
 
-    // The agreement + provenance lint: check(registry) + the CheckReport / Finding pyclasses
-    // (US3, T017). Pure CI lint marshaled to the consumer's `check` (C-01); nothing is re-derived.
+    // The lint report pyclasses (US3, T017). The module-level check(reg) free function is
+    // removed (spec 008 Phase 4) — use prompt.check() per Prompt object.
     m.add_class::<check::CheckReport>()?;
     m.add_class::<check::Finding>()?;
-    m.add_function(wrap_pyfunction!(check::check, m)?)?;
 
     // Multi-message composition: the binding-owned Composition + Message pyclasses (US4, T020).
-    // Composition eager-validates each entry via the US1 Python-validation path, then resolves
-    // through the kernel directly (critique E1 / C-01) — no engine logic in the binding.
+    // Composition aggregates Prompt objects (spec 008 Phase 4 reshape).
     m.add_class::<compose::Composition>()?;
     m.add_class::<compose::Message>()?;
+
+    // The immutable Prompt object (spec 008 Phase 4, T035–T038). Primary public type.
+    m.add_class::<prompt::Prompt>()?;
 
     Ok(())
 }
