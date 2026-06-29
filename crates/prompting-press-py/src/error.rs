@@ -125,7 +125,8 @@ create_exception!(
     PromptRenderError,
     PromptingPressError,
     "A kernel render/source/analysis failure (code in unknown_variant|undefined_variable|parse|\
-     render|excluded_feature). parse/render/excluded_feature messages are scrubbed (SEC-004)."
+     render|excluded_feature). render/excluded_feature messages are scrubbed (SEC-004); the parse \
+     message carries template-syntax detail (pre-binding, no bound values)."
 );
 
 create_exception!(
@@ -200,9 +201,10 @@ pub fn consumer_error_to_pyerr(py: Python<'_>, err: ConsumerError) -> PyErr {
 /// Translate a **raw** [`KernelError`] into a Python exception — SEC-004 safe.
 ///
 /// Routes through the consumer's tested scrubber (`ConsumerError::from(kernel)`) **first**, which
-/// replaces `Parse`/`Render`/`ExcludedFeature` detail with a fixed message and discards the raw
-/// `detail`. The resulting (scrubbed) `ConsumerError` is then mapped by [`consumer_error_to_pyerr`].
-/// Raw `KernelError::detail` is never read here.
+/// replaces `Render`/`ExcludedFeature` detail with a fixed message and discards the raw `detail`
+/// (`Parse` detail is preserved — it is pre-binding template-syntax context, never a bound value).
+/// The resulting `ConsumerError` is then mapped by [`consumer_error_to_pyerr`]. Raw
+/// `KernelError::detail` is never read directly here.
 pub fn kernel_error_to_pyerr(py: Python<'_>, err: KernelError) -> PyErr {
     let scrubbed = ConsumerError::from(err);
     consumer_error_to_pyerr(py, scrubbed)

@@ -211,22 +211,26 @@ mod tests {
         );
     }
 
-    /// SEC-004: a `Parse` detail secret is likewise scrubbed; the row carries the `parse` code.
+    /// `Parse` detail is PRESERVED (not scrubbed): parsing happens before any value is
+    /// bound, so the detail is template-syntax context (line/column, the offending
+    /// construct) — never a bound value — and surfacing it makes a syntax error debuggable.
     #[test]
-    fn parse_kernel_detail_secret_is_scrubbed() {
-        const SECRET: &str = "PASSWORD=hunter2";
+    fn parse_kernel_detail_is_preserved() {
+        const DETAIL: &str = "syntax error: unexpected end of input (in kernel:1)";
         let kernel = KernelError::Parse {
-            detail: format!("syntax error near {SECRET}"),
+            detail: DETAIL.to_string(),
         };
         let err = kernel_error_to_napi_err(kernel);
-        assert!(
-            !err.reason.contains(SECRET),
-            "reason leaked: {}",
-            err.reason
-        );
         let payload = payload_of(&err);
         assert_eq!(payload["code"], code::PARSE);
         assert_eq!(payload["errors"][0]["code"], code::PARSE);
+        let message = payload["errors"][0]["message"]
+            .as_str()
+            .expect("message string");
+        assert!(
+            message.contains(DETAIL),
+            "parse detail must be preserved: {message}"
+        );
     }
 
     /// `ExcludedFeature` maps to the stable `excluded_feature` code and does not leak the raw

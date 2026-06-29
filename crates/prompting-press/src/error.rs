@@ -159,14 +159,17 @@ impl From<garde::Report> for ConsumerError {
 /// The match is **exhaustive** over the closed enum (no wildcard arm), so adding a kernel
 /// variant is a compile error here until it is mapped.
 ///
-/// **SEC-004 / FR-015:** `Parse` / `Render` `detail` may carry bound-value content
-/// (untrusted input, PII, secrets). Those arms therefore emit a **fixed, templated**
-/// message and discard the raw `detail` entirely — the value content never reaches the
-/// `message` (and thus never reaches a log derived from it). `UnknownVariant` /
-/// `UndefinedVariable` carry only a caller-supplied variant name / a template variable
-/// name — neither is bound *value* content — so those are surfaced. `ExcludedFeature`
-/// detail describes a template construct (a tag name), not a bound value, but is likewise
-/// templated for uniformity and defense in depth.
+/// **SEC-004 / FR-015:** `Render` `detail` may carry bound-value content (untrusted input,
+/// PII, secrets) — rendering is the only stage where values flow into the engine — so the
+/// `Render` arm emits a **fixed, templated** message and discards the raw `detail` entirely;
+/// the value content never reaches the `message` (and thus never reaches a log derived from
+/// it). `Parse` is different: the engine parses the template source eagerly, *before* any
+/// value is bound, so a parse error carries only template-syntax context (line/column, the
+/// offending construct) and its `detail` is **preserved** for debuggability — no bound value
+/// can be present. `UnknownVariant` / `UndefinedVariable` carry only a caller-supplied
+/// variant name / a template variable name — neither is bound *value* content — so those are
+/// surfaced. `ExcludedFeature` detail describes a template construct (a tag name), not a
+/// bound value, but is templated for uniformity and defense in depth.
 impl From<KernelError> for ConsumerError {
     fn from(err: KernelError) -> Self {
         let row = match err {
@@ -180,11 +183,14 @@ impl From<KernelError> for ConsumerError {
                 code: code::UNDEFINED_VARIABLE.to_string(),
                 message: format!("undefined variable at render: `{name}`"),
             },
-            // SEC-004: `detail` may embed bound-value content — DO NOT copy it. Fixed message.
-            KernelError::Parse { detail: _ } => FieldError {
+            // Parsing is eager and happens BEFORE any value is bound (the engine parses the
+            // template source, then renders with values). A `Parse` error therefore carries
+            // only template-syntax context (line/column, the offending construct) — never a
+            // bound value — so its detail is safe to surface and is preserved for debugging.
+            KernelError::Parse { detail } => FieldError {
                 field: "template".to_string(),
                 code: code::PARSE.to_string(),
-                message: "template parse error".to_string(),
+                message: format!("template parse error: {detail}"),
             },
             // SEC-004: `detail` may embed bound-value content — DO NOT copy it. Fixed message.
             KernelError::Render { detail: _ } => FieldError {
@@ -242,24 +248,30 @@ mod tests {
         );
     }
 
-    /// Same scrub guarantee for `Parse` detail.
+    /// `Parse` detail is PRESERVED (not scrubbed): parsing happens before any value is
+    /// bound, so the detail carries only template-syntax context — never a bound value —
+    /// and surfacing it is what makes a syntax error debuggable.
     #[test]
-    fn parse_detail_secret_is_scrubbed() {
-        const SECRET: &str = "PASSWORD=hunter2";
+    fn parse_detail_is_preserved_for_debuggability() {
+        const DETAIL: &str = "syntax error: unexpected end of input (in kernel:1)";
         let kernel = KernelError::Parse {
-            detail: format!("syntax error near {SECRET}"),
+            detail: DETAIL.to_string(),
         };
 
         let normalized = ConsumerError::from(kernel);
 
         match &normalized {
             ConsumerError::Kernel(rows) => {
+                assert_eq!(rows[0].field, "template");
                 assert_eq!(rows[0].code, code::PARSE);
-                assert!(!rows[0].message.contains(SECRET));
+                assert!(
+                    rows[0].message.contains(DETAIL),
+                    "parse detail must be preserved: {:?}",
+                    rows[0].message
+                );
             }
             other => panic!("expected ConsumerError::Kernel, got {other:?}"),
         }
-        assert!(!normalized.to_string().contains(SECRET));
     }
 
     /// `UnknownVariant` surfaces the requested name (it is a caller-supplied identifier, not
