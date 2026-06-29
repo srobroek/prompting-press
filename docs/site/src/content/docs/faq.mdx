@@ -9,22 +9,21 @@ import { Aside } from '@astrojs/starlight/components';
 
 ### What is Prompting Press?
 
-A typed, versioned, variant-aware **prompt-template library** — the prompt analogue of a typed
-config system. It turns typed inputs + a template into rendered text + content-addressed
-provenance hashes, and nothing else. It works from Rust, Python, and TypeScript via one shared
-compiled Rust engine.
+A typed, variant-aware **prompt-template library** — the prompt analogue of a typed config system.
+It turns typed inputs and a template into rendered text and content-addressed hashes, and nothing
+else. It works from Rust, Python, and TypeScript via one shared compiled Rust engine.
 
 ### Does it call an LLM?
 
 No. The library performs no I/O, makes no LLM calls, assembles no provider request body, counts
-no tokens, and parses no model output. It is a drop-in alongside any call layer (LangChain,
-OpenRouter, direct Anthropic/OpenAI API, etc.). This narrow boundary is non-negotiable.
+no tokens, and parses no model output. It sits alongside any call layer (LangChain, OpenRouter,
+the direct Anthropic/OpenAI API, etc.).
 
 ### Is it a registry / prompt store?
 
-No. There is no `Registry` surface. You construct `Prompt` objects from YAML/JSON/TOML text (or
-from a shape dict/object) and hold them directly — in a module-level constant, a DI container,
-a config struct, wherever fits your app. Versioning and history are owned by git.
+No. There is no `Registry` surface. `Prompt` objects are constructed from YAML/JSON/TOML text (or
+from a shape dict/object) and held directly — in a module-level constant, a DI container, a config
+struct, or wherever fits the application. Versioning and history are owned by git.
 
 ---
 
@@ -63,15 +62,15 @@ renders exactly as a `trusted` field. The tag drives:
 2. The opt-in guard text — when `GuardConfig { enabled: true }` is passed to `render`, the
    `RenderResult.guard` string names the untrusted/external fields.
 
-Neither of these is enforcement. If you need actual sanitization, do it in your application layer
-before constructing the vars.
+Neither of these is enforcement. Actual sanitization belongs in the application layer, before the
+vars are constructed.
 
 ### Is `variables[].type` enforced at runtime?
 
 **No.** The `type` field on a `PromptVariable` (e.g. `type: string`) is **carried metadata** — it
 is not inspected by the rendering kernel. It is intended to drive code-generated typed Vars
-models (the generate-then-extend pattern) and serves as documentation. Runtime type enforcement
-is owned by your Vars model (garde / Pydantic / Zod) — not by the library.
+models and serves as documentation. Runtime type enforcement is owned by the Vars model
+(garde / Pydantic / Zod), not by the library.
 
 ### What is `validation_required`?
 
@@ -83,7 +82,7 @@ must declare the field or the code won't compile.
 
 ---
 
-## Provenance
+## Content hashes
 
 ### What is `template_hash` / `render_hash`?
 
@@ -93,23 +92,19 @@ Every `RenderResult` carries two content-addressed SHA-256 hashes:
   renders against.
 - `render_hash` — `SHA256(rendered output text)`.
 
-These are returned as data on the render result — they are not sent anywhere (no telemetry, no
-OTel coupling). Store them in your trace to pin exactly which template produced which output.
-Because all three bindings share the same Rust engine, the hashes are **byte-identical** across
-Rust, Python, and TypeScript for the same inputs.
+They are returned as data on the render result — nothing is sent anywhere (no telemetry, no OTel
+coupling). Storing them in a trace pins exactly which template produced which output. Because all
+three bindings share the same Rust engine, the hashes are **byte-identical** across Rust, Python,
+and TypeScript for the same inputs.
 
 ### Is `template_hash` / `render_hash` the same as the per-variable `origin` tag?
 
-No. They are completely different concepts:
+No. They are different concepts:
 
 - **`origin`** — a per-variable trust classification (`trusted` / `untrusted` / `external`).
   Set in the prompt definition. Declarative metadata.
 - **`template_hash` / `render_hash`** — content-addressed fingerprints of the template source
   and the rendered output. Computed at render time and returned on the result.
-
-The fact that an earlier design used the word "provenance" for both of these (the hashes and
-the per-variable tag) was a naming collision. The per-variable tag was renamed to `origin` to
-eliminate the ambiguity.
 
 ---
 
@@ -123,11 +118,11 @@ at all — the rendered body is byte-for-byte identical with or without a guard.
 
 ### How do I actually protect against prompt injection?
 
-The library is intentionally scope-narrow. For prompt injection
-protection, apply sanitization in your application layer before building the vars, and use the
-guard text as a system-prompt addendum that instructs the downstream model. The library's role
-is to name which fields are untrusted (via `origin`) and to surface that advisory in the guard
-text; the actual protection is your responsibility.
+The library's scope is narrow. Prompt-injection protection is the application's responsibility:
+apply sanitization in the application layer before building the vars, and route the guard text as
+a system-prompt addendum that instructs the downstream model. The library's role is to name which
+fields are untrusted (via `origin`) and to surface that advisory in the guard text — it does not
+provide the protection itself.
 
 ---
 
@@ -143,6 +138,6 @@ so it is intentionally not chainable.
 ### Why does `Composition` use no guard expansion?
 
 Composition renders each entry against a default `GuardConfig` (opt-out). The guard text is
-per-render, not per-composition. If you need the guard for entries in a multi-message sequence,
+per-render, not per-composition. To obtain the guard for entries in a multi-message sequence,
 render each entry individually with `prompt.render(...)` and route the guard text as a separate
 system message.
