@@ -32,7 +32,6 @@ from .prompting_press import (  # the compiled extension submodule
     PromptRenderError,
     PromptValidationError,
     RenderResult,
-    UnknownPromptError,
     core_version,
 )
 
@@ -67,6 +66,5 @@ __all__ = [
     "PromptingPressError",
     "PromptValidationError",
     "PromptRenderError",
-    "UnknownPromptError",
     "LoadError",
 ]

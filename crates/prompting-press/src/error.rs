@@ -45,9 +45,6 @@ pub mod code {
     /// code — research D3). One row per reported path.
     pub const VALIDATION: &str = "validation";
 
-    /// A prompt name was looked up in the registry but is not present (FR-008a).
-    pub const UNKNOWN_PROMPT: &str = "unknown_prompt";
-
     /// The kernel was asked for a variant the definition does not declare
     /// ([`prompting_press_core::KernelError::UnknownVariant`]).
     pub const UNKNOWN_VARIANT: &str = "unknown_variant";
@@ -107,10 +104,6 @@ pub enum ConsumerError {
     /// details are scrubbed (FR-015).
     Kernel(Vec<FieldError>),
 
-    /// A prompt name was not present in the registry at render/check time (FR-008a). Holds
-    /// the requested name.
-    UnknownPrompt(String),
-
     /// Malformed input to the dual-input loader (bad YAML/JSON, or a deserialize error).
     /// Holds a short, loader-level description (FR-007). Nothing is partially loaded.
     Load(String),
@@ -133,7 +126,6 @@ impl std::fmt::Display for ConsumerError {
                 }
                 Ok(())
             }
-            Self::UnknownPrompt(name) => write!(f, "unknown prompt: `{name}`"),
             Self::Load(detail) => write!(f, "failed to load prompt definition: {detail}"),
         }
     }

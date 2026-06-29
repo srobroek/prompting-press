@@ -29,7 +29,6 @@ from prompting_press import (
     PromptRenderError,
     PromptValidationError,
     RenderResult,
-    UnknownPromptError,
 )
 from prompting_press.generated import PromptDefinition
 

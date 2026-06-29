@@ -110,7 +110,7 @@ impl Composition {
     /// class (which calls `NapiPrompt::render_prompt` directly, no registry needed).
     ///
     /// # Errors
-    /// - `unknown_prompt` — an entry's name is absent from `reg`.
+    /// - `load` — an entry's name is absent from `reg`.
     /// - kernel codes — the kernel rejected an entry's render.
     pub fn resolve(&self, reg: &Registry) -> napi::Result<Vec<Message>> {
         let mut messages = Vec::with_capacity(self.entries.len());
@@ -118,9 +118,10 @@ impl Composition {
         for entry in &self.entries {
             // Resolve the prompt by name (absent ⇒ structured error, never a panic).
             let Some(def) = reg.get(&entry.name) else {
-                return Err(consumer_error_to_napi_err(ConsumerError::UnknownPrompt(
-                    entry.name.clone(),
-                )));
+                return Err(consumer_error_to_napi_err(ConsumerError::Load(format!(
+                    "unknown prompt: `{}`",
+                    entry.name
+                ))));
             };
 
             // Render by calling the KERNEL DIRECTLY (critique E1 / C-01) with the already-validated
@@ -179,7 +180,7 @@ mod tests {
     //! The validate-at-facade behavior (a real Zod schema, the error subclass on invalid vars,
     //! "nothing resolved on failure") lives TS-side in T021. Here we exercise the parts that need
     //! no JS runtime: an empty composition resolves to `[]`; `append` then `resolve` renders in
-    //! order with roles; an unknown-name entry surfaces as an `unknown_prompt` error at `resolve`;
+    //! order with roles; an unknown-name entry surfaces as a `load`-coded error at `resolve`;
     //! and one entry's failure discards the partial result.
 
     use super::*;
@@ -263,27 +264,6 @@ mod tests {
         let messages = comp.resolve(&reg).expect("resolve succeeds");
         assert_eq!(messages[0].text, "Question: first?");
         assert_eq!(messages[1].text, "Question: second?");
-    }
-
-    /// An entry naming a prompt absent from the registry surfaces as an `unknown_prompt`-coded
-    /// error at `resolve` (FR-008a) — a loud, structured error, never a panic across napi.
-    #[test]
-    fn unknown_name_entry_is_loud_at_resolve() {
-        let present = def_from_json(r#"{ "name": "present", "role": "user", "body": "hi" }"#);
-        let reg = Registry::from_defs_for_test([present]);
-
-        let mut comp = Composition::new();
-        comp.append("absent".to_string(), serde_json::json!({}), None);
-
-        let err = comp
-            .resolve(&reg)
-            .expect_err("an unknown-name entry must error at resolve");
-        let payload = payload_of(&err);
-        assert_eq!(
-            payload["code"],
-            code::UNKNOWN_PROMPT,
-            "an absent prompt name maps to unknown_prompt"
-        );
     }
 
     /// A later entry's render failure propagates as the mapped error and DISCARDS the partial

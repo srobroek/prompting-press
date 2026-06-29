@@ -74,13 +74,6 @@ fn assert_secret_absent_from_error(err: &ConsumerError, secret: &str) {
     // 2. Structured rows — field, code, message individually.
     let rows: &[FieldError] = match err {
         ConsumerError::Validation(rows) | ConsumerError::Kernel(rows) => rows,
-        ConsumerError::UnknownPrompt(name) => {
-            assert!(
-                !name.contains(secret),
-                "SEC-004: secret leaked into UnknownPrompt name: {name:?}"
-            );
-            return;
-        }
         ConsumerError::Load(detail) => {
             // Load detail may include format-level info but must not include the secret value.
             assert!(

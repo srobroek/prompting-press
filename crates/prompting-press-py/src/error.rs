@@ -130,13 +130,6 @@ create_exception!(
 
 create_exception!(
     prompting_press,
-    UnknownPromptError,
-    PromptingPressError,
-    "A prompt name was absent from the registry (code = \"unknown_prompt\"). Carries the name."
-);
-
-create_exception!(
-    prompting_press,
     LoadError,
     PromptingPressError,
     "Malformed YAML/JSON or a shape violation in the dual-input loader (code = \"load\"). \
@@ -185,17 +178,6 @@ pub fn consumer_error_to_pyerr(py: Python<'_>, err: ConsumerError) -> PyErr {
         ConsumerError::Kernel(rows) => {
             let summary = summarize("render failed", &rows);
             raise_with_rows::<PromptRenderError>(py, rows, summary)
-        }
-        ConsumerError::UnknownPrompt(name) => {
-            // A caller-supplied identifier (the key looked up), not bound-value content — safe to
-            // surface, matching the Rust consumer's `Display`.
-            let row = ConsumerFieldError {
-                field: "name".to_string(),
-                code: code::UNKNOWN_PROMPT.to_string(),
-                message: format!("unknown prompt: `{name}`"),
-            };
-            let summary = format!("unknown prompt: `{name}`");
-            raise_with_rows::<UnknownPromptError>(py, vec![row], summary)
         }
         ConsumerError::Load(detail) => {
             // Loader serde detail is parse-location text (line/column / "missing field"), not
@@ -252,10 +234,6 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
         m.py().get_type::<PromptValidationError>(),
     )?;
     m.add("PromptRenderError", m.py().get_type::<PromptRenderError>())?;
-    m.add(
-        "UnknownPromptError",
-        m.py().get_type::<UnknownPromptError>(),
-    )?;
     m.add("LoadError", m.py().get_type::<LoadError>())?;
     Ok(())
 }
@@ -319,27 +297,6 @@ mod tests {
                     "exc.errors message leaked the secret: {message}"
                 );
             }
-        });
-    }
-
-    /// An `UnknownPrompt` consumer error maps to `UnknownPromptError`, carries the requested name,
-    /// and the `unknown_prompt` code.
-    #[test]
-    fn unknown_prompt_maps_to_subtype_with_name() {
-        Python::attach(|py| {
-            let err =
-                consumer_error_to_pyerr(py, ConsumerError::UnknownPrompt("greet".to_string()));
-            let value = err.value(py);
-            assert!(value.is_instance_of::<UnknownPromptError>());
-            assert!(value.is_instance_of::<PromptingPressError>());
-            let errors = value.getattr("errors").unwrap();
-            let rows: Vec<Bound<'_, PyAny>> =
-                errors.try_iter().unwrap().collect::<PyResult<_>>().unwrap();
-            assert_eq!(rows.len(), 1);
-            let codev: String = rows[0].getattr("code").unwrap().extract().unwrap();
-            let message: String = rows[0].getattr("message").unwrap().extract().unwrap();
-            assert_eq!(codev, code::UNKNOWN_PROMPT);
-            assert!(message.contains("greet"));
         });
     }
 

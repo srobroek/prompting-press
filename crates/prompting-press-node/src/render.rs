@@ -1,16 +1,17 @@
-//! The Node render path — marshal → kernel-direct render, plus `getSource` and the
+//! The Node render path — marshal → kernel-direct render, plus the
 //! [`RenderResult`] / [`GuardConfig`] napi types (FR-002, FR-009..011; US1).
 //!
 //! ## Why the kernel is called DIRECTLY (critique E1 / C-01)
 //!
-//! [`render`] does **not** call the Rust consumer's `prompting_press::render`. That entry point
-//! is generic over `V: Serialize + Validate` — a *garde* type — and this binding has no such
-//! type: validation is owned in **TypeScript** (against the caller's Zod schema, in the facade),
-//! not in Rust. So after the TS facade has validated and the addon receives the already-validated
-//! value, this module marshals it and calls [`prompting_press_core::render`] directly. That is
-//! still **zero engine logic** (Principle I): the kernel *is* the shared core; the binding only
-//! marshals into it and surfaces its result 1:1. Render byte-parity with the Rust/Python bindings
-//! stays structural because the value handed to the kernel is built by the same
+//! The public render path is `NapiPrompt::render_prompt` (see `prompt.rs`). It does **not** call
+//! the Rust consumer's `prompting_press::render`. That entry point is generic over
+//! `V: Serialize + Validate` — a *garde* type — and this binding has no such type: validation is
+//! owned in **TypeScript** (against the caller's Zod schema, in the facade), not in Rust. So
+//! after the TS facade has validated and the addon receives the already-validated value, this
+//! module marshals it and calls [`prompting_press_core::render`] directly. That is still **zero
+//! engine logic** (Principle I): the kernel *is* the shared core; the binding only marshals into
+//! it and surfaces its result 1:1. Render byte-parity with the Rust/Python bindings stays
+//! structural because the value handed to the kernel is built by the same
 //! `marshal::to_kernel_value` → `minijinja::Value::from_serialize` path the consumer uses.
 //!
 //! ## The marshal → render chain (Q1)
@@ -18,23 +19,16 @@
 //! Validation has **already happened** in the TS facade (`schema.safeParse(data)` — research D3 /
 //! Q1) before the addon is called, so the Rust side does **no** validation:
 //!
-//! 1. **Resolve** the prompt by name against the registry's inner consumer registry; absent ⇒
-//!    an `unknown_prompt` error, never a panic (FR-008a).
-//! 2. **Marshal** the already-validated value through the single value bridge
+//! 1. **Marshal** the already-validated value through the single value bridge
 //!    [`crate::marshal::to_kernel_value`] (FR-003a).
-//! 3. **Render** by calling [`prompting_press_core::render`] directly; map any returned
+//! 2. **Render** by calling [`prompting_press_core::render`] directly; map any returned
 //!    [`KernelError`](prompting_press_core::KernelError) through the consumer's tested scrubber via
 //!    [`crate::error::kernel_error_to_napi_err`] (preserves SEC-004 — critique E2). The raw
 //!    `KernelError::detail` is never read here.
 
 use napi_derive::napi;
 
-use prompting_press::ConsumerError;
 use prompting_press_core::{GuardConfig as KernelGuardConfig, RenderResult as KernelRenderResult};
-
-use crate::error::{consumer_error_to_napi_err, kernel_error_to_napi_err};
-use crate::marshal::to_kernel_value;
-use crate::registry::Registry;
 
 /// The opt-in guard-expansion config, accepted from JS as a plain object and **plumbed through**
 /// to the kernel (FR-009).
@@ -138,70 +132,6 @@ impl From<KernelRenderResult> for RenderResult {
     }
 }
 
-/// Render `name`'s resolved variant through the kernel with the already-validated `value`.
-///
-/// **Not a `#[napi]` function** (SC-001 / T046): the registry-keyed render path is gone from
-/// the public JS surface. This plain Rust function is kept only for the `#[cfg(test)]` suites
-/// that exercise the kernel-direct render + napi error mapping without a Node runtime.
-///
-/// The public render path is `NapiPrompt::render_prompt` (see `prompt.rs`).
-///
-/// # Errors
-/// - `unknown_prompt` — `name` absent from `reg`.
-/// - kernel codes — the kernel rejected the render (SEC-004 scrubbed).
-pub fn render(
-    reg: &Registry,
-    name: String,
-    value: serde_json::Value,
-    variant: Option<String>,
-    guard: Option<GuardConfig>,
-) -> napi::Result<RenderResult> {
-    // 1. Resolve the prompt by name once (absent ⇒ structured error, never a panic — FR-008a).
-    //    Done first and entirely in Rust against the inner consumer registry.
-    let Some(def) = reg.get(&name) else {
-        return Err(consumer_error_to_napi_err(ConsumerError::UnknownPrompt(
-            name,
-        )));
-    };
-
-    // 2. Marshal the already-validated value through the single value bridge (FR-003a).
-    let values = to_kernel_value(value);
-
-    // 3. Plumb the guard config through (FR-009) and render by calling the KERNEL DIRECTLY
-    //    (critique E1 / C-01). Absent guard ⇒ the kernel default (disabled). The binding does NO
-    //    guard logic — it only marshals the two config fields; the kernel decides the `guard` field.
-    let guard_cfg = guard.map_or_else(KernelGuardConfig::default, KernelGuardConfig::from);
-
-    prompting_press_core::render(def, variant.as_deref(), values, &guard_cfg)
-        .map(RenderResult::from)
-        .map_err(kernel_error_to_napi_err)
-}
-
-/// Return a prompt variant's **unrendered** template source.
-///
-/// **Not a `#[napi]` function** (SC-001 / T046): registry-keyed getSource is gone from the
-/// public JS surface. Kept as a plain Rust function for `#[cfg(test)]` coverage only.
-///
-/// The public getSource path is `NapiPrompt::get_source_prompt` (see `prompt.rs`).
-///
-/// # Errors
-/// - `unknown_prompt` — `name` absent from `reg`.
-/// - a kernel code (e.g. `unknown_variant`) — the kernel rejected the lookup.
-pub fn get_source(reg: &Registry, name: String, variant: Option<String>) -> napi::Result<String> {
-    // 1. Resolve the definition by name (absent ⇒ structured error, never a panic).
-    let Some(def) = reg.get(&name) else {
-        return Err(consumer_error_to_napi_err(ConsumerError::UnknownPrompt(
-            name,
-        )));
-    };
-
-    // 2. Delegate to the kernel directly (the consumer's free-fn get_source is gone
-    //    post-reshape; calling the kernel is the same zero-engine-logic pattern as render).
-    prompting_press_core::get_source(def, variant.as_deref())
-        .map(str::to_owned)
-        .map_err(crate::error::kernel_error_to_napi_err)
-}
-
 #[cfg(test)]
 mod tests {
     //! Render-path coverage that is drivable in Rust WITHOUT the TS Zod facade.
@@ -213,6 +143,8 @@ mod tests {
     //! `serde_json::Value`, exactly what napi would hand the fn after decoding the JS arg).
 
     use super::*;
+    use crate::error::kernel_error_to_napi_err;
+    use crate::marshal::to_kernel_value;
     use prompting_press::error::code;
     use prompting_press::PromptDefinition;
 
@@ -366,25 +298,5 @@ mod tests {
             plain.guard.is_none(),
             "a default/disabled guard must leave RenderResult.guard as None"
         );
-    }
-
-    /// `get_source` returns the unrendered source for the resolved variant (FR-010), and an unknown
-    /// name maps to an `unknown_prompt`-coded error (via the inner-registry resolution).
-    #[test]
-    fn get_source_returns_unrendered_source() {
-        let def =
-            def_from_json(r#"{ "name": "greet", "role": "user", "body": "Hello {{ name }}!" }"#);
-        let reg = Registry::from_defs_for_test([def]);
-
-        let src = get_source(&reg, "greet".to_string(), None).expect("source");
-        assert_eq!(
-            src, "Hello {{ name }}!",
-            "source is UNrendered (no interpolation)"
-        );
-
-        // Unknown name ⇒ unknown_prompt-coded error.
-        let err = get_source(&reg, "absent".to_string(), None).expect_err("unknown name");
-        let payload = payload_of(&err);
-        assert_eq!(payload["code"], code::UNKNOWN_PROMPT);
     }
 }
