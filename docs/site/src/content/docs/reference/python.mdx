@@ -265,11 +265,26 @@ The resolved variant name (the reserved `default`, or the named arm).
 class GuardConfig
 ```
 
-The opt-in guard-expansion config, surfaced to Python and **plumbed through** to the kernel. A 1:1 mirror of the kernel's [`prompting_press_core::GuardConfig`] — `enabled` only. This pyclass is
+The opt-in guard-expansion config, surfaced to Python and **plumbed through** to the kernel. A 1:1 mirror of the kernel's [`prompting_press_core::GuardConfig`]. This pyclass is
 **config only**; it carries no logic. The kernel owns guard *expansion*;
-the binding only marshals `enabled` across the boundary and surfaces whatever
+the binding only marshals fields across the boundary and surfaces whatever
 [`RenderResult::guard`] the kernel populates. Read-only after construction (`frozen`): build
-it once via the constructor.
+it once via the constructor. ## Advisory override `advisory` replaces the fixed default wording returned in `RenderResult.guard`. The override
+MUST reference the `<untrusted>` opening tag, the `</untrusted>` closing tag, AND an escape
+indication (`&amp;`/`&lt;`/`&gt;` or the word "escap") — otherwise the kernel rejects it and
+raises [`PromptRenderError`] with `errors[0].code == "render"` and
+`errors[0].field == "guard"`.
+
+#### `advisory`
+
+```python
+advisory: <read-only property>
+```
+
+Optional override for the advisory sentence returned in `RenderResult.guard`.
+`None` (the default) ⇒ the fixed default advisory. When provided, must reference
+`<untrusted>`, `</untrusted>`, and an escape indication; otherwise the kernel
+rejects it with a structured [`PromptRenderError`].
 
 #### `enabled`
 
