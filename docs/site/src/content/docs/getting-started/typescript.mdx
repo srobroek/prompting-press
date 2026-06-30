@@ -32,6 +32,20 @@ bun add prompting-press zod
 
 ESM-only · Node 20+ · ships as a native addon (per-platform binary).
 
+<Aside type="note" title="Pre-release: install from source">
+Prompting Press is not published to npm yet. Until the first release, install the latest `main`
+from the monorepo subdirectory (this builds the native addon, so a Rust toolchain is required):
+
+```bash
+npm install "github:prompting-press/prompting-press#main" --workspace packages/typescript
+```
+
+Most consumers will prefer to clone the repo and build `packages/typescript` directly
+(`pnpm -C packages/typescript install && pnpm -C packages/typescript run build:addon`), since the
+addon is platform-specific. Switch to the plain `prompting-press` install above once the package is
+published.
+</Aside>
+
 `zod` is a peer dependency for the typed-validation facade (the consuming project supplies its own Zod
 version). A Zod schema is passed at render time; the library imports only the structural `safeParse`
 interface, not Zod's identity, so any object exposing `safeParse` works.

@@ -19,6 +19,19 @@ serde = { version = "1", features = ["derive"] }
 `garde` is the Rust validator crate; `serde` is required so the Vars struct can be serialized
 across the FFI bridge.
 
+<Aside type="note" title="Pre-release: install from source">
+Prompting Press is not published to crates.io yet. Until the first release, depend on the
+latest `main` directly via a git dependency:
+
+```toml
+[dependencies]
+prompting-press = { git = "https://github.com/prompting-press/prompting-press" }
+```
+
+Add `rev = "<commit>"` for a reproducible pin. Switch to the version range above once the
+crate is published.
+</Aside>
+
 ## Write a prompt definition
 
 A prompt definition is a YAML, JSON, or TOML document — the same shape in any of the three formats.

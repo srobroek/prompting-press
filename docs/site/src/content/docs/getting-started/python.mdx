@@ -3,7 +3,7 @@ title: "Getting started — Python"
 description: "Install prompting-press and render a first prompt in Python."
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
 ## Install
 
@@ -32,6 +32,18 @@ pdm add prompting-press
 
 The PyPI distribution name is `prompting-press`; the import name is `prompting_press`. **Python 3.12+**
 required (the wheel is `abi3-py312` — one wheel covers CPython 3.12 and up).
+
+<Aside type="note" title="Pre-release: install from source">
+Prompting Press is not published to PyPI yet. Until the first release, build the latest `main`
+from source (this compiles the Rust extension, so a Rust toolchain is required):
+
+```bash
+pip install "git+https://github.com/prompting-press/prompting-press#subdirectory=packages/python"
+```
+
+`uv` users: `uv add "git+https://github.com/prompting-press/prompting-press#subdirectory=packages/python"`.
+Switch to the plain `prompting-press` install above once the package is published.
+</Aside>
 
 ## Write a prompt definition
 

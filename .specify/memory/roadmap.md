@@ -569,6 +569,18 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   same pattern to spec 005 (napi) if adopted.
 - **Any new pluggable interface** — `[status: deferred]` introduced only when a
   second concrete implementation actually exists to exercise it (C-08).
+- **Nightly / prerelease installable builds (user-raised 2026-06-30)** —
+  `[status: deferred]` publish installable artifacts from `main` so consumers can
+  `pip install --pre` / `npm install @next` / take a Rust prerelease before a
+  tagged release. Per-ecosystem prerelease channels (PyPI `.devN` or TestPyPI; npm
+  `@next` dist-tag; Rust git-dep or `-nightly.N`) built across the existing
+  ubuntu/macOS/Windows matrix (maturin-action, napi prebuilds). **Enabling a form
+  of publishing, this is gated behind the same boundary-defense decision as spec
+  007 (v1 release / publish enablement)** — the `publish` job in `release.yml` is
+  deliberately `if: false` today. Sibling of spec 007; do NOT fold into a docs or
+  feature spec. Until it ships, the install-from-source docs (getting-started)
+  cover taking `main` directly. Trigger: a consumer needs to track unreleased
+  `main`, or v1 publish is being enabled.
 - **Variable-context render modes (WISHLIST — user-raised 2026-06-27, during spec 004)** —
   `[status: deferred — needs boundary review]` three related ideas for giving the
   downstream agent more structured context about a prompt's variables:
