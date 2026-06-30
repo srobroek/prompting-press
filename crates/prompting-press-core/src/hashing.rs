@@ -20,7 +20,16 @@ use sha2::{Digest, Sha256};
 pub(crate) fn sha256_hex(s: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(s.as_bytes());
-    format!("{:x}", hasher.finalize())
+    // sha2 0.11's `finalize()` returns a `hybrid_array::Array`, which (unlike the
+    // pre-0.11 `GenericArray`) does not implement `LowerHex` — so `format!("{:x}")`
+    // no longer compiles. Hex-encode the digest bytes explicitly (no extra dep). The
+    // SHA-256 value is unchanged; only the hex-formatting call differs.
+    let digest = hasher.finalize();
+    let mut hex = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        hex.push_str(&format!("{byte:02x}"));
+    }
+    hex
 }
 
 #[cfg(test)]
