@@ -1,0 +1,12 @@
+{
+  "latest": "next",
+  "versions": [
+    {
+      "isLatest": true,
+      "label": "next (main)",
+      "lastPatch": "next",
+      "minor": "next",
+      "slugs": []
+    }
+  ]
+}

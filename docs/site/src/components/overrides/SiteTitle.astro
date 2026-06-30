@@ -1,0 +1,15 @@
+---
+/**
+ * SiteTitle override — renders the default Starlight SiteTitle plus
+ * the VersionSelect dropdown immediately after it.
+ *
+ * Wired in via astro.config.mjs starlight({ components: { SiteTitle: ... } }).
+ */
+import DefaultSiteTitle from "@astrojs/starlight/components/SiteTitle.astro";
+import VersionSelect from "../VersionSelect.astro";
+---
+
+<DefaultSiteTitle {...Astro.props}>
+  <slot />
+</DefaultSiteTitle>
+<VersionSelect />

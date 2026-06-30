@@ -1,0 +1,21 @@
+# docs/site/moon.yml
+# First moon project declaration for the Astro/Starlight docs site.
+# Hosts the docs:snapshot task (spec 012) and future docs tasks.
+
+$schema: "https://moonrepo.dev/schemas/project.json"
+
+language: javascript
+
+tasks:
+  snapshot:
+    # Freeze the current docs into a per-version tree + update versions.json.
+    # Usage: moon run docs:snapshot -- --version X.Y.Z
+    #
+    # Idempotent: running twice for the same version yields zero git diff (SC-004).
+    # Locally runnable: no CI context required.
+    command: node scripts/snapshot-docs.mjs
+    args: []
+    options:
+      # Mark cacheable; the cache key includes --version arg + source content hash.
+      cache: true
+      runInCI: false

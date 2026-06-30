@@ -11,6 +11,12 @@ export default defineConfig({
   base: "/",
   integrations: [
     starlight({
+      components: {
+        // T009: inject VersionSelect dropdown into every page header
+        SiteTitle: "./src/components/overrides/SiteTitle.astro",
+        // T010: inject freshness footer ("docs current as of X.Y.Z") into every page
+        Footer: "./src/components/overrides/Footer.astro",
+      },
       title: "Prompting Press",
       description:
         "A typed, versioned, variant-aware prompt-template library for Rust, Python, and TypeScript.",

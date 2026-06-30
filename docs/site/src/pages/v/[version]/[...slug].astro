@@ -1,0 +1,198 @@
+---
+/**
+ * Dynamic route: /v/[version]/[...slug]
+ *
+ * Serves frozen per-minor documentation snapshots from src/versions/vX.Y/.
+ * Latest docs stay at the canonical unprefixed paths (src/content/docs/).
+ *
+ * T004 — enumerates (version × slug) from versions.json + the versioned trees.
+ * T005 — graceful degradation: missing slug falls back to that version's index.
+ * T006 — non-latest pages emit <meta name="robots" content="noindex">.
+ * T007 — latest served at bare unprefixed path (unchanged existing routes).
+ *
+ * All path resolution is inside getStaticPaths and instance script so Astro's
+ * prerender bundler can resolve them at static-generation time.
+ */
+
+import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { resolve, relative, join, extname } from "node:path";
+
+/** Collect all .md/.mdx slugs under a directory tree. Returns sorted array. */
+function collectSlugs(dir, base) {
+  base = base ?? dir;
+  if (!existsSync(dir)) return [];
+  const results = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...collectSlugs(fullPath, base));
+    } else if ([".md", ".mdx"].includes(extname(entry.name))) {
+      const rel = relative(base, fullPath)
+        .replace(/\\/g, "/")
+        .replace(/\.(mdx?|md)$/, "");
+      results.push(rel === "index" ? "" : rel);
+    }
+  }
+  return results.sort();
+}
+
+/**
+ * Extract frontmatter from raw MDX/MD text.
+ * Returns an object with string values for any frontmatter keys found.
+ */
+function extractFrontmatter(raw) {
+  if (!raw) return {};
+  const m = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!m) return {};
+  const fm = {};
+  for (const line of m[1].split(/\r?\n/)) {
+    const kv = line.match(/^(\w+)\s*:\s*["']?(.*?)["']?\s*$/);
+    if (kv) fm[kv[1]] = kv[2];
+  }
+  return fm;
+}
+
+export async function getStaticPaths() {
+  // process.cwd() = docs/site during Astro build (and local dev).
+  // This is the reliable anchor; import.meta.url relocates in prerender chunks.
+  const siteRoot    = process.cwd();
+  const manifestPath = resolve(siteRoot, "src/data/versions.json");
+  const versionsDir  = resolve(siteRoot, "src/versions");
+
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
+  const paths = [];
+
+  // Only generate routes for pinned (non-latest, non-next) versions.
+  // Latest / next serve at the canonical unprefixed path.
+  const pinnedVersions = manifest.versions.filter(
+    (v) => !v.isLatest && v.minor !== "next",
+  );
+
+  for (const verEntry of pinnedVersions) {
+    const ver = verEntry.minor;
+    const versionTreeDir = resolve(versionsDir, `v${ver}`);
+    // Use slugs from manifest (computed by snapshot) or scan the tree.
+    const slugs =
+      verEntry.slugs && verEntry.slugs.length > 0
+        ? verEntry.slugs
+        : collectSlugs(versionTreeDir);
+
+    for (const slug of slugs) {
+      paths.push({
+        params: {
+          version: ver,
+          // Astro catch-all: undefined emits /v/X.Y/ (the version index)
+          slug: slug === "" ? undefined : slug,
+        },
+        props: { verEntry, slug, slugs },
+      });
+    }
+  }
+
+  return paths;
+}
+
+// --- Instance script (runs per page) ---
+const { version } = Astro.params;
+const { verEntry, slug: pageSlug, slugs } = Astro.props;
+
+// process.cwd() = docs/site during Astro build and local dev.
+const versionsDir = resolve(process.cwd(), "src/versions");
+
+// Graceful degradation (T005): fall back to index if slug missing.
+const resolvedSlug = (slugs ?? []).includes(pageSlug ?? "") ? (pageSlug ?? "") : "";
+
+// Read raw file content (.mdx preferred, then .md).
+function readVersionedFile(ver, slug) {
+  const base = resolve(versionsDir, `v${ver}`);
+  const filePart = slug === "" ? "index" : slug;
+  for (const ext of [".mdx", ".md"]) {
+    const p = resolve(base, `${filePart}${ext}`);
+    if (existsSync(p)) return readFileSync(p, "utf-8");
+  }
+  return null;
+}
+
+const rawContent = readVersionedFile(version, resolvedSlug);
+const fm = extractFrontmatter(rawContent ?? "");
+
+const title       = fm.title       ?? `${version} — ${resolvedSlug || "index"}`;
+const description = fm.description ?? "";
+const isLatest    = verEntry?.isLatest ?? false;
+const lastPatch   = verEntry?.lastPatch ?? version;
+const base        = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+// Strip frontmatter + import/component lines from MDX body for plain HTML rendering.
+const bodyText = rawContent
+  ? rawContent
+      .replace(/^---[\s\S]*?---\r?\n?/, "")
+      .replace(/^import\s.*?['"].*?['"];?\s*$/gm, "")
+      .replace(/<Aside[^>]*>[\s\S]*?<\/Aside>/g, "")
+      .trim()
+  : "_Content not available for this page._";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} — Prompting Press {version}</title>
+    {description && <meta name="description" content={description} />}
+    {/* T006: non-latest pages carry noindex */}
+    {!isLatest && <meta name="robots" content="noindex" />}
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 860px;
+        margin: 2rem auto;
+        padding: 0 1.5rem;
+        line-height: 1.6;
+        color: #1f2937;
+      }
+      nav { margin-bottom: 1.5rem; }
+      nav a { color: #2563eb; text-decoration: none; }
+      nav a:hover { text-decoration: underline; }
+      .version-banner {
+        background: #fef3c7;
+        border: 1px solid #f59e0b;
+        border-radius: 4px;
+        padding: 0.5rem 1rem;
+        margin-bottom: 1.5rem;
+        font-size: 0.9rem;
+      }
+      .version-banner a { color: #b45309; }
+      .content { margin-top: 1.5rem; }
+      .freshness {
+        color: #6b7280;
+        font-size: 0.85rem;
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e5e7eb;
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <a href={`${base}/`}>← Prompting Press docs</a>
+    </nav>
+
+    <div class="version-banner">
+      Archived docs — version <strong>{version}</strong>
+      (last updated at <strong>{lastPatch}</strong>).
+      {!isLatest && (
+        <span> <a href={`${base}/`}>View latest →</a></span>
+      )}
+    </div>
+
+    <h1>{title}</h1>
+    {description && <p><em>{description}</em></p>}
+
+    <div class="content">
+      <pre>{bodyText}</pre>
+    </div>
+
+    {/* T010: freshness footer */}
+    <div class="freshness">docs current as of {lastPatch}</div>
+  </body>
+</html>

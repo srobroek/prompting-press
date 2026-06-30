@@ -1,0 +1,48 @@
+---
+/**
+ * Footer override — renders the default Starlight Footer plus a
+ * "docs current as of X.Y.Z" freshness line (FR-018 / T010).
+ *
+ * Version detection:
+ *   - Versioned pages (/v/X.Y/...): look up the minor in the manifest to get lastPatch.
+ *   - Latest/next pages (bare path):  show the latest entry's label (e.g. "next (main)").
+ */
+import DefaultFooter from "@astrojs/starlight/components/Footer.astro";
+import versionsData from "../../data/versions.json";
+
+const pathname = Astro.url.pathname;
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+// Detect version from URL
+const versionMatch = pathname.match(new RegExp(`^${base}/v/([^/]+)`));
+const currentMinor = versionMatch ? versionMatch[1] : null;
+
+let freshnessLabel = "";
+if (currentMinor) {
+  const entry = versionsData.versions.find((v) => v.minor === currentMinor);
+  freshnessLabel = entry ? entry.lastPatch : currentMinor;
+} else {
+  // Latest/next pages: find the isLatest entry
+  const latestEntry = versionsData.versions.find((v) => v.isLatest);
+  freshnessLabel = latestEntry ? latestEntry.label : versionsData.latest;
+}
+---
+
+<DefaultFooter {...Astro.props}>
+  <slot />
+</DefaultFooter>
+
+{freshnessLabel && (
+  <p class="docs-freshness">
+    docs current as of <strong>{freshnessLabel}</strong>
+  </p>
+)}
+
+<style>
+  .docs-freshness {
+    font-size: var(--sl-text-xs, 0.75rem);
+    color: var(--sl-color-gray-3, #9ca3af);
+    margin-top: 0.5rem;
+    text-align: center;
+  }
+</style>

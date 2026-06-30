@@ -21,3 +21,4 @@ projects:
   prompting-press-typescript: "packages/typescript"
   ci: "ci"                         # US4 CI gate tasks (T028, T030a)
   conformance: "conformance"       # Spec 006 conformance corpus tooling (regen)
+  docs: "docs/site"                # Spec 012 docs site (snapshot task + future docs tasks)

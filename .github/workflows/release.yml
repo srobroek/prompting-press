@@ -34,8 +34,14 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       # release-please sets releases_created to 'true' when it tags a release.
-      # The publish job reads this to gate on an actual release event.
+      # The publish + docs-snapshot jobs read this to gate on an actual release.
       releases_created: ${{ steps.release.outputs.releases_created }}
+      # The lockstep group version for this release (linked-versions ⇒ every
+      # component shares it). Read by docs-snapshot to pick the docs bucket.
+      # `tag_name` is the source-repo-wide tag; release-please also exposes a
+      # plain `version`. We forward both and let the snapshot job pick.
+      version: ${{ steps.release.outputs.version }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - name: Run release-please
         id: release
@@ -44,6 +50,128 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  # ---------------------------------------------------------------------------
+  # docs-snapshot — on a real release, freeze the docs for the released minor
+  # into a versioned tree and commit it back to main (spec 012, T014).
+  #
+  # Runs ONLY when release-please actually cut a release (releases_created).
+  # Steps:
+  #   1. Resolve the released version X.Y.Z (linked-versions ⇒ one group version).
+  #   2. Compute bucketAction(new, prev) via version.mjs — purely for the loud
+  #      fail on an unparsable version (FR-013) and a log line of new-bucket vs
+  #      overwrite. The snapshot task itself decides create-vs-overwrite from the
+  #      manifest; the first-ever release (no previous tag) is a new bucket (R6).
+  #   3. `moon run docs:snapshot -- --version X.Y.Z` freezes the docs + updates
+  #      versions.json (+ the per-version changelog, see snapshot-docs.mjs).
+  #   4. Commit the new src/versions/** tree + versions.json back to main. That
+  #      push triggers docs.yml, which publishes the multi-version site. No
+  #      separate deploy path lives here (research R3).
+  #
+  # This job performs NO package publishing (FR-014); it only writes docs files.
+  # ---------------------------------------------------------------------------
+  docs-snapshot:
+    name: Snapshot docs for released version
+    needs: release-please
+    if: needs.release-please.outputs.releases_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the snapshot branch
+      pull-requests: write # open + auto-merge the snapshot PR
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: main
+          # Full history so version.mjs / git see the prior tags, matching ci.yml.
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install mise toolchain
+        uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
+        with:
+          experimental: true
+
+      - name: 'Ensure rust components (rustfmt/clippy)'
+        run: mise exec -- rustup component add rustfmt clippy
+
+      - name: 'Install docs/site deps (pnpm)'
+        run: mise exec -- pnpm -C docs/site install --frozen-lockfile
+
+      - name: 'Install TS package deps + build node addon'
+        run: |
+          mise exec -- pnpm -C packages/typescript install --frozen-lockfile
+          mise exec -- pnpm -C packages/typescript run build:addon
+
+      - name: 'Install Python codegen deps (uv)'
+        run: mise exec -- uv sync --project packages/python --group codegen --no-install-project --frozen
+
+      - name: Resolve released version + bucket action
+        id: ver
+        env:
+          RP_VERSION: ${{ needs.release-please.outputs.version }}
+          RP_TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+          # Prefer release-please's `version` output; fall back to the tag
+          # (strip a leading component/v prefix), then to the manifest.
+          ver="${RP_VERSION:-}"
+          if [ -z "$ver" ] && [ -n "${RP_TAG:-}" ]; then
+            ver="$(printf '%s' "$RP_TAG" | sed -E 's/^.*v?([0-9]+\.[0-9]+\.[0-9]+)$/\1/')"
+          fi
+          if [ -z "$ver" ]; then
+            # Linked-versions: every component shares one version in the manifest.
+            ver="$(node -e "const m=require('./.release-please-manifest.json');console.log(Object.values(m)[0])")"
+          fi
+          echo "Resolved released version: $ver"
+          # Validate the version is parseable (FR-013 loud fail) and log the
+          # bucket action vs the previous release tag. version.mjs throws on a
+          # bad version, failing this step loudly rather than snapshotting wrong.
+          prev="$(git tag --sort=-creatordate | grep -E '[0-9]+\.[0-9]+\.[0-9]+$' | sed -E 's/^.*v?([0-9]+\.[0-9]+\.[0-9]+)$/\1/' | sed -n '2p' || true)"
+          mise exec -- node -e "
+            import('./docs/site/scripts/lib/version.mjs').then(m => {
+              m.parse('$ver'); // throws ⇒ FR-013 loud fail on unparsable version
+              const prev = '$prev';
+              if (prev) console.log('bucketAction(' + '$ver' + ', ' + prev + ') = ' + m.bucketAction('$ver', prev));
+              else console.log('No previous release tag — new bucket (R6).');
+            }).catch(e => { console.error(e.message); process.exit(1); });
+          "
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+
+      - name: Run docs:snapshot
+        run: mise exec -- moon run docs:snapshot -- --version "${{ steps.ver.outputs.version }}"
+
+      - name: Open + auto-merge a PR with the frozen docs tree
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VER: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "prompting-press-release[bot]"
+          git config user.email "release-bot@prompting-press.github.io"
+          git add docs/site/src/versions docs/site/src/data/versions.json
+          if git diff --cached --quiet; then
+            echo "Snapshot produced no changes (idempotent re-run); nothing to commit."
+            exit 0
+          fi
+          # Push to a short-lived branch + open a PR rather than pushing straight
+          # to main: main is a protected branch with required status checks and
+          # no per-actor bypass, so a direct push is rejected. A PR runs the
+          # required checks on the snapshot, then auto-merges. The squash-merge
+          # to main then triggers docs.yml, which publishes the frozen version.
+          # (No [skip ci] anywhere — the merge MUST trigger the docs publish.)
+          branch="docs-snapshot-${VER}"
+          git checkout -b "$branch"
+          git commit -m "docs: snapshot version ${VER}"
+          git push origin "$branch" --force-with-lease
+          # Open the PR (or reuse an existing one for this version) and arm
+          # auto-merge so it lands automatically once the required checks pass.
+          if ! gh pr view "$branch" >/dev/null 2>&1; then
+            gh pr create --base main --head "$branch" \
+              --title "docs: snapshot version ${VER}" \
+              --body "Automated docs snapshot for the ${VER} release (spec 012). Freezes \`docs/site/src/versions/\` + updates \`versions.json\`. Auto-merges once required checks pass; the merge triggers the docs publish."
+          fi
+          gh pr merge "$branch" --squash --auto --delete-branch
 
   # ---------------------------------------------------------------------------
   # publish — INTENTIONALLY DISABLED (pre-publish; everything except publish).

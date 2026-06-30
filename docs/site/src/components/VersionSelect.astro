@@ -1,0 +1,119 @@
+---
+/**
+ * VersionSelect.astro
+ *
+ * Version dropdown nav component — renders all doc versions from versions.json.
+ * Appears in the Starlight header on every page (wired in via SiteTitle override).
+ *
+ * T008: newest-first, current version highlighted, `next` labeled distinctly.
+ * T005: links to the same slug in the target version if it exists there; falls
+ *        back to that version's index (/v/X.Y/) otherwise.
+ */
+
+import versionsData from "../data/versions.json";
+
+// Determine the current page version from the URL.
+// Versioned pages live under /prompting-press/v/X.Y/...
+// Latest/next pages live at /prompting-press/...  (no /v/ prefix)
+const pathname = Astro.url.pathname;
+const base = import.meta.env.BASE_URL.replace(/\/$/, ""); // e.g. "/prompting-press"
+
+// Extract version prefix from URL: /prompting-press/v/1.1/some/slug → "1.1"
+// or null for the unprefixed latest.
+const versionMatch = pathname.match(new RegExp(`^${base}/v/([^/]+)`));
+const currentVersion = versionMatch ? versionMatch[1] : null;
+
+// Extract the slug portion from the current URL for best-effort slug preservation.
+// For versioned pages: /prompting-press/v/1.1/some/slug → "some/slug"
+// For latest pages:    /prompting-press/some/slug → "some/slug"
+let currentSlug = "";
+if (versionMatch) {
+  // versioned page: strip /base/v/version/
+  currentSlug = pathname
+    .replace(new RegExp(`^${base}/v/[^/]+/?`), "")
+    .replace(/\/$/, "")
+    .replace(/^\//, "");
+} else {
+  // latest page: strip base
+  currentSlug = pathname
+    .replace(new RegExp(`^${base}/?`), "")
+    .replace(/\/$/, "")
+    .replace(/^\//, "");
+}
+
+// Build dropdown entries (newest-first, as stored in versions.json).
+const versions = versionsData.versions;
+
+/**
+ * Return the href for a given version entry, navigating to the equivalent slug
+ * when present, or that version's index when not (T005 graceful degradation).
+ */
+function hrefFor(entry) {
+  if (entry.isLatest || entry.minor === "next") {
+    // Latest / next: bare canonical path
+    if (!currentSlug) return `${base}/`;
+    // Check if this slug exists at latest (it always should for next/latest)
+    return `${base}/${currentSlug}/`;
+  }
+  // Pinned version: check slugs list
+  const slugExists = entry.slugs && entry.slugs.includes(currentSlug);
+  const targetSlug = slugExists ? currentSlug : "";
+  if (!targetSlug) return `${base}/v/${entry.minor}/`;
+  return `${base}/v/${entry.minor}/${targetSlug}/`;
+}
+
+// Determine the label of the "active" selection for the dropdown display.
+const activeVersion = versions.find(
+  (v) => v.minor === currentVersion || (currentVersion === null && v.isLatest),
+);
+const activeLabel = activeVersion?.label ?? (currentVersion ?? "docs");
+---
+
+<div class="version-select-wrapper">
+  <label for="version-select" class="sr-only">Select documentation version</label>
+  <select
+    id="version-select"
+    class="version-select"
+    onchange="window.location.href = this.value"
+    aria-label="Select documentation version"
+  >
+    {versions.map((entry) => {
+      const href = hrefFor(entry);
+      const isActive =
+        entry.minor === currentVersion ||
+        (currentVersion === null && entry.isLatest);
+      return (
+        <option value={href} selected={isActive}>
+          {entry.label}
+        </option>
+      );
+    })}
+  </select>
+</div>
+
+<style>
+  .version-select-wrapper {
+    display: inline-flex;
+    align-items: center;
+    margin-inline-start: 0.75rem;
+  }
+  .version-select {
+    font-size: var(--sl-text-sm, 0.875rem);
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--sl-color-gray-5, #ccc);
+    border-radius: 4px;
+    background: var(--sl-color-bg, #fff);
+    color: var(--sl-color-text, inherit);
+    cursor: pointer;
+    max-width: 12rem;
+  }
+  .version-select:hover,
+  .version-select:focus {
+    border-color: var(--sl-color-accent, #888);
+    outline: none;
+  }
+  /* Hide on print */
+  @media print {
+    .version-select-wrapper { display: none; }
+  }
+</style>
