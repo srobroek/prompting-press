@@ -46,16 +46,8 @@ test("reveal flag does not change success-path output (SC-005)", () => {
 	const rTrue = p.render(Vars, data, { unsafeRevealRenderDetail: true });
 
 	assert.equal(rFalse.text, rTrue.text, "text must be byte-identical");
-	assert.equal(
-		rFalse.templateHash,
-		rTrue.templateHash,
-		"templateHash must be byte-identical",
-	);
-	assert.equal(
-		rFalse.renderHash,
-		rTrue.renderHash,
-		"renderHash must be byte-identical",
-	);
+	assert.equal(rFalse.templateHash, rTrue.templateHash, "templateHash must be byte-identical");
+	assert.equal(rFalse.renderHash, rTrue.renderHash, "renderHash must be byte-identical");
 });
 
 // ── Default scrubs: omitting the option scrubs render detail (SC-002 / FR-002) ─
@@ -69,11 +61,7 @@ test("omitting unsafeRevealRenderDetail defaults to scrubbed (FR-002)", () => {
 		(err) => {
 			assert.ok(err instanceof PromptRenderError, "must be PromptRenderError");
 			const msg = err.errors[0]?.message;
-			assert.equal(
-				msg,
-				"render error",
-				`default must produce scrubbed message, got: ${msg}`,
-			);
+			assert.equal(msg, "render error", `default must produce scrubbed message, got: ${msg}`);
 			return true;
 		},
 	);
@@ -89,10 +77,7 @@ test("unsafeRevealRenderDetail: false scrubs render detail (SEC-004)", () => {
 			assert.ok(err instanceof PromptRenderError);
 			const msg = err.errors[0]?.message;
 			assert.equal(msg, "render error", `flag=false must scrub, got: ${msg}`);
-			assert.ok(
-				!msg.includes("secret-value-should-not-appear"),
-				"data value must not leak",
-			);
+			assert.ok(!msg.includes("secret-value-should-not-appear"), "data value must not leak");
 			return true;
 		},
 	);
@@ -124,15 +109,10 @@ test("unsafeRevealRenderDetail: true surfaces real render detail (SC-001)", () =
 		(err) => {
 			assert.ok(err instanceof PromptRenderError);
 			const msg = err.errors[0]?.message;
-			assert.notEqual(
-				msg,
-				"render error",
-				"flag=true must NOT produce the fixed scrubbed message",
-			);
+			assert.notEqual(msg, "render error", "flag=true must NOT produce the fixed scrubbed message");
 			// The detail embeds the unknown filter name from the template.
 			assert.ok(
-				msg.includes("nonexistent_filter_abc") ||
-					msg.length > "render error".length,
+				msg.includes("nonexistent_filter_abc") || msg.length > "render error".length,
 				`flag=true message should carry filter-name context, got: ${msg}`,
 			);
 			// Shape is unchanged: field and code are invariant.
@@ -153,9 +133,6 @@ test("no module-level global that enables the flag implicitly (FR-003)", async (
 		"enableRenderDetail",
 		"renderDetailEnabled",
 	]) {
-		assert.ok(
-			!(name in pp),
-			`module-level toggle '${name}' must not exist (FR-003 / SC-003)`,
-		);
+		assert.ok(!(name in pp), `module-level toggle '${name}' must not exist (FR-003 / SC-003)`);
 	}
 });

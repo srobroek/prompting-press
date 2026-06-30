@@ -20,12 +20,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import {
-	LoadError,
-	Prompt,
-	PromptingPressError,
-	PromptRenderError,
-} from "prompting-press";
+import { LoadError, Prompt, PromptingPressError, PromptRenderError } from "prompting-press";
 import { z } from "zod";
 
 const HEX64 = /^[0-9a-f]{64}$/;
@@ -113,9 +108,7 @@ test("new Prompt(obj) equals fromJson(JSON.stringify(obj)) of the same data (FR-
 // ─── 2. Real shared fixtures ──────────────────────────────────────────────────────────────
 
 test("a shared valid JSON fixture loads via fromJson and new Prompt() (the canonical corpus)", () => {
-	const fixtureText = readFixture(
-		"schemas/jsonschema/tests/fixtures/valid/single-body.json",
-	);
+	const fixtureText = readFixture("schemas/jsonschema/tests/fixtures/valid/single-body.json");
 	const fixtureObj = JSON.parse(fixtureText);
 
 	const pJson = Prompt.fromJson(fixtureText);
@@ -125,19 +118,14 @@ test("a shared valid JSON fixture loads via fromJson and new Prompt() (the canon
 	const viaJson = pJson.render(Vars, { date: "2026-06-27" });
 	const viaObj = pObj.render(Vars, { date: "2026-06-27" });
 
-	assert.equal(
-		viaJson.text,
-		"You are a helpful assistant. Today is 2026-06-27.",
-	);
+	assert.equal(viaJson.text, "You are a helpful assistant. Today is 2026-06-27.");
 	assert.equal(viaJson.text, viaObj.text);
 	assert.equal(viaJson.templateHash, viaObj.templateHash);
 	assert.equal(viaJson.renderHash, viaObj.renderHash);
 });
 
 test("the multi-variant valid fixture loads and resolves the default arm via fromJson", () => {
-	const fixtureText = readFixture(
-		"schemas/jsonschema/tests/fixtures/valid/multi-variant.json",
-	);
+	const fixtureText = readFixture("schemas/jsonschema/tests/fixtures/valid/multi-variant.json");
 	const p = Prompt.fromJson(fixtureText);
 
 	const Vars = z.object({
@@ -173,9 +161,7 @@ test("a shape violation (missing required body) raises LoadError on every surfac
 });
 
 test("a known invalid fixture (bad role) is rejected as LoadError on the JSON path", () => {
-	const badRole = readFixture(
-		"schemas/jsonschema/tests/fixtures/invalid/bad-role.json",
-	);
+	const badRole = readFixture("schemas/jsonschema/tests/fixtures/invalid/bad-role.json");
 	assert.throws(
 		() => Prompt.fromJson(badRole),
 		(err) => {
@@ -191,9 +177,7 @@ test("a known invalid fixture (bad role) is rejected as LoadError on the JSON pa
 
 for (const literal of ["no", "off", "yes", "on", "true", "false"]) {
 	test(`unquoted YAML \`${literal}\` round-trips as the string, not a bool (Norway-safe)`, () => {
-		const p = Prompt.fromYaml(
-			`name: norway\nrole: user\nbody: ${literal}\nvariables: {}\n`,
-		);
+		const p = Prompt.fromYaml(`name: norway\nrole: user\nbody: ${literal}\nvariables: {}\n`);
 
 		const result = p.render(Empty, {});
 
@@ -211,10 +195,7 @@ for (const literal of ["no", "off", "yes", "on", "true", "false"]) {
 test("a body that references an undeclared variable fails at construction (agreement at construction)", () => {
 	// Post-reshape, agreement is enforced at construction — not silently at render.
 	assert.throws(
-		() =>
-			Prompt.fromJson(
-				JSON.stringify({ name: "bad", role: "user", body: "{{ ghost }}" }),
-			),
+		() => Prompt.fromJson(JSON.stringify({ name: "bad", role: "user", body: "{{ ghost }}" })),
 		PromptRenderError,
 	);
 });

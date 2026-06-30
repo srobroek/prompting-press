@@ -40,15 +40,9 @@ const NUM_RUNS = 60;
  * This is SC-003: the secret substring must appear in ZERO of those locations.
  */
 function assertSecretAbsent(err, secret) {
-	assert.ok(
-		err instanceof PromptingPressError,
-		`expected PromptingPressError, got ${err}`,
-	);
+	assert.ok(err instanceof PromptingPressError, `expected PromptingPressError, got ${err}`);
 
-	assert.ok(
-		!err.message.includes(secret),
-		`Secret leaked into err.message: ${err.message}`,
-	);
+	assert.ok(!err.message.includes(secret), `Secret leaked into err.message: ${err.message}`);
 
 	if (err.stack) {
 		assert.ok(!err.stack.includes(secret), `Secret leaked into err.stack`);
@@ -56,19 +50,10 @@ function assertSecretAbsent(err, secret) {
 
 	assert.ok(Array.isArray(err.errors), "err.errors must be an array");
 	for (const row of err.errors) {
-		assert.ok(
-			!row.field.includes(secret),
-			`Secret leaked into row.field: ${row.field}`,
-		);
-		assert.ok(
-			!row.message.includes(secret),
-			`Secret leaked into row.message: ${row.message}`,
-		);
+		assert.ok(!row.field.includes(secret), `Secret leaked into row.field: ${row.field}`);
+		assert.ok(!row.message.includes(secret), `Secret leaked into row.message: ${row.message}`);
 		// row.code is a closed vocabulary string — still check it
-		assert.ok(
-			!row.code.includes(secret),
-			`Secret leaked into row.code: ${row.code}`,
-		);
+		assert.ok(!row.code.includes(secret), `Secret leaked into row.code: ${row.code}`);
 	}
 }
 
@@ -85,9 +70,7 @@ variables:
 `);
 
 	// API-key shaped secrets: "sk-LIVE-" prefix + random alphanumeric.
-	const secretArb = fc
-		.string({ minLength: 8, maxLength: 40 })
-		.map((suffix) => `sk-LIVE-${suffix}`);
+	const secretArb = fc.string({ minLength: 8, maxLength: 40 }).map((suffix) => `sk-LIVE-${suffix}`);
 
 	// A schema that always rejects its input with a message that does NOT contain the value.
 	const rejectSchema = {
@@ -133,9 +116,7 @@ variables:
   token: { type: string, trusted: true }
 `);
 
-	const secretArb = fc
-		.string({ minLength: 8, maxLength: 40 })
-		.map((suffix) => `sk-LIVE-${suffix}`);
+	const secretArb = fc.string({ minLength: 8, maxLength: 40 }).map((suffix) => `sk-LIVE-${suffix}`);
 
 	fc.assert(
 		fc.property(secretArb, (secret) => {
@@ -146,8 +127,7 @@ variables:
 				threw = true;
 				assertSecretAbsent(err, secret);
 				assert.ok(
-					err instanceof PromptRenderError ||
-						err instanceof PromptingPressError,
+					err instanceof PromptRenderError || err instanceof PromptingPressError,
 					`expected PromptRenderError, got ${err.constructor.name}`,
 				);
 			}
@@ -167,9 +147,7 @@ variables:
 
 test("T015-C: secret embedded in malformed YAML does not appear in LoadError", () => {
 	// Embed a secret inside malformed YAML so the parse fails.
-	const secretArb = fc
-		.string({ minLength: 8, maxLength: 40 })
-		.map((suffix) => `sk-LIVE-${suffix}`);
+	const secretArb = fc.string({ minLength: 8, maxLength: 40 }).map((suffix) => `sk-LIVE-${suffix}`);
 
 	fc.assert(
 		fc.property(secretArb, (secret) => {

@@ -67,10 +67,7 @@ test("T016-A: check() returns a finding for an unguarded untrusted variable (adv
 	const report = p.check();
 
 	// The report must NOT pass — the unguarded `trusted: false` field is flagged.
-	assert.ok(
-		!report.passed(),
-		"An unguarded untrusted field must produce a check() finding",
-	);
+	assert.ok(!report.passed(), "An unguarded untrusted field must produce a check() finding");
 
 	// The finding kind is `untrusted_without_guard` (FR-005).
 	assert.ok(
@@ -112,10 +109,7 @@ test("T016-C: spec-015 guard wraps untrusted value in <untrusted>…</untrusted>
 	const p = Prompt.fromYaml(GUARDED_YAML);
 
 	const plain = p.render({ payload: injectionValue });
-	const guarded = p.render(
-		{ payload: injectionValue },
-		{ guard: { enabled: true } },
-	);
+	const guarded = p.render({ payload: injectionValue }, { guard: { enabled: true } });
 
 	// Unguarded render: value verbatim, no delimiter.
 	assert.ok(
@@ -128,23 +122,15 @@ test("T016-C: spec-015 guard wraps untrusted value in <untrusted>…</untrusted>
 	);
 
 	// Guard advisory field must be present and non-null.
-	assert.notEqual(
-		guarded.guard,
-		null,
-		"Guard advisory must be non-null when guard is enabled",
-	);
+	assert.notEqual(guarded.guard, null, "Guard advisory must be non-null when guard is enabled");
 	assert.equal(typeof guarded.guard, "string");
 
 	// spec-015: guard advisory is a static instruction, not a per-field enumeration.
-	assert.ok(
-		guarded.guard.length > 0,
-		`Guard advisory must be non-empty. Got: ${guarded.guard}`,
-	);
+	assert.ok(guarded.guard.length > 0, `Guard advisory must be non-empty. Got: ${guarded.guard}`);
 
 	// spec-015 delimiting: the rendered body wraps the untrusted value.
 	assert.ok(
-		guarded.text.includes("<untrusted>") &&
-			guarded.text.includes("</untrusted>"),
+		guarded.text.includes("<untrusted>") && guarded.text.includes("</untrusted>"),
 		`spec-015: guarded body must contain <untrusted>…</untrusted>. Got: ${guarded.text}`,
 	);
 
@@ -194,10 +180,7 @@ test("T016-D: spec-015 delimiting holds across generated injection strings (SC-0
 			} catch (err) {
 				// Render may legitimately fail (e.g. if the value triggers a kernel error).
 				// In that case assert it's a PromptingPressError and skip.
-				assert.ok(
-					err instanceof PromptingPressError,
-					`Unexpected non-PromptingPressError: ${err}`,
-				);
+				assert.ok(err instanceof PromptingPressError, `Unexpected non-PromptingPressError: ${err}`);
 				return;
 			}
 
@@ -208,10 +191,7 @@ test("T016-D: spec-015 delimiting holds across generated injection strings (SC-0
 			);
 
 			try {
-				guardedResult = p.render(
-					{ payload: injectionValue },
-					{ guard: { enabled: true } },
-				);
+				guardedResult = p.render({ payload: injectionValue }, { guard: { enabled: true } });
 			} catch (err) {
 				assert.ok(err instanceof PromptingPressError, `Unexpected: ${err}`);
 				return;

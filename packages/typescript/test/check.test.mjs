@@ -55,10 +55,7 @@ test("an untrusted variable without a guard produces untrusted_without_guard fin
 	);
 	const f = report.findings[0];
 	assert.equal(f.prompt, "ask");
-	assert.ok(
-		f.detail.includes("topic"),
-		`detail must mention the field, got: ${f.detail}`,
-	);
+	assert.ok(f.detail.includes("topic"), `detail must mention the field, got: ${f.detail}`);
 });
 
 test("check() passes when a guard is configured in metadata", () => {

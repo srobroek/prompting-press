@@ -119,10 +119,7 @@ test("T042: new Prompt with undeclared template variable throws PromptRenderErro
 			);
 			assert.ok(err instanceof PromptingPressError);
 			const codes = err.errors.map((r) => r.code);
-			assert.ok(
-				codes.includes("undefined_variable"),
-				`expected undefined_variable, got ${codes}`,
-			);
+			assert.ok(codes.includes("undefined_variable"), `expected undefined_variable, got ${codes}`);
 			return true;
 		},
 	);
@@ -149,10 +146,7 @@ test("T042: new Prompt with missing required body throws LoadError", () => {
 	assert.throws(
 		() => new Prompt({ name: "bad", role: "user" }),
 		(err) => {
-			assert.ok(
-				err instanceof LoadError,
-				`expected LoadError, got ${err.constructor.name}`,
-			);
+			assert.ok(err instanceof LoadError, `expected LoadError, got ${err.constructor.name}`);
 			assert.ok(err instanceof PromptingPressError);
 			return true;
 		},
@@ -280,10 +274,7 @@ variables:
 	assert.equal(p.name, "strict");
 
 	const badSchema = z.object({ other: z.string() });
-	assert.throws(
-		() => Prompt.fromYaml(yamlWithRequired, badSchema),
-		PromptValidationError,
-	);
+	assert.throws(() => Prompt.fromYaml(yamlWithRequired, badSchema), PromptValidationError);
 });
 
 // ─── T044: render / getSource / check ─────────────────────────────────────────────────────
@@ -318,10 +309,7 @@ test("T044: render with bound validators throws on invalid data (before templati
 		(err) => {
 			assert.ok(err instanceof PromptValidationError);
 			const fields = err.errors.map((r) => r.field);
-			assert.ok(
-				fields.includes("name") || fields.includes("count"),
-				`got ${fields}`,
-			);
+			assert.ok(fields.includes("name") || fields.includes("count"), `got ${fields}`);
 			return true;
 		},
 	);
@@ -381,10 +369,7 @@ test("T044: check() returns advisory finding for unguarded untrusted variable", 
 	};
 	const p = new Prompt(shape);
 	const report = p.check();
-	assert.ok(
-		!report.passed(),
-		"unguarded untrusted field must produce a finding",
-	);
+	assert.ok(!report.passed(), "unguarded untrusted field must produce a finding");
 	assert.ok(
 		report.findings.some((f) => f.kind === "untrusted_without_guard"),
 		`expected untrusted_without_guard, got ${report.findings.map((f) => f.kind)}`,
@@ -441,19 +426,13 @@ test("T045: derive() carries validators forward from source by default (R6)", ()
 		body: "Greetings {{ name }}, you have {{ count }} messages",
 	});
 	// Derived inherits bound Greeting validator — bad data must throw PromptValidationError.
-	assert.throws(
-		() => derived.render({ name: "", count: -1 }),
-		PromptValidationError,
-	);
+	assert.throws(() => derived.render({ name: "", count: -1 }), PromptValidationError);
 });
 
 test("T045: derive(overlay, validators) overrides bound validator on derived prompt (R6)", () => {
 	const p = new Prompt(GREET_SHAPE, Greeting);
 	const NoCheck = z.object({ name: z.string(), count: z.number() });
-	const derived = p.derive(
-		{ body: "Hi {{ name }}, you have {{ count }} messages" },
-		NoCheck,
-	);
+	const derived = p.derive({ body: "Hi {{ name }}, you have {{ count }} messages" }, NoCheck);
 	// Derived has NoCheck as its bound validator — the count=-1 should now pass (no refine).
 	const result = derived.render({ name: "Eli", count: -1 });
 	assert.equal(result.text, "Hi Eli, you have -1 messages");
@@ -596,11 +575,7 @@ test("T046: Composition has no .chain() method (FR-013)", () => {
 
 test("SC-001: Registry is NOT exported from the public surface (spec 008 removal)", async () => {
 	const mod = await import("prompting-press");
-	assert.equal(
-		mod.Registry,
-		undefined,
-		"Registry must not be exported after spec 008 reshape",
-	);
+	assert.equal(mod.Registry, undefined, "Registry must not be exported after spec 008 reshape");
 });
 
 test("SC-001: render(reg, name, …) free function is NOT exported", async () => {
@@ -608,11 +583,7 @@ test("SC-001: render(reg, name, …) free function is NOT exported", async () =>
 	// The old render free function took 4-5 positional args; it must be gone.
 	// The new surface is Prompt.render() method only.
 	// We check that the only callable `render` export is not present as a module-level export.
-	assert.equal(
-		mod.render,
-		undefined,
-		"render free function must not be exported",
-	);
+	assert.equal(mod.render, undefined, "render free function must not be exported");
 });
 
 // ─── Surface smoke ────────────────────────────────────────────────────────────────────────

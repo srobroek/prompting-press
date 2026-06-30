@@ -78,10 +78,7 @@ test("the append path preserves order, roles, and per-entry text (SC-008)", () =
 		undefined,
 		"append is non-fluent (void)",
 	);
-	assert.equal(
-		comp.append({ prompt: GREET, schema: Named, data: { name: "Ada" } }),
-		undefined,
-	);
+	assert.equal(comp.append({ prompt: GREET, schema: Named, data: { name: "Ada" } }), undefined);
 	assert.equal(comp.length, 2);
 
 	const messages = comp.resolve();
@@ -164,9 +161,7 @@ test("the first invalid entry in fromMessages throws and yields no Composition (
 		PromptValidationError,
 	);
 
-	const good = Composition.fromMessages([
-		{ prompt: GREET, schema: Named, data: { name: "ok" } },
-	]);
+	const good = Composition.fromMessages([{ prompt: GREET, schema: Named, data: { name: "ok" } }]);
 	assert.deepEqual(
 		good.resolve().map((m) => m.text),
 		["Hi ok"],
@@ -190,11 +185,7 @@ test("an unknown variant at resolve throws PromptRenderError and returns no part
 			return true;
 		},
 	);
-	assert.equal(
-		result,
-		sentinel,
-		"resolve must RAISE, not return a partial list",
-	);
+	assert.equal(result, sentinel, "resolve must RAISE, not return a partial list");
 });
 
 // ── 3. Empty composition → [] ─────────────────────────────────────────────────────────────
@@ -211,10 +202,7 @@ test("there is no fluent .chain() on the class or an instance (FR-013)", () => {
 	assert.equal(Composition.prototype.chain, undefined);
 	const comp = new Composition();
 	assert.equal(comp.chain, undefined);
-	assert.equal(
-		comp.append({ prompt: GREET, schema: Named, data: { name: "x" } }),
-		undefined,
-	);
+	assert.equal(comp.append({ prompt: GREET, schema: Named, data: { name: "x" } }), undefined);
 });
 
 // ── 5. Variant selection via the entry object ─────────────────────────────────────────────
