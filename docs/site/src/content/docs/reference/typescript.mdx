@@ -210,7 +210,15 @@ The resolved variant name (the reserved `default`, or the named arm).
 interface GuardConfig
 ```
 
-The opt-in guard-expansion config, accepted from JS as a plain object and **plumbed through** to the kernel. A 1:1 mirror of the kernel's GuardConfig — `enabled` only. This is **config only**; it carries no logic. The kernel owns guard *expansion*; the binding only marshals `enabled` across the boundary and surfaces whatever [`RenderResult::guard`] the kernel populates. Accepted from JS as a plain TS object `&#123; enabled &#125;`.
+The opt-in guard-expansion config, accepted from JS as a plain object and **plumbed through** to the kernel. A 1:1 mirror of the kernel's GuardConfig. This is **config only**; it carries no logic. The kernel owns guard *expansion*; the binding only marshals fields across the boundary and surfaces whatever [`RenderResult::guard`] the kernel populates. Accepted from JS as a plain TS object `&#123; enabled, advisory? &#125;`. ## Advisory override When `advisory` is supplied it replaces the fixed default wording returned in `RenderResult.guard`. The override MUST reference the `<untrusted>` opening tag, the `</untrusted>` closing tag, AND an escape indication (`&amp;`/`&lt;`/`&gt;` or the word "escap") — otherwise the kernel rejects it and a [`PromptRenderError`] is thrown with `errors[0].code === "render"` and `errors[0].field === "guard"`.
+
+#### `advisory`
+
+```ts
+advisory?: string
+```
+
+Optional override for the advisory sentence returned in `RenderResult.guard`. `null` / absent ⇒ the fixed default advisory. When provided, must reference `<untrusted>`, `</untrusted>`, and an escape indication; otherwise the kernel rejects it with a structured `PromptRenderError`.
 
 #### `enabled`
 
