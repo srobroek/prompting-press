@@ -295,6 +295,14 @@ pub struct GuardConfig
 
 Per-render guard option. Opt-in, per render. When [`enabled`](Self::enabled) is `false`: - The rendered body is byte-identical to a plain render (the pre-pass is not applied, no values are inspected, no entity-escaping occurs). - [`build_guard_text`] returns `None`. When `enabled` is `true` AND the definition declares at least one untrusted field (`trusted: false`): - The source pre-pass runs before rendering, rewriting each `&#123;&#123; EXPR &#125;&#125;` whose root identifier is untrusted into `&#123;&#123; (EXPR) \| pp_guard_wrap &#125;&#125;`. The `pp_guard_wrap` filter entity-escapes `&`, `<`, `>` (in that order) and wraps the result in `<untrusted>…</untrusted>`. Values of trusted roots are never touched. - [`build_guard_text`] returns a fixed advisory string referencing the markers. **This is NOT a sanitizer.** Enabling the guard makes untrusted values visually locatable in the output; it is not a guarantee that a downstream model will honour the markers. The advisory is a suggestion, not enforcement.
 
+#### `advisory`
+
+```rust
+pub advisory: Option<String>
+```
+
+Optional override for the advisory sentence returned in [`crate::RenderResult::guard`]. `None` ⇒ [`DEFAULT_GUARD_ADVISORY`] (the fixed default that references the `<untrusted>…</untrusted>` markers). The `<untrusted>` MARKERS themselves are fixed and NOT configurable — they are the security-relevant contract. Only the human-readable advisory that *explains* them is overridable, for model-tuning or localization. A caller that overrides this owns its correctness (e.g. it should still describe the real markers). The override is plain text: it is never substituted, never parsed for placeholders, and never re-enters the template engine.
+
 #### `enabled`
 
 ```rust
