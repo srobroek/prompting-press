@@ -38,7 +38,7 @@ authors = [{ name = "Sjors Robroek" }]
 dependencies = ["pydantic>=2,<3"]
 
 [project.urls]
-Repository = "https://github.com/prompting-press/prompting-press.github.io"
+Repository = "https://github.com/prompting-press/prompting-press"
 
 [dependency-groups]
 # Build-time-only codegen toolchain (NOT a wheel runtime dep — runtime

@@ -12,7 +12,7 @@ version = "0.0.0" # pre-release: nothing is published in spec 001
 edition = "2021"
 rust-version = "1.95" # MUST match rust-toolchain.toml + mise.toml (lockstep)
 license = "Apache-2.0"
-repository = "https://github.com/prompting-press/prompting-press.github.io"
+repository = "https://github.com/prompting-press/prompting-press"
 authors = ["Sjors Robroek"]
 
 # Shared dependency versions, referenced by member crates via `{ workspace = true }`.
