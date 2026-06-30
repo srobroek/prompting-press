@@ -28,7 +28,7 @@ fn check_is_pure_no_mutation() {
         "name": "unguarded",
         "role": "user",
         "body": "{{ payload }}",
-        "variables": { "payload": { "type": "string", "origin": "untrusted" } }
+        "variables": { "payload": { "type": "string", "trusted": false } }
     }"#,
     )
     .expect("valid shape must construct");
@@ -41,7 +41,7 @@ fn check_is_pure_no_mutation() {
             "name": "unguarded",
             "role": "user",
             "body": "{{ payload }}",
-            "variables": { "payload": { "type": "string", "origin": "untrusted" } }
+            "variables": { "payload": { "type": "string", "trusted": false } }
         }"#,
     )
     .expect("reference def parses");

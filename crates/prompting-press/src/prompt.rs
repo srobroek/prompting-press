@@ -16,8 +16,8 @@
 //!    reserved root-body alias); that is a construction failure (CR-1).
 //!
 //! After construction every operation is infallible with respect to the above invariants;
-//! `check()` is a pure advisory pass that can only surface the origin/guard finding (a prompt
-//! with `untrusted`/`external` vars and no guard configured).
+//! `check()` is a pure advisory pass that can only surface the trust/guard finding (a prompt
+//! with `trusted: false` vars and no guard configured).
 //!
 //! ## `with` — the sole mutator (R6)
 //!
@@ -36,7 +36,7 @@ use std::collections::HashMap;
 
 use garde::Validate;
 use prompting_press_core::{
-    origin_view, required_roots, GuardConfig, KernelError, OriginView, RenderResult,
+    required_roots, untrusted_fields, GuardConfig, KernelError, RenderResult,
 };
 use serde::Serialize;
 
@@ -272,13 +272,13 @@ impl Prompt {
         prompting_press_core::get_source(&self.def, variant).map_err(ConsumerError::from)
     }
 
-    /// Pure advisory lint: returns a [`CheckReport`] containing only the origin/guard
+    /// Pure advisory lint: returns a [`CheckReport`] containing only the trust/guard
     /// finding class.
     ///
     /// Construction already enforces agreement, parse, and reserved-name invariants, so those
     /// arms are structurally unreachable for a constructed `Prompt`. The only LIVE finding
     /// `check()` can surface is [`FindingKind::UntrustedWithoutGuard`] — a prompt declaring
-    /// `untrusted`/`external` vars but carrying no `"guard"` key in `metadata`.
+    /// `trusted: false` vars but carrying no `"guard"` key in `metadata`.
     ///
     /// Pure: takes `&self`, never renders, never mutates (FR-019).
     #[must_use]
@@ -467,13 +467,20 @@ fn kernel_analysis_error_to_field(err: &KernelError) -> (&'static str, String, &
             "template uses an excluded feature".to_string(),
             code::EXCLUDED_FEATURE,
         ),
+        // spec-015: only raised when a caller supplies an invalid advisory override.
+        // The detail names the missing element(s) — no bound value content.
+        KernelError::GuardAdvisoryInvalid { detail } => (
+            "guard",
+            format!("guard advisory override is invalid: {detail}"),
+            code::RENDER,
+        ),
     }
 }
 
-/// The origin/guard advisory check for a single prompt (the only LIVE finding class for a
+/// The trust/guard advisory check for a single prompt (the only LIVE finding class for a
 /// constructed `Prompt`).
 ///
-/// A prompt declaring `untrusted`/`external` variables that carry no `"guard"` key in
+/// A prompt declaring variables with `trusted: false` that carry no `"guard"` key in
 /// `metadata` gets one [`FindingKind::UntrustedWithoutGuard`] per uncovered field.
 /// This mirrors `check::check_provenance` but operates on a single `Prompt`, not a registry.
 pub(crate) fn check_origin_advisory(
@@ -481,15 +488,8 @@ pub(crate) fn check_origin_advisory(
     def: &PromptDefinition,
     findings: &mut Vec<Finding>,
 ) {
-    let view: OriginView = origin_view(def);
-
-    // Union of untrusted ∪ external — both already sorted BTreeSets.
-    let declared_untrusted: std::collections::BTreeSet<&str> = view
-        .untrusted
-        .iter()
-        .chain(view.external.iter())
-        .map(String::as_str)
-        .collect();
+    // Fields where trusted == false (sorted BTreeSet → deterministic order).
+    let declared_untrusted = untrusted_fields(def);
 
     if declared_untrusted.is_empty() {
         return;
@@ -499,16 +499,16 @@ pub(crate) fn check_origin_advisory(
         return;
     }
 
-    for field in declared_untrusted {
+    for field in &declared_untrusted {
         findings.push(Finding {
             prompt: name.to_string(),
             variant: None,
             kind: FindingKind::UntrustedWithoutGuard {
-                field: field.to_string(),
+                field: field.clone(),
             },
             detail: format!(
-                "field `{field}` is declared untrusted/external but the prompt configures \
-                 no guard (add a `guard` key under the prompt's `metadata`)"
+                "field `{field}` is declared untrusted (`trusted: false`) but the prompt \
+                 configures no guard (add a `guard` key under the prompt's `metadata`)"
             ),
         });
     }
@@ -521,7 +521,7 @@ mod tests {
     // ── helpers ──────────────────────────────────────────────────────────────
 
     fn valid_json() -> &'static str {
-        r#"{"name":"greet","role":"user","body":"Hi {{ name }}","variables":{"name":{"type":"string","origin":"trusted"}}}"#
+        r#"{"name":"greet","role":"user","body":"Hi {{ name }}","variables":{"name":{"type":"string","trusted":true}}}"#
     }
 
     fn make_prompt() -> Prompt {
@@ -544,7 +544,7 @@ mod tests {
     #[test]
     fn construct_rejects_undeclared_variable() {
         // `body` references `ghost` which is not in `variables`.
-        let json = r#"{"name":"bad","role":"user","body":"{{ ghost }}","variables":{"name":{"type":"string","origin":"trusted"}}}"#;
+        let json = r#"{"name":"bad","role":"user","body":"{{ ghost }}","variables":{"name":{"type":"string","trusted":true}}}"#;
         let err = Prompt::from_json(json).expect_err("undeclared var must fail construction");
         match &err {
             ConsumerError::Kernel(rows) => {
@@ -683,7 +683,7 @@ body = "Hi {{ name }}"
 
 [variables.name]
 type = "string"
-origin = "trusted"
+trusted = true
 "#;
         let p = Prompt::from_toml(toml_text).expect("TOML must construct");
         assert_eq!(p.name(), "greeting");
@@ -732,7 +732,7 @@ origin = "trusted"
     #[test]
     fn check_returns_origin_advisory_only() {
         // A prompt with an untrusted variable and no guard → should find UntrustedWithoutGuard.
-        let json = r#"{"name":"unguarded","role":"user","body":"{{ payload }}","variables":{"payload":{"type":"string","origin":"untrusted"}}}"#;
+        let json = r#"{"name":"unguarded","role":"user","body":"{{ payload }}","variables":{"payload":{"type":"string","trusted":false}}}"#;
         let p = Prompt::from_json(json).expect("valid shape, should construct");
         let report = p.check();
         assert!(
@@ -747,7 +747,7 @@ origin = "trusted"
 
     #[test]
     fn check_passes_for_guarded_untrusted_field() {
-        let json = r#"{"name":"guarded","role":"user","body":"{{ payload }}","variables":{"payload":{"type":"string","origin":"untrusted"}},"metadata":{"guard":{"enabled":true}}}"#;
+        let json = r#"{"name":"guarded","role":"user","body":"{{ payload }}","variables":{"payload":{"type":"string","trusted":false}},"metadata":{"guard":{"enabled":true}}}"#;
         let p = Prompt::from_json(json).expect("valid shape");
         assert!(p.check().passed(), "guard configured → check must pass");
     }

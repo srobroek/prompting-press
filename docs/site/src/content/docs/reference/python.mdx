@@ -101,7 +101,7 @@ The named variants map (`&#123; name: PromptVariant &#125;`), as a Python `dict`
 check(self, /)
 ```
 
-Pure advisory lint: returns a [`CheckReport`] containing only the origin/guard
+Pure advisory lint: returns a [`CheckReport`] containing only the trust/guard
 finding class (the only LIVE finding class for a constructed `Prompt`). Construction already enforces agreement, parse, and reserved-name invariants, so
 those finding classes are structurally unreachable here. Pure: takes `&self`, never
 renders, never mutates.
@@ -215,7 +215,7 @@ guard: <read-only property>
 ```
 
 The opt-in guard instruction text (present iff a guard was enabled and the prompt declares
-an untrusted/external field); `None` for a plain render. Never part of `text`.
+a `trusted: false` field); `None` for a plain render. Never part of `text`.
 
 #### `name`
 
@@ -265,11 +265,11 @@ The resolved variant name (the reserved `default`, or the named arm).
 class GuardConfig
 ```
 
-The opt-in guard-expansion config, surfaced to Python and **plumbed through** to the kernel. A 1:1 mirror of the kernel's [`prompting_press_core::GuardConfig`] — `enabled` plus an optional
-override `template`. This pyclass is **config only**; it carries no logic. The kernel owns
-guard *expansion*; the binding only marshals these
-two fields across the boundary and surfaces whatever [`RenderResult::guard`] the kernel
-populates. Read-only after construction (`frozen`): build it once via the constructor.
+The opt-in guard-expansion config, surfaced to Python and **plumbed through** to the kernel. A 1:1 mirror of the kernel's [`prompting_press_core::GuardConfig`] — `enabled` only. This pyclass is
+**config only**; it carries no logic. The kernel owns guard *expansion*;
+the binding only marshals `enabled` across the boundary and surfaces whatever
+[`RenderResult::guard`] the kernel populates. Read-only after construction (`frozen`): build
+it once via the constructor.
 
 #### `enabled`
 
@@ -278,14 +278,6 @@ enabled: <read-only property>
 ```
 
 When `False`, the render is plain and [`RenderResult::guard`] is `None`.
-
-#### `template`
-
-```python
-template: <read-only property>
-```
-
-Optional caller override of the guard instruction text; `None` ⇒ the kernel default.
 
 ## CheckReport
 

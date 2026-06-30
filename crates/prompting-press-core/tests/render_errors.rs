@@ -11,7 +11,7 @@ use prompting_press_core::{render, GuardConfig, KernelError};
 fn no_guard() -> GuardConfig {
     GuardConfig {
         enabled: false,
-        template: None,
+        ..Default::default()
     }
 }
 

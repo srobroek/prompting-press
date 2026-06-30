@@ -43,8 +43,8 @@ fn greeting_prompt() -> Prompt {
         "role": "user",
         "body": "Hi {{ name }}, n={{ n }}",
         "variables": {
-            "name": { "type": "string",  "origin": "trusted" },
-            "n":    { "type": "integer", "origin": "trusted" }
+            "name": { "type": "string",  "trusted": true },
+            "n":    { "type": "integer", "trusted": true }
         }
     }"#,
     )
@@ -137,7 +137,7 @@ fn misnamed_vars_field_surfaces_undefined_variable() {
         "role": "user",
         "body": "Welcome {{ username }}",
         "variables": {
-            "username": { "type": "string", "origin": "trusted" }
+            "username": { "type": "string", "trusted": true }
         }
     }"#,
     )

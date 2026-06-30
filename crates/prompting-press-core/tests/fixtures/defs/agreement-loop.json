@@ -5,7 +5,7 @@
   "variables": {
     "items": {
       "type": "array",
-      "origin": "trusted",
+      "trusted": true,
       "description": "The list iterated; `item` is a loop local, not a root."
     }
   }

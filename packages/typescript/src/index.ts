@@ -186,11 +186,7 @@ function decodeAddonError(thrown: unknown): PromptingPressError {
 	}
 
 	const rawMessage =
-		thrown instanceof Error
-			? thrown.message
-			: typeof thrown === "string"
-				? thrown
-				: String(thrown);
+		thrown instanceof Error ? thrown.message : typeof thrown === "string" ? thrown : String(thrown);
 
 	let payload: DecodedPayload | undefined;
 	try {
@@ -230,9 +226,7 @@ function decodeAddonError(thrown: unknown): PromptingPressError {
 	// Re-summarize the rows into the JS `Error.message` for human readability, while `.errors`
 	// carries the structured rows. Keep the (scrubbed) row messages; never inject value content.
 	const summary =
-		payload.errors.length > 0
-			? payload.errors.map((row) => row.message).join("; ")
-			: payload.code;
+		payload.errors.length > 0 ? payload.errors.map((row) => row.message).join("; ") : payload.code;
 	return new Subclass(summary, payload.errors);
 }
 
@@ -307,8 +301,7 @@ function validateOrThrow<T>(schema: ZodLikeSchema<T>, data: unknown): T {
 		code: "validation",
 		message: issue.message,
 	}));
-	const summary =
-		rows.map((row) => row.message).join("; ") || "validation failed";
+	const summary = rows.map((row) => row.message).join("; ") || "validation failed";
 	throw new PromptValidationError(summary, rows);
 }
 
@@ -371,10 +364,7 @@ function assertValidatorCoverage(
 	}
 	for (const [fieldName, decl] of Object.entries(variables)) {
 		const variableDecl = decl as Partial<PromptVariable>;
-		if (
-			variableDecl.validation_required === true &&
-			!(fieldName in validators.shape)
-		) {
+		if (variableDecl.validation_required === true && !(fieldName in validators.shape)) {
 			const msg = `validation_required variable "${fieldName}" is not covered by the supplied validators schema`;
 			throw new PromptValidationError(msg, [
 				{ field: fieldName, code: "validation", message: msg },
@@ -517,15 +507,8 @@ export class Prompt {
 		} catch (thrown) {
 			throw decodeAddonError(thrown);
 		}
-		assertValidatorCoverage(
-			handle.variables as Record<string, unknown> | undefined,
-			validators,
-		);
-		return new Prompt(
-			{} as PromptDefinition,
-			validators,
-			makeInternalArg(handle),
-		);
+		assertValidatorCoverage(handle.variables as Record<string, unknown> | undefined, validators);
+		return new Prompt({} as PromptDefinition, validators, makeInternalArg(handle));
 	}
 
 	/**
@@ -542,15 +525,8 @@ export class Prompt {
 		} catch (thrown) {
 			throw decodeAddonError(thrown);
 		}
-		assertValidatorCoverage(
-			handle.variables as Record<string, unknown> | undefined,
-			validators,
-		);
-		return new Prompt(
-			{} as PromptDefinition,
-			validators,
-			makeInternalArg(handle),
-		);
+		assertValidatorCoverage(handle.variables as Record<string, unknown> | undefined, validators);
+		return new Prompt({} as PromptDefinition, validators, makeInternalArg(handle));
 	}
 
 	/**
@@ -570,15 +546,8 @@ export class Prompt {
 		} catch (thrown) {
 			throw decodeAddonError(thrown);
 		}
-		assertValidatorCoverage(
-			handle.variables as Record<string, unknown> | undefined,
-			validators,
-		);
-		return new Prompt(
-			{} as PromptDefinition,
-			validators,
-			makeInternalArg(handle),
-		);
+		assertValidatorCoverage(handle.variables as Record<string, unknown> | undefined, validators);
+		return new Prompt({} as PromptDefinition, validators, makeInternalArg(handle));
 	}
 
 	// ── read-only accessors ───────────────────────────────────────────────────────────────────
@@ -600,7 +569,7 @@ export class Prompt {
 
 	/**
 	 * The declared variables map (`{ [name]: PromptVariable }`). Read-only metadata. Each entry
-	 * carries the variable's `type`, `origin`, and optional `validation_required`.
+	 * carries the variable's `type`, `trusted` flag, and optional `validation_required`.
 	 */
 	get variables(): PromptDefinition["variables"] {
 		return this.#handle.variables as PromptDefinition["variables"];
@@ -648,17 +617,9 @@ export class Prompt {
 	 * @throws {PromptValidationError} validation failed (schema form or bound-validator form).
 	 * @throws {PromptRenderError}     the kernel rejected the render.
 	 */
-	render<T>(
-		schema: ZodLikeSchema<T>,
-		data: unknown,
-		opts?: RenderOptions | null,
-	): RenderResult;
+	render<T>(schema: ZodLikeSchema<T>, data: unknown, opts?: RenderOptions | null): RenderResult;
 	render(data: unknown, opts?: RenderOptions | null): RenderResult;
-	render(
-		schemaOrData: unknown,
-		dataOrOpts?: unknown,
-		opts?: RenderOptions | null,
-	): RenderResult {
+	render(schemaOrData: unknown, dataOrOpts?: unknown, opts?: RenderOptions | null): RenderResult {
 		let value: unknown;
 		let options: RenderOptions | null | undefined;
 
@@ -704,7 +665,7 @@ export class Prompt {
 	}
 
 	/**
-	 * Pure advisory lint: returns a {@link CheckReport} containing only the origin/guard finding
+	 * Pure advisory lint: returns a {@link CheckReport} containing only the `trusted`/guard finding
 	 * class (`"untrusted_without_guard"`). Construction already enforces agreement, parse, and
 	 * reserved-name invariants; those are structurally unreachable here (R7 / Q4).
 	 *
@@ -728,19 +689,13 @@ export class Prompt {
 	 * @throws {PromptRenderError}     merged template/agreement error.
 	 * @throws {PromptValidationError} uncovered `validation_required` variable after merge.
 	 */
-	derive(
-		overlay: Partial<PromptDefinition>,
-		validators?: ValidatorMap,
-	): Prompt {
+	derive(overlay: Partial<PromptDefinition>, validators?: ValidatorMap): Prompt {
 		// Effective validator: overlay's (if explicitly provided) else inherit from this.
-		const effectiveValidators =
-			validators !== undefined ? validators : this.#validators;
+		const effectiveValidators = validators !== undefined ? validators : this.#validators;
 
 		let derivedHandle: NapiPrompt;
 		try {
-			derivedHandle = this.#handle.derivePrompt(
-				overlay as Record<string, unknown>,
-			);
+			derivedHandle = this.#handle.derivePrompt(overlay as Record<string, unknown>);
 		} catch (thrown) {
 			throw decodeAddonError(thrown);
 		}
@@ -751,11 +706,7 @@ export class Prompt {
 			effectiveValidators,
 		);
 
-		return new Prompt(
-			{} as PromptDefinition,
-			effectiveValidators,
-			makeInternalArg(derivedHandle),
-		);
+		return new Prompt({} as PromptDefinition, effectiveValidators, makeInternalArg(derivedHandle));
 	}
 
 	/**
@@ -819,8 +770,6 @@ export class Composition {
 	/** Entries in append order — the resolved-message order (FR-012). */
 	readonly #entries: StoredEntry[] = [];
 
-	constructor() {}
-
 	/**
 	 * Build a composition from an ordered array of {@link CompositionEntry} objects, validating
 	 * each in order. The first entry whose `schema.safeParse(data)` fails throws a
@@ -842,9 +791,7 @@ export class Composition {
 	 */
 	append(entry: CompositionEntry): void {
 		const value =
-			entry.schema === undefined
-				? entry.data
-				: validateOrThrow(entry.schema, entry.data);
+			entry.schema === undefined ? entry.data : validateOrThrow(entry.schema, entry.data);
 		this.#entries.push({
 			value,
 			variant: entry.variant,
@@ -899,14 +846,7 @@ export class Composition {
 // `coreVersion` is a trivial callable with no error path.)
 // ─────────────────────────────────────────────────────────────────────────────────────────
 
-export type {
-	Finding,
-	GuardConfig,
-	Message,
-	PromptDefinition,
-	PromptVariable,
-	PromptVariant,
-};
+export type { Finding, GuardConfig, Message, PromptDefinition, PromptVariable, PromptVariant };
 export {
 	CheckReport,
 	coreVersion,

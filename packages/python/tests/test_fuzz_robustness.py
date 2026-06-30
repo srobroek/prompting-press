@@ -25,7 +25,6 @@ from __future__ import annotations
 import string
 from typing import Any
 
-import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
@@ -48,9 +47,10 @@ FUZZ_SETTINGS = settings(
 # Shared building blocks
 # ---------------------------------------------------------------------------
 
-# A valid origin value and a union that includes bad ones.
-_ORIGIN = st.sampled_from(["trusted", "untrusted", "external"])
-_ORIGIN_ANY = st.one_of(_ORIGIN, st.text(max_size=20), st.integers(), st.none())
+# spec-015: `trusted` is a boolean flag (replaces the old `origin` string enum).
+_TRUSTED = st.booleans()
+# Hostile trusted values: valid booleans plus bad types for rejection testing.
+_TRUSTED_ANY = st.one_of(_TRUSTED, st.text(max_size=20), st.integers(), st.none())
 
 # Hostile text: printable, Unicode astral-plane, control chars, long strings.
 _PRINTABLE = st.text(alphabet=string.printable, max_size=50)
@@ -67,12 +67,17 @@ _HOSTILE_TEXT = st.one_of(_PRINTABLE, _UNICODE, _CONTROL, _HUGE)
 
 # A variable entry dict (valid or hostile).
 _VALID_VAR_ENTRY = st.fixed_dictionaries(
-    {"type": st.sampled_from(["string", "integer", "number", "boolean"]), "origin": _ORIGIN}
+    {
+        "type": st.sampled_from(["string", "integer", "number", "boolean"]),
+        "trusted": _TRUSTED,
+    }
 )
 _HOSTILE_VAR_ENTRY = st.one_of(
     _VALID_VAR_ENTRY,
-    st.fixed_dictionaries({"type": st.text(max_size=20), "origin": _ORIGIN_ANY}),
-    st.dictionaries(st.text(max_size=10), st.integers() | st.text(max_size=20), max_size=5),
+    st.fixed_dictionaries({"type": st.text(max_size=20), "trusted": _TRUSTED_ANY}),
+    st.dictionaries(
+        st.text(max_size=10), st.integers() | st.text(max_size=20), max_size=5
+    ),
     st.none(),
     st.integers(),
     st.text(max_size=20),
@@ -119,25 +124,32 @@ _METADATA = st.one_of(
 # Strategy: a dict that always has name/role/body but may have hostile extras
 # ---------------------------------------------------------------------------
 
+
 @st.composite
 def hostile_prompt_dict(draw: st.DrawFn) -> dict[str, Any]:
     """Generate a prompt-shaped dict with hostile field values."""
-    name = draw(st.one_of(
-        st.text(alphabet=string.ascii_letters + "_-", min_size=1, max_size=30),
-        st.text(max_size=5),           # may be empty or odd chars
-        st.integers(),                  # wrong type — triggers load error
-    ))
-    role = draw(st.one_of(
-        st.sampled_from(["user", "system", "assistant"]),
-        st.text(max_size=10),
-        st.integers(),
-    ))
+    name = draw(
+        st.one_of(
+            st.text(alphabet=string.ascii_letters + "_-", min_size=1, max_size=30),
+            st.text(max_size=5),  # may be empty or odd chars
+            st.integers(),  # wrong type — triggers load error
+        )
+    )
+    role = draw(
+        st.one_of(
+            st.sampled_from(["user", "system", "assistant"]),
+            st.text(max_size=10),
+            st.integers(),
+        )
+    )
     body = draw(st.one_of(_SAFE_BODY, _HOSTILE_TEXT))
-    variables = draw(st.one_of(
-        st.none(),
-        _VARIABLES,
-        st.integers(),  # wrong type
-    ))
+    variables = draw(
+        st.one_of(
+            st.none(),
+            _VARIABLES,
+            st.integers(),  # wrong type
+        )
+    )
     d: dict[str, Any] = {"name": name, "role": role, "body": body}
     if variables is not None:
         d["variables"] = variables
@@ -156,8 +168,11 @@ def hostile_prompt_dict(draw: st.DrawFn) -> dict[str, Any]:
 # Strategy: a valid prompt dict + hostile render vars dict
 # ---------------------------------------------------------------------------
 
+
 @st.composite
-def valid_prompt_and_hostile_vars(draw: st.DrawFn) -> tuple[dict[str, Any], dict[str, Any]]:
+def valid_prompt_and_hostile_vars(
+    draw: st.DrawFn,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """Generate a valid prompt + a hostile vars dict to feed to render()."""
     var_names = draw(
         st.lists(
@@ -167,12 +182,14 @@ def valid_prompt_and_hostile_vars(draw: st.DrawFn) -> tuple[dict[str, Any], dict
             unique=True,
         )
     )
-    variables = {n: {"type": "string", "origin": "trusted"} for n in var_names}
+    variables = {n: {"type": "string", "trusted": True} for n in var_names}
     # Body that does NOT reference any Jinja variables (literal text only) —
     # avoids the agreement-check raising on an out-of-vars reference.
     body = draw(_SAFE_BODY)
     prompt_def: dict[str, Any] = {
-        "name": draw(st.text(alphabet=string.ascii_letters + "_-", min_size=1, max_size=20)),
+        "name": draw(
+            st.text(alphabet=string.ascii_letters + "_-", min_size=1, max_size=20)
+        ),
         "role": "user",
         "body": body,
         "variables": variables,
@@ -195,6 +212,7 @@ def valid_prompt_and_hostile_vars(draw: st.DrawFn) -> tuple[dict[str, Any], dict
 # T009a: Prompt(...) construction never panics — always value or PromptingPressError
 # ---------------------------------------------------------------------------
 
+
 @given(doc=hostile_prompt_dict())
 @FUZZ_SETTINGS
 def test_construct_never_panics(doc: dict[str, Any]) -> None:
@@ -209,11 +227,14 @@ def test_construct_never_panics(doc: dict[str, Any]) -> None:
 # T009b: from_yaml never panics
 # ---------------------------------------------------------------------------
 
-@given(text=st.one_of(
-    st.text(max_size=2000),          # random text including malformed YAML
-    _HOSTILE_TEXT,
-    _HUGE,
-))
+
+@given(
+    text=st.one_of(
+        st.text(max_size=2000),  # random text including malformed YAML
+        _HOSTILE_TEXT,
+        _HUGE,
+    )
+)
 @FUZZ_SETTINGS
 def test_from_yaml_never_panics(text: str) -> None:
     """Prompt.from_yaml(text) never panics on hostile input."""
@@ -227,10 +248,13 @@ def test_from_yaml_never_panics(text: str) -> None:
 # T009c: from_json never panics
 # ---------------------------------------------------------------------------
 
-@given(text=st.one_of(
-    st.text(max_size=2000),
-    _HOSTILE_TEXT,
-))
+
+@given(
+    text=st.one_of(
+        st.text(max_size=2000),
+        _HOSTILE_TEXT,
+    )
+)
 @FUZZ_SETTINGS
 def test_from_json_never_panics(text: str) -> None:
     """Prompt.from_json(text) never panics on hostile input."""
@@ -244,10 +268,13 @@ def test_from_json_never_panics(text: str) -> None:
 # T009d: from_toml never panics
 # ---------------------------------------------------------------------------
 
-@given(text=st.one_of(
-    st.text(max_size=2000),
-    _HOSTILE_TEXT,
-))
+
+@given(
+    text=st.one_of(
+        st.text(max_size=2000),
+        _HOSTILE_TEXT,
+    )
+)
 @FUZZ_SETTINGS
 def test_from_toml_never_panics(text: str) -> None:
     """Prompt.from_toml(text) never panics on hostile input."""
@@ -293,6 +320,7 @@ def test_render_hostile_vars_never_panics(
 # T009f: check() never panics
 # ---------------------------------------------------------------------------
 
+
 @given(doc=hostile_prompt_dict())
 @FUZZ_SETTINGS
 def test_check_never_panics(doc: dict[str, Any]) -> None:
@@ -311,11 +339,14 @@ def test_check_never_panics(doc: dict[str, Any]) -> None:
 # T009g: hash determinism (SC-004) — re-rendering produces byte-identical hashes
 # ---------------------------------------------------------------------------
 
+
 @st.composite
 def valid_prompt_with_literal_body(draw: st.DrawFn) -> dict[str, Any]:
     """A fully valid prompt dict (literal body, no Jinja vars) for determinism tests."""
     return {
-        "name": draw(st.text(alphabet=string.ascii_letters + "_", min_size=1, max_size=20)),
+        "name": draw(
+            st.text(alphabet=string.ascii_letters + "_", min_size=1, max_size=20)
+        ),
         "role": draw(st.sampled_from(["user", "system"])),
         "body": draw(_SAFE_BODY),
         "variables": {},

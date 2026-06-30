@@ -133,19 +133,19 @@ GREET_DEF = {
     "role": "user",
     "body": "Hi {{ name }}, you have {{ count }} messages",
     "variables": {
-        "name": {"type": "string", "origin": "trusted"},
-        "count": {"type": "integer", "origin": "trusted"},
+        "name": {"type": "string", "trusted": True},
+        "count": {"type": "integer", "trusted": True},
     },
 }
 
-# A prompt whose only declared variable is `untrusted`, so an enabled guard has a
-# field to name. The body references `{{ topic }}`.
+# A prompt whose only declared variable is untrusted (`trusted: false`), so an
+# enabled guard wraps its value in <untrusted>…</untrusted> in the rendered body.
 ASK_DEF = {
     "name": "ask",
     "role": "user",
     "body": "Tell me about {{ topic }}.",
     "variables": {
-        "topic": {"type": "string", "origin": "untrusted"},
+        "topic": {"type": "string", "trusted": False},
     },
 }
 
@@ -233,7 +233,7 @@ def test_rejected_sensitive_input_is_not_leaked() -> None:
             "name": "leaky",
             "role": "user",
             "body": "Using {{ token }}",
-            "variables": {"token": {"type": "string", "origin": "trusted"}},
+            "variables": {"token": {"type": "string", "trusted": True}},
         }
     )
     with pytest.raises(PromptValidationError) as excinfo:
@@ -267,7 +267,7 @@ def test_secret_in_a_kernel_render_error_is_not_leaked() -> None:
             "name": "kernely",
             "role": "user",
             "body": "Using {{ token + 1 }}",  # string + int ⇒ kernel render error
-            "variables": {"token": {"type": "string", "origin": "trusted"}},
+            "variables": {"token": {"type": "string", "trusted": True}},
         }
     )
     with pytest.raises(PromptRenderError) as excinfo:
@@ -296,7 +296,7 @@ def test_field_name_mismatch_is_loud_undefined_variable() -> None:
             "name": "greet",
             "role": "user",
             "body": "Hi {{ name }}!",
-            "variables": {"name": {"type": "string", "origin": "trusted"}},
+            "variables": {"name": {"type": "string", "trusted": True}},
         }
     )
     # Validation passes (Misnamed is internally consistent) — the failure is at render.
@@ -316,24 +316,35 @@ def test_field_name_mismatch_is_loud_undefined_variable() -> None:
 
 
 def test_guard_is_plumbed_through_and_separate_from_text() -> None:
+    """spec-015: when guard is enabled, untrusted values are wrapped in
+    <untrusted>…</untrusted> in the rendered body; the guard advisory is a SEPARATE field.
+    """
     p = Prompt(ASK_DEF)
 
     plain = p.render(Topic(topic="rivers"))
     guarded = p.render(Topic(topic="rivers"), guard=GuardConfig(enabled=True))
 
-    # Default render ⇒ no guard.
+    # Default render ⇒ no guard, value appears verbatim.
     assert plain.guard is None
-    # Enabled guard on a prompt declaring an untrusted field ⇒ guard text present ...
+    assert plain.text == "Tell me about rivers."
+
+    # Enabled guard on a prompt declaring an untrusted field:
+    # 1. The guard advisory field is a non-empty static advisory string.
+    #    spec-015: the advisory is a fixed instruction, not a per-field enumeration.
     assert guarded.guard is not None
     assert isinstance(guarded.guard, str)
-    # ... and it names the untrusted field.
-    assert "topic" in guarded.guard, guarded.guard
+    assert len(guarded.guard) > 0, "guard advisory must be non-empty"
 
-    # The body text is IDENTICAL in both: the guard is the caller's system-prompt
-    # addendum, never concatenated into `.text` (the model invariant).
-    assert plain.text == guarded.text == "Tell me about rivers."
-    # And the guard text is not smuggled into the body.
-    assert guarded.guard not in guarded.text
+    # 2. spec-015 delimiting: the body wraps untrusted values in <untrusted>…</untrusted>.
+    #    The plain value "rivers" appears inside the delimiters in the guarded body.
+    assert "<untrusted>rivers</untrusted>" in guarded.text, (
+        f"Expected delimited value in guarded body, got: {guarded.text!r}"
+    )
+
+    # 3. The body IS altered by the guard (delimiting changes it).
+    assert plain.text != guarded.text, (
+        "Guard-enabled body must differ from plain body (spec-015 delimiting)"
+    )
 
 
 def test_disabled_guard_config_matches_no_guard() -> None:

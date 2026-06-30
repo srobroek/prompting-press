@@ -32,20 +32,22 @@ import { Prompt } from "prompting-press";
 // --------------------------------------------------------------------------------------
 
 function findRepoRoot(startDir) {
-  let dir = startDir;
-  for (;;) {
-    try {
-      const entries = readdirSync(dir);
-      if (entries.includes("conformance")) return dir;
-    } catch {
-      // Unreadable dir — keep walking up.
-    }
-    const parent = dirname(dir);
-    if (parent === dir) {
-      throw new Error(`could not find repo root (no 'conformance/' dir) walking up from ${startDir}`);
-    }
-    dir = parent;
-  }
+	let dir = startDir;
+	for (;;) {
+		try {
+			const entries = readdirSync(dir);
+			if (entries.includes("conformance")) return dir;
+		} catch {
+			// Unreadable dir — keep walking up.
+		}
+		const parent = dirname(dir);
+		if (parent === dir) {
+			throw new Error(
+				`could not find repo root (no 'conformance/' dir) walking up from ${startDir}`,
+			);
+		}
+		dir = parent;
+	}
 }
 
 const repoRoot = findRepoRoot(dirname(fileURLToPath(import.meta.url)));
@@ -73,58 +75,58 @@ const marshalingDir = join(repoRoot, "conformance", "marshaling");
 
 /** Prove (once) that a JS Date would NOT reproduce the golden datetime — justifying the string choice. */
 function assertDateDiverges(isoString) {
-  const viaDate = new Date(isoString).toISOString();
-  assert.notEqual(
-    viaDate,
-    isoString,
-    `expected a JS Date to diverge from the pinned form ${isoString} (got ${viaDate}); ` +
-      "if it now matches, the string-vehicle workaround can be revisited",
-  );
+	const viaDate = new Date(isoString).toISOString();
+	assert.notEqual(
+		viaDate,
+		isoString,
+		`expected a JS Date to diverge from the pinned form ${isoString} (got ${viaDate}); ` +
+			"if it now matches, the string-vehicle workaround can be revisited",
+	);
 }
 
 function buildValue(cell) {
-  switch (cell.type) {
-    case "string":
-    case "int":
-    case "float":
-    case "bool":
-      // A plain JSON scalar — pass through unchanged.
-      return cell.value;
-    case "null":
-      // Explicit null — marshals to JSON null (distinct from absent).
-      return null;
-    case "datetime":
-      // See CANONICAL-SERIALIZED-FORM CHOICE above. Confirm a Date diverges, then use the string.
-      assertDateDiverges(cell.value);
-      return cell.value;
-    case "date":
-    case "decimal":
-      // No native JS type reproduces these byte-for-byte; pass the canonical string form.
-      return cell.value;
-    case "object": {
-      // Recurse: each map value is itself a `{ type, value }` cell.
-      const out = {};
-      for (const [key, child] of Object.entries(cell.value)) {
-        out[key] = buildValue(child);
-      }
-      return out;
-    }
-    case "array":
-      // Recurse: each element is itself a `{ type, value }` cell.
-      return cell.value.map((child) => buildValue(child));
-    default:
-      throw new Error(`unknown logical type tag: ${JSON.stringify(cell.type)}`);
-  }
+	switch (cell.type) {
+		case "string":
+		case "int":
+		case "float":
+		case "bool":
+			// A plain JSON scalar — pass through unchanged.
+			return cell.value;
+		case "null":
+			// Explicit null — marshals to JSON null (distinct from absent).
+			return null;
+		case "datetime":
+			// See CANONICAL-SERIALIZED-FORM CHOICE above. Confirm a Date diverges, then use the string.
+			assertDateDiverges(cell.value);
+			return cell.value;
+		case "date":
+		case "decimal":
+			// No native JS type reproduces these byte-for-byte; pass the canonical string form.
+			return cell.value;
+		case "object": {
+			// Recurse: each map value is itself a `{ type, value }` cell.
+			const out = {};
+			for (const [key, child] of Object.entries(cell.value)) {
+				out[key] = buildValue(child);
+			}
+			return out;
+		}
+		case "array":
+			// Recurse: each element is itself a `{ type, value }` cell.
+			return cell.value.map((child) => buildValue(child));
+		default:
+			throw new Error(`unknown logical type tag: ${JSON.stringify(cell.type)}`);
+	}
 }
 
 /** Build the top-level Vars object from the fixture's `input` map, OMITTING absent fields entirely. */
 function buildVars(input) {
-  const vars = {};
-  for (const [field, cell] of Object.entries(input)) {
-    if (cell.type === "absent") continue; // absent ⇒ omit the key (JS field-not-present)
-    vars[field] = buildValue(cell);
-  }
-  return vars;
+	const vars = {};
+	for (const [field, cell] of Object.entries(input)) {
+		if (cell.type === "absent") continue; // absent ⇒ omit the key (JS field-not-present)
+		vars[field] = buildValue(cell);
+	}
+	return vars;
 }
 
 // --------------------------------------------------------------------------------------
@@ -132,46 +134,46 @@ function buildVars(input) {
 // --------------------------------------------------------------------------------------
 
 const fixtureFiles = readdirSync(marshalingDir)
-  .filter((f) => f.endsWith(".json"))
-  .sort();
+	.filter((f) => f.endsWith(".json"))
+	.sort();
 
 assert.ok(fixtureFiles.length > 0, `no marshaling fixtures found in ${marshalingDir}`);
 
 for (const file of fixtureFiles) {
-  const fixture = JSON.parse(readFileSync(join(marshalingDir, file), "utf8"));
-  const { case: caseName, definition, variant, input, expected } = fixture;
+	const fixture = JSON.parse(readFileSync(join(marshalingDir, file), "utf8"));
+	const { case: caseName, definition, variant, input, expected } = fixture;
 
-  test(`marshaling/${caseName}: TS render reproduces the Rust golden byte-for-byte`, () => {
-    // Build a Prompt from the fixture's definition, then render with the static (no-Zod) path.
-    // Uses Prompt.fromJson (consistent with the old Registry.loadJson path — same consumer loader).
-    const p = Prompt.fromJson(JSON.stringify(definition));
+	test(`marshaling/${caseName}: TS render reproduces the Rust golden byte-for-byte`, () => {
+		// Build a Prompt from the fixture's definition, then render with the static (no-Zod) path.
+		// Uses Prompt.fromJson (consistent with the old Registry.loadJson path — same consumer loader).
+		const p = Prompt.fromJson(JSON.stringify(definition));
 
-    const vars = buildVars(input);
-    const opts = variant === null ? undefined : { variant };
+		const vars = buildVars(input);
+		const opts = variant === null ? undefined : { variant };
 
-    // Static (no-Zod) render path — the corpus carries no per-fixture schema (Q4 form).
-    const result = p.render(vars, opts);
+		// Static (no-Zod) render path — the corpus carries no per-fixture schema (Q4 form).
+		const result = p.render(vars, opts);
 
-    assert.equal(
-      result.text,
-      expected.text,
-      `case '${caseName}': field 'text' diverged from golden\n` +
-        `  expected: ${JSON.stringify(expected.text)}\n` +
-        `  actual:   ${JSON.stringify(result.text)}`,
-    );
-    assert.equal(
-      result.templateHash,
-      expected.template_hash,
-      `case '${caseName}': field 'template_hash' (TS .templateHash) diverged from golden\n` +
-        `  expected: ${expected.template_hash}\n` +
-        `  actual:   ${result.templateHash}`,
-    );
-    assert.equal(
-      result.renderHash,
-      expected.render_hash,
-      `case '${caseName}': field 'render_hash' (TS .renderHash) diverged from golden\n` +
-        `  expected: ${expected.render_hash}\n` +
-        `  actual:   ${result.renderHash}`,
-    );
-  });
+		assert.equal(
+			result.text,
+			expected.text,
+			`case '${caseName}': field 'text' diverged from golden\n` +
+				`  expected: ${JSON.stringify(expected.text)}\n` +
+				`  actual:   ${JSON.stringify(result.text)}`,
+		);
+		assert.equal(
+			result.templateHash,
+			expected.template_hash,
+			`case '${caseName}': field 'template_hash' (TS .templateHash) diverged from golden\n` +
+				`  expected: ${expected.template_hash}\n` +
+				`  actual:   ${result.templateHash}`,
+		);
+		assert.equal(
+			result.renderHash,
+			expected.render_hash,
+			`case '${caseName}': field 'render_hash' (TS .renderHash) diverged from golden\n` +
+				`  expected: ${expected.render_hash}\n` +
+				`  actual:   ${result.renderHash}`,
+		);
+	});
 }

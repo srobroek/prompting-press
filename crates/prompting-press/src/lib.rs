@@ -44,7 +44,7 @@
 //!
 //! Rendering, the agreement analysis, variant resolution, and SHA-256 hashing live **once**,
 //! in [`prompting_press_core`]; this crate adds **none** of them. [`Prompt::render`] delegates
-//! to the kernel's `render`; [`Prompt::check`] uses the kernel's `origin_view`; [`Prompt::get_source`]
+//! to the kernel's `render`; [`Prompt::check`] uses the kernel's `untrusted_fields`; [`Prompt::get_source`]
 //! delegates to the kernel's `get_source`. What this crate adds is exactly what the kernel
 //! omits: the typed-Vars (garde) facade, the text-format factories, the advisory lint,
 //! idiomatic render/compose ergonomics, and error normalization. Cross-language byte-identity
@@ -79,13 +79,13 @@
 //! Closing this gap in-library would require per-prompt type registration, which clarify Q3
 //! deliberately rejected for v1.
 //!
-//! ## The `check()` origin convention (roadmap decision C-09)
+//! ## The `check()` trust/guard convention (roadmap decision C-09)
 //!
-//! A prompt that declares one or more `untrusted` / `external` variables is expected to
-//! carry a top-level `"guard"` key in its `meta` (or `metadata`) map. If such a prompt
-//! declares an untrusted/external field and **no** `"guard"` key is present, [`Prompt::check`]
-//! emits an [`UntrustedWithoutGuard`](check::FindingKind::UntrustedWithoutGuard) finding naming
-//! the uncovered field. The lint reads `meta`/`metadata` read-only and checks only for the
+//! A prompt that declares one or more `trusted: false` variables is expected to carry a
+//! top-level `"guard"` key in its `meta` (or `metadata`) map. If such a prompt declares a
+//! `trusted: false` field and **no** `"guard"` key is present, [`Prompt::check`] emits an
+//! [`UntrustedWithoutGuard`](check::FindingKind::UntrustedWithoutGuard) finding naming the
+//! uncovered field. The lint reads `meta`/`metadata` read-only and checks only for the
 //! *presence* of the key (the contents are opaque to the library).
 //!
 //! ## `prompt.check()` as a CI gate
@@ -105,8 +105,8 @@
 //! role: user
 //! body: "Hi {{ name }}, you have {{ count }} messages"
 //! variables:
-//!   name:  { type: string,  origin: trusted }
-//!   count: { type: integer, origin: trusted }
+//!   name:  { type: string,  trusted: true }
+//!   count: { type: integer, trusted: true }
 //! "#;
 //!
 //! let prompt = Prompt::from_yaml(prompt_doc).expect("well-formed prompt definition");
@@ -147,8 +147,8 @@
 //! role: user
 //! body: "Hi {{ name }}, you have {{ count }} messages"
 //! variables:
-//!   name:  { type: string,  origin: trusted }
-//!   count: { type: integer, origin: trusted }
+//!   name:  { type: string,  trusted: true }
+//!   count: { type: integer, trusted: true }
 //! "#;
 //!
 //! let prompt = Prompt::from_yaml(prompt_doc).expect("well-formed prompt definition");

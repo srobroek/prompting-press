@@ -5,7 +5,7 @@
   "variables": {
     "name": {
       "type": "string",
-      "origin": "trusted",
+      "trusted": true,
       "description": "A name interpolated into a multibyte UTF-8 template body."
     }
   }

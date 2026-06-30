@@ -29,7 +29,9 @@
 use crate::error::KernelError;
 use crate::generated::prompt_definition::PromptDefinition;
 use crate::hashing::sha256_hex;
-use crate::origin::{build_guard_text, origin_view, GuardConfig};
+use crate::origin::{
+    apply_guard_prepass, build_guard_text, guard_wrap_filter, untrusted_fields, GuardConfig,
+};
 
 /// The reserved variant name that always resolves to the prompt's root `body`
 /// (FR-007/FR-010/FR-011). The generated shape does not encode this rule, so the kernel
@@ -128,7 +130,8 @@ pub struct RenderResult {
     pub guard: Option<String>,
 }
 
-/// Render a prompt's resolved variant to text and stamp provenance (spec 002, T019).
+/// Render a prompt's resolved variant to text and stamp provenance (spec 002, T019;
+/// spec 015 guard-delimiting).
 ///
 /// Resolves the variant (FR-007..FR-011), renders the resolved source against `values`
 /// using the kernel's strict-undefined environment (`build_environment`), and computes
@@ -136,20 +139,30 @@ pub struct RenderResult {
 /// `(def, variant, values)` yields byte-identical `text` and equal hashes (FR-003,
 /// SC-001). The kernel is validation-blind and performs no I/O (FR-004/FR-005).
 ///
-/// Guard expansion is opt-in (US3, FR-022..FR-025): when `guard.enabled`, the result's
-/// [`RenderResult::guard`] carries an instruction *naming* the prompt's untrusted/external
-/// fields (computed by `build_guard_text` over [`origin_view`]). It is a **separate**
-/// field — never concatenated into `text` — and is purely additive: enabling it does not
-/// change `text`, the template, or the values (FR-023, SC-005), and it never inspects or
-/// sanitizes a value (FR-025). When `!guard.enabled`, `guard` is `None`.
+/// ## Guard expansion (spec 015)
+///
+/// When `guard.enabled` is `true` AND the definition declares at least one untrusted
+/// field (`trusted: false`):
+///
+/// 1. A **source pre-pass** rewrites each `{{ EXPR }}` interpolation whose root
+///    identifier(s) include an untrusted field name into
+///    `{{ (EXPR) | pp_guard_wrap }}`. The `pp_guard_wrap` filter is a custom
+///    MiniJinja filter registered on the per-render environment; it entity-escapes
+///    `&`, `<`, `>` and wraps the value in `<untrusted>…</untrusted>`.
+/// 2. The guard advisory string (a fixed line referencing the markers) is placed in
+///    [`RenderResult::guard`]. It is a **separate** field — never concatenated into
+///    `text`.
+///
+/// When `guard.enabled` is `false` OR there are no untrusted fields, the pre-pass is
+/// NOT applied, `pp_guard_wrap` is not registered, and the body is byte-identical to
+/// a plain render (SC-005). `guard` is `None`.
 ///
 /// # Errors
 /// - [`KernelError::UnknownVariant`] — `variant` names a non-existent arm (FR-009).
 /// - [`KernelError::ExcludedFeature`] / [`KernelError::Parse`] — the resolved source uses
-///   an excluded feature (unrecognised tag under the disabled `macros`/`multi_template`
-///   features) or otherwise fails to parse (FR-002, FR-028).
+///   an excluded feature or otherwise fails to parse (FR-002, FR-028).
 /// - [`KernelError::UndefinedVariable`] — a strict-undefined reference was hit at render
-///   (FR-001a): a referenced variable was absent from `values`.
+///   (FR-001a).
 /// - [`KernelError::Render`] — any other render-time failure (FR-028).
 pub fn render(
     def: &PromptDefinition,
@@ -159,11 +172,44 @@ pub fn render(
 ) -> Result<RenderResult, KernelError> {
     let resolved = resolve_variant(def, variant)?;
 
-    // Per-render environment + a single anonymous template against the resolved source.
-    // With `macros`/`multi_template` disabled, an excluded-feature tag fails right here
-    // at parse time (research D1/D4); `add_template_owned` parses eagerly.
+    // Determine the set of untrusted roots once; used for the pre-pass and guard text.
+    let untrusted = if guard.enabled {
+        untrusted_fields(def)
+    } else {
+        std::collections::BTreeSet::new()
+    };
+
+    // Apply the source pre-pass when the guard is enabled and there are untrusted fields.
+    // The pre-pass rewrites `{{ EXPR }}` → `{{ (EXPR) | pp_guard_wrap }}` for any
+    // interpolation whose root identifier is untrusted. When the guard is off or there
+    // are no untrusted fields, `source` is used verbatim (body stays byte-identical).
+    let guarded_source: std::borrow::Cow<str> = if guard.enabled && !untrusted.is_empty() {
+        std::borrow::Cow::Owned(apply_guard_prepass(resolved.source, &untrusted))
+    } else {
+        std::borrow::Cow::Borrowed(resolved.source)
+    };
+
+    // Build (and validate) the guard advisory BEFORE rendering, so an invalid
+    // advisory override (`GuardConfig::advisory` missing the marker contract) fails
+    // fast rather than after the render work. A SEPARATE field — never concatenated
+    // into the body (FR-022..FR-025); the caller routes it (e.g. into a system message).
+    let guard_text = build_guard_text(def, guard)?;
+
+    // Per-render environment + a single anonymous template against the (possibly rewritten)
+    // source. With `macros`/`multi_template` disabled, an excluded-feature tag fails right
+    // here at parse time (research D1/D4); `add_template_owned` parses eagerly.
     let mut env = build_environment();
-    env.add_template_owned("kernel".to_string(), resolved.source.to_string())
+
+    // Register `pp_guard_wrap` only when the guard pre-pass is active so the filter
+    // name is never available in plain renders (belt-and-suspenders: the pre-pass
+    // never injects the filter call when the guard is off, but not registering it
+    // means a manual `{{ x | pp_guard_wrap }}` in a template fails loudly when the
+    // guard is off rather than silently wrapping).
+    if guard.enabled && !untrusted.is_empty() {
+        env.add_filter("pp_guard_wrap", guard_wrap_filter);
+    }
+
+    env.add_template_owned("kernel".to_string(), guarded_source.into_owned())
         .map_err(map_minijinja_error)?;
     let template = env.get_template("kernel").map_err(map_minijinja_error)?;
 
@@ -172,18 +218,13 @@ pub fn render(
     let template_hash = sha256_hex(resolved.source);
     let render_hash = sha256_hex(&text);
 
-    // Opt-in, additive guard text — a SEPARATE field, computed from the declared
-    // origin tags. `build_guard_text` returns `None` unless `guard.enabled` (and the
-    // untrusted∪external union is non-empty), and never touches `text`/values (FR-022..25).
-    let guard = build_guard_text(&origin_view(def), guard);
-
     Ok(RenderResult {
         text,
         name: def.name.to_string(),
         variant: resolved.name,
         template_hash,
         render_hash,
-        guard,
+        guard: guard_text,
     })
 }
 

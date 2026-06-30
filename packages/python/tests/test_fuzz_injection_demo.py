@@ -1,19 +1,22 @@
-"""Injection / guard demonstration — spec 009 Phase 2 (T011).
+"""Injection / guard demonstration — spec 015 delimiting (updated from spec 009 Phase 2 T011).
 
-IMPORTANT — what this test demonstrates (FR-005, FR-006, SC-006):
-  1. prompt.check() flags an unguarded `untrusted` field as `untrusted_without_guard`.
-  2. An injection-shaped value renders VERBATIM in the output — the library does
-     NOT strip, escape, or alter it (C-09 pass-through semantics).
-  3. The opt-in guard text names the untrusted field; the rendered body is
-     byte-identical with or without the guard (the guard is additive).
+IMPORTANT — what this test demonstrates (FR-005, FR-006, SC-006, spec-015):
+  1. prompt.check() flags a variable with `trusted: false` as `untrusted_without_guard`.
+  2. An injection-shaped value renders VERBATIM in the output when no guard is enabled
+     — the library does NOT strip, escape, or alter it (C-09 pass-through semantics).
+  3. When the opt-in guard IS enabled (spec-015): the rendered body WRAPS the untrusted
+     value in <untrusted>…</untrusted> delimiters. Characters `&`, `<`, `>` in the value
+     are entity-escaped (`&amp;`, `&lt;`, `&gt;`) to prevent delimiter confusion.
+  4. The guard advisory field (`result.guard`) is a static instruction string that
+     references the `<untrusted>` markers — it is a SEPARATE string, never merged into the body.
 
 EXPLICIT STATEMENT (FR-006):
-  The guard is ADVISORY TEXT — it is an instruction for the caller to include in
-  a system prompt if desired.  It is NOT enforcement and CANNOT prevent an LLM
-  from following instructions embedded in the untrusted value.  The library has
-  NO LLM, performs NO inference, and makes NO jailbreak-proof or injection-proof
-  claim.  "Injection demo" means we demonstrate the advisory posture truthfully,
-  not that we claim to neutralise injections.
+  The guard delimiting is a structural containment aid — it marks where untrusted input
+  appears in the rendered body. It is NOT enforcement and CANNOT prevent an LLM from
+  following instructions embedded in the untrusted value.  The library has NO LLM,
+  performs NO inference, and makes NO jailbreak-proof or injection-proof claim.
+  "Injection demo" means we demonstrate the delimiting posture truthfully, not that
+  we claim to neutralise injections.
 """
 
 from __future__ import annotations
@@ -21,7 +24,6 @@ from __future__ import annotations
 import string
 from typing import Any
 
-import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from pydantic import BaseModel
@@ -52,7 +54,7 @@ _UNTRUSTED_PROMPT_DEF: dict[str, Any] = {
     "role": "user",
     "body": "Tell me about {{ topic }}.",
     "variables": {
-        "topic": {"type": "string", "origin": "untrusted"},
+        "topic": {"type": "string", "trusted": False},
     },
 }
 
@@ -91,6 +93,7 @@ _INJECTION_VALUES = st.one_of(
 # T011a: check() flags unguarded untrusted field (FR-005; SC-006)
 # ---------------------------------------------------------------------------
 
+
 def test_check_flags_unguarded_untrusted_field() -> None:
     """prompt.check() surfaces untrusted_without_guard for an unguarded untrusted field."""
     p = Prompt(_UNTRUSTED_PROMPT_DEF)
@@ -107,6 +110,7 @@ def test_check_flags_unguarded_untrusted_field() -> None:
 # ---------------------------------------------------------------------------
 # T011b: injection value renders VERBATIM — no sanitisation (C-09)
 # ---------------------------------------------------------------------------
+
 
 @given(injection=_INJECTION_VALUES)
 @FUZZ_SETTINGS
@@ -133,19 +137,25 @@ def test_injection_value_renders_verbatim(injection: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# T011c: guard names the untrusted field; body is byte-identical (SC-006)
+# T011c: spec-015 delimiting — guard wraps untrusted values; advisory is separate (SC-006)
 # ---------------------------------------------------------------------------
+
 
 @given(injection=_INJECTION_VALUES)
 @FUZZ_SETTINGS
-def test_guard_names_field_body_unchanged(injection: str) -> None:
-    """When the opt-in guard is enabled, it names the untrusted field and the
-    rendered body is byte-identical to the unguarded render.
+def test_guard_delimits_untrusted_value(injection: str) -> None:
+    """spec-015: when the opt-in guard is enabled, the untrusted value is wrapped
+    in <untrusted>…</untrusted> delimiters in the rendered body.
 
-    ADVISORY NOTE: the guard is advisory text only — it is intended to be
-    included by the caller in a system prompt as a signal to the LLM.  The
-    library does not call any LLM, does not enforce any policy, and provides
-    no jailbreak protection.
+    Key assertions:
+    1. The guard advisory field (result.guard) is a non-empty static advisory string.
+    2. The rendered body CONTAINS the <untrusted>…</untrusted> wrapped value — the body
+       IS altered (unlike the pre-spec-015 advisory-only behavior).
+    3. The guard advisory is a SEPARATE string — it is not embedded in the body.
+    4. The unguarded render still produces the raw value verbatim (no delimiting).
+
+    ADVISORY NOTE: spec-015 delimiting marks untrusted input structurally. It is NOT
+    enforcement — the library has no LLM and provides no jailbreak protection.
     """
     p = Prompt(_UNTRUSTED_PROMPT_DEF)
     try:
@@ -156,25 +166,40 @@ def test_guard_names_field_body_unchanged(injection: str) -> None:
     except PromptingPressError:
         return  # structured error path — skip
 
-    # Body text is byte-identical regardless of guard.
-    assert plain.text == guarded.text, (
-        f"guard altered body: plain={plain.text!r}, guarded={guarded.text!r}"
+    # 1. Guard advisory field must be present (a non-empty static advisory string).
+    #    spec-015: the advisory is a fixed instruction — not a per-field enumeration.
+    assert guarded.guard is not None, (
+        "guard advisory must be present when guard is enabled"
     )
-    # The guard text (when present) must name the untrusted field.
-    if guarded.guard is not None:
-        assert "topic" in guarded.guard, (
-            f"guard text does not name the untrusted field 'topic': {guarded.guard!r}"
-        )
-    # The guard text is NOT smuggled into the body.
-    if guarded.guard:
-        assert guarded.guard not in guarded.text, (
-            "guard text must not appear inside the rendered body"
-        )
+    assert isinstance(guarded.guard, str) and len(guarded.guard) > 0, (
+        f"guard advisory must be a non-empty string, got: {guarded.guard!r}"
+    )
+
+    # 2. The guarded body must contain the <untrusted>…</untrusted> wrapper.
+    #    The raw value may be entity-escaped inside the delimiters if it contains
+    #    &, <, or >. We check the opening delimiter is present.
+    assert "<untrusted>" in guarded.text, (
+        f"spec-015: guarded body must contain <untrusted> delimiter. got: {guarded.text!r}"
+    )
+    assert "</untrusted>" in guarded.text, (
+        f"spec-015: guarded body must contain </untrusted> delimiter. got: {guarded.text!r}"
+    )
+
+    # 3. Guard advisory is a separate string — not embedded inside the body.
+    assert guarded.guard not in guarded.text, (
+        "guard advisory must not appear inside the rendered body"
+    )
+
+    # 4. The unguarded render is NOT wrapped (plain pass-through when guard is off).
+    assert "<untrusted>" not in plain.text, (
+        f"unguarded body must not contain <untrusted> delimiter. got: {plain.text!r}"
+    )
 
 
 # ---------------------------------------------------------------------------
 # T011d: a guarded prompt (metadata.guard.enabled) passes check() (SC-006 complement)
 # ---------------------------------------------------------------------------
+
 
 def test_check_passes_when_guard_configured_in_metadata() -> None:
     """A prompt with metadata.guard.enabled satisfies the untrusted_without_guard lint."""

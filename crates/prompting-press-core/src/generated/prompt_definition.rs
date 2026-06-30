@@ -281,16 +281,16 @@ impl ::std::convert::TryFrom<::std::string::String> for PromptDefinitionRole {
         value.parse()
     }
 }
-#[doc = "A declared input variable: type, origin, and an optional human-readable description. Validation constraints belong in the per-language validator (Zod/Pydantic/garde); the kernel is validation-blind."]
+#[doc = "A declared input variable: type, trust flag, and an optional human-readable description. Validation constraints belong in the per-language validator (Zod/Pydantic/garde); the kernel is validation-blind."]
 #[doc = r""]
 #[doc = r" <details><summary>JSON schema</summary>"]
 #[doc = r""]
 #[doc = r" ```json"]
 #[doc = "{"]
-#[doc = "  \"description\": \"A declared input variable: type, origin, and an optional human-readable description. Validation constraints belong in the per-language validator (Zod/Pydantic/garde); the kernel is validation-blind.\","]
+#[doc = "  \"description\": \"A declared input variable: type, trust flag, and an optional human-readable description. Validation constraints belong in the per-language validator (Zod/Pydantic/garde); the kernel is validation-blind.\","]
 #[doc = "  \"type\": \"object\","]
 #[doc = "  \"required\": ["]
-#[doc = "    \"origin\","]
+#[doc = "    \"trusted\","]
 #[doc = "    \"type\""]
 #[doc = "  ],"]
 #[doc = "  \"properties\": {"]
@@ -298,14 +298,9 @@ impl ::std::convert::TryFrom<::std::string::String> for PromptDefinitionRole {
 #[doc = "      \"description\": \"Optional human-readable description of the variable.\","]
 #[doc = "      \"type\": \"string\""]
 #[doc = "    },"]
-#[doc = "    \"origin\": {"]
-#[doc = "      \"description\": \"Per-field input-trust tag. DECLARATIVE METADATA ONLY — the library does not enforce this tag at render time; it is not a security guard by itself. Use `check()` to detect `untrusted`/`external` variables that lack a declared guard, and enable the opt-in guard to receive advisory guard text. This per-variable trust tag is distinct from the render-result content hashes (`template_hash`/`render_hash`).\","]
-#[doc = "      \"type\": \"string\","]
-#[doc = "      \"enum\": ["]
-#[doc = "        \"trusted\","]
-#[doc = "        \"untrusted\","]
-#[doc = "        \"external\""]
-#[doc = "      ]"]
+#[doc = "    \"trusted\": {"]
+#[doc = "      \"description\": \"Per-field input-trust flag (spec 015). `true` ⇒ a trusted input (never delimited). `false` ⇒ untrusted input: when the opt-in guard is enabled, the variable's interpolated value is wrapped in injection-resistant `<untrusted>…</untrusted>` delimiters in the rendered body, and the guard advisory references the markers. Replaces the former `origin` enum (trusted|untrusted|external) — with one fixed delimiter the untrusted/external distinction was no longer meaningful. Use `check()` to detect untrusted variables (`trusted: false`) that lack a declared guard.\","]
+#[doc = "      \"type\": \"boolean\""]
 #[doc = "    },"]
 #[doc = "    \"type\": {"]
 #[doc = "      \"description\": \"JSON-Schema type keyword(s) for the variable.\","]
@@ -339,7 +334,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PromptDefinitionRole {
 #[doc = "      ]"]
 #[doc = "    },"]
 #[doc = "    \"validation_required\": {"]
-#[doc = "      \"description\": \"When true, a validator covering this variable MUST be supplied when the Prompt is constructed (spec 008). Orthogonal to `origin` — it MAY mark any variable, not only untrusted/external ones. Declarative metadata; enforcement is per-language (constitution Principle VI v1.2.0): TypeScript (Zod) and Python (Pydantic) introspect the supplied validator and throw/raise at construction if this variable is uncovered, while Rust guarantees coverage structurally at compile time. The kernel never reads this field (validation-blind).\","]
+#[doc = "      \"description\": \"When true, a validator covering this variable MUST be supplied when the Prompt is constructed (spec 008). Orthogonal to `trusted` — it MAY mark any variable, trusted or not. Declarative metadata; enforcement is per-language (constitution Principle VI v1.2.0): TypeScript (Zod) and Python (Pydantic) introspect the supplied validator and throw/raise at construction if this variable is uncovered, while Rust guarantees coverage structurally at compile time. The kernel never reads this field (validation-blind).\","]
 #[doc = "      \"default\": false,"]
 #[doc = "      \"type\": \"boolean\""]
 #[doc = "    }"]
@@ -354,92 +349,14 @@ pub struct PromptVariable {
     #[doc = "Optional human-readable description of the variable."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub description: ::std::option::Option<::std::string::String>,
-    #[doc = "Per-field input-trust tag. DECLARATIVE METADATA ONLY — the library does not enforce this tag at render time; it is not a security guard by itself. Use `check()` to detect `untrusted`/`external` variables that lack a declared guard, and enable the opt-in guard to receive advisory guard text. This per-variable trust tag is distinct from the render-result content hashes (`template_hash`/`render_hash`)."]
-    pub origin: PromptVariableOrigin,
+    #[doc = "Per-field input-trust flag (spec 015). `true` ⇒ a trusted input (never delimited). `false` ⇒ untrusted input: when the opt-in guard is enabled, the variable's interpolated value is wrapped in injection-resistant `<untrusted>…</untrusted>` delimiters in the rendered body, and the guard advisory references the markers. Replaces the former `origin` enum (trusted|untrusted|external) — with one fixed delimiter the untrusted/external distinction was no longer meaningful. Use `check()` to detect untrusted variables (`trusted: false`) that lack a declared guard."]
+    pub trusted: bool,
     #[doc = "JSON-Schema type keyword(s) for the variable."]
     #[serde(rename = "type")]
     pub type_: PromptVariableType,
-    #[doc = "When true, a validator covering this variable MUST be supplied when the Prompt is constructed (spec 008). Orthogonal to `origin` — it MAY mark any variable, not only untrusted/external ones. Declarative metadata; enforcement is per-language (constitution Principle VI v1.2.0): TypeScript (Zod) and Python (Pydantic) introspect the supplied validator and throw/raise at construction if this variable is uncovered, while Rust guarantees coverage structurally at compile time. The kernel never reads this field (validation-blind)."]
+    #[doc = "When true, a validator covering this variable MUST be supplied when the Prompt is constructed (spec 008). Orthogonal to `trusted` — it MAY mark any variable, trusted or not. Declarative metadata; enforcement is per-language (constitution Principle VI v1.2.0): TypeScript (Zod) and Python (Pydantic) introspect the supplied validator and throw/raise at construction if this variable is uncovered, while Rust guarantees coverage structurally at compile time. The kernel never reads this field (validation-blind)."]
     #[serde(default)]
     pub validation_required: bool,
-}
-#[doc = "Per-field input-trust tag. DECLARATIVE METADATA ONLY — the library does not enforce this tag at render time; it is not a security guard by itself. Use `check()` to detect `untrusted`/`external` variables that lack a declared guard, and enable the opt-in guard to receive advisory guard text. This per-variable trust tag is distinct from the render-result content hashes (`template_hash`/`render_hash`)."]
-#[doc = r""]
-#[doc = r" <details><summary>JSON schema</summary>"]
-#[doc = r""]
-#[doc = r" ```json"]
-#[doc = "{"]
-#[doc = "  \"description\": \"Per-field input-trust tag. DECLARATIVE METADATA ONLY — the library does not enforce this tag at render time; it is not a security guard by itself. Use `check()` to detect `untrusted`/`external` variables that lack a declared guard, and enable the opt-in guard to receive advisory guard text. This per-variable trust tag is distinct from the render-result content hashes (`template_hash`/`render_hash`).\","]
-#[doc = "  \"type\": \"string\","]
-#[doc = "  \"enum\": ["]
-#[doc = "    \"trusted\","]
-#[doc = "    \"untrusted\","]
-#[doc = "    \"external\""]
-#[doc = "  ]"]
-#[doc = "}"]
-#[doc = r" ```"]
-#[doc = r" </details>"]
-#[derive(
-    :: serde :: Deserialize,
-    :: serde :: Serialize,
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    Hash,
-    Ord,
-    PartialEq,
-    PartialOrd,
-)]
-pub enum PromptVariableOrigin {
-    #[serde(rename = "trusted")]
-    Trusted,
-    #[serde(rename = "untrusted")]
-    Untrusted,
-    #[serde(rename = "external")]
-    External,
-}
-impl ::std::fmt::Display for PromptVariableOrigin {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        match *self {
-            Self::Trusted => f.write_str("trusted"),
-            Self::Untrusted => f.write_str("untrusted"),
-            Self::External => f.write_str("external"),
-        }
-    }
-}
-impl ::std::str::FromStr for PromptVariableOrigin {
-    type Err = self::error::ConversionError;
-    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
-        match value {
-            "trusted" => Ok(Self::Trusted),
-            "untrusted" => Ok(Self::Untrusted),
-            "external" => Ok(Self::External),
-            _ => Err("invalid value".into()),
-        }
-    }
-}
-impl ::std::convert::TryFrom<&str> for PromptVariableOrigin {
-    type Error = self::error::ConversionError;
-    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
-impl ::std::convert::TryFrom<&::std::string::String> for PromptVariableOrigin {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: &::std::string::String,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
-impl ::std::convert::TryFrom<::std::string::String> for PromptVariableOrigin {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: ::std::string::String,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
 }
 #[doc = "JSON-Schema type keyword(s) for the variable."]
 #[doc = r""]

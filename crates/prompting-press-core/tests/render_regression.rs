@@ -24,7 +24,7 @@ const RENDER_FIXTURES: &[&str] = &["interpolation", "conditional-loop"];
 fn no_guard() -> GuardConfig {
     GuardConfig {
         enabled: false,
-        template: None,
+        ..Default::default()
     }
 }
 

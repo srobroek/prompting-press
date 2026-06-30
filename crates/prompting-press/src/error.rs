@@ -204,6 +204,13 @@ impl From<KernelError> for ConsumerError {
                 code: code::EXCLUDED_FEATURE.to_string(),
                 message: "template uses an excluded feature".to_string(),
             },
+            // spec-015: raised when a caller-supplied advisory override fails validation.
+            // The detail names the missing element(s) — no bound value content.
+            KernelError::GuardAdvisoryInvalid { detail } => FieldError {
+                field: "guard".to_string(),
+                code: code::RENDER.to_string(),
+                message: format!("guard advisory override is invalid: {detail}"),
+            },
         };
         Self::Kernel(vec![row])
     }

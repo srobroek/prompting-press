@@ -23,7 +23,6 @@ Settings: max_examples=60, deadline=8_000 ms.
 from __future__ import annotations
 
 import traceback
-from typing import Any
 
 import pytest
 from hypothesis import HealthCheck, given, settings
@@ -33,7 +32,6 @@ from pydantic import BaseModel, field_validator
 from prompting_press import (
     Prompt,
     PromptingPressError,
-    PromptValidationError,
 )
 
 # ---------------------------------------------------------------------------
@@ -67,9 +65,7 @@ _SECRET = st.builds(
 
 def _assert_no_leakage(exc: PromptingPressError, secret: str) -> None:
     """Assert the secret substring is absent from all error surfaces."""
-    assert secret not in str(exc), (
-        f"secret leaked in str(exc): {str(exc)!r}"
-    )
+    assert secret not in str(exc), f"secret leaked in str(exc): {str(exc)!r}"
     for row in exc.errors:
         assert secret not in (row.field or ""), (
             f"secret leaked in FieldError.field: {row.field!r}"
@@ -81,14 +77,13 @@ def _assert_no_leakage(exc: PromptingPressError, secret: str) -> None:
     # traceback.format_exc() returns "NoneType: None\n" when called outside an
     # except block; the secret must not appear there either — but the primary
     # check is the structured error rows above.
-    assert secret not in tb, (
-        f"secret leaked in traceback.format_exc(): {tb!r}"
-    )
+    assert secret not in tb, f"secret leaked in traceback.format_exc(): {tb!r}"
 
 
 # ---------------------------------------------------------------------------
 # T010a: Pydantic-path validation failure — secret rejected by field_validator
 # ---------------------------------------------------------------------------
+
 
 @given(secret=_SECRET)
 @FUZZ_SETTINGS
@@ -106,12 +101,14 @@ def test_pydantic_path_secret_not_leaked(secret: str) -> None:
                 raise ValueError("token uses a forbidden prefix")
             return v
 
-    p = Prompt({
-        "name": "scrub-test",
-        "role": "user",
-        "body": "token={{ token }}",
-        "variables": {"token": {"type": "string", "origin": "trusted"}},
-    })
+    p = Prompt(
+        {
+            "name": "scrub-test",
+            "role": "user",
+            "body": "token={{ token }}",
+            "variables": {"token": {"type": "string", "trusted": True}},
+        }
+    )
 
     with pytest.raises(PromptingPressError) as excinfo:
         p.render(SecretVars, data={"token": secret})
@@ -126,6 +123,7 @@ def test_pydantic_path_secret_not_leaked(secret: str) -> None:
 # so Rust deserialization will raise a LoadError.  The secret appears as a
 # field value inside the document; it must not leak into the error.
 # ---------------------------------------------------------------------------
+
 
 @given(secret=_SECRET)
 @FUZZ_SETTINGS
@@ -146,11 +144,13 @@ def test_from_yaml_secret_not_leaked(secret: str) -> None:
 # T010c: from_json — secret embedded in malformed JSON document
 # ---------------------------------------------------------------------------
 
+
 @given(secret=_SECRET)
 @FUZZ_SETTINGS
 def test_from_json_secret_not_leaked(secret: str) -> None:
     """A secret embedded in an invalid JSON document must not appear in the error."""
     import json as _json
+
     # A JSON object that has the secret as a value but omits the required `body`.
     doc = _json.dumps({"name": secret, "role": "user"})
     try:
@@ -167,6 +167,7 @@ def test_from_json_secret_not_leaked(secret: str) -> None:
 # value in the kernel error must be scrubbed before surfacing in Python.
 # ---------------------------------------------------------------------------
 
+
 @given(secret=_SECRET)
 @FUZZ_SETTINGS
 def test_kernel_path_secret_not_leaked(secret: str) -> None:
@@ -174,14 +175,17 @@ def test_kernel_path_secret_not_leaked(secret: str) -> None:
 
     class PlainVars(BaseModel):
         """Passes Pydantic validation — the secret crosses FFI into the kernel."""
+
         token: str
 
-    p = Prompt({
-        "name": "kernel-scrub",
-        "role": "user",
-        "body": "{{ token + 1 }}",  # string + int → kernel render error
-        "variables": {"token": {"type": "string", "origin": "trusted"}},
-    })
+    p = Prompt(
+        {
+            "name": "kernel-scrub",
+            "role": "user",
+            "body": "{{ token + 1 }}",  # string + int → kernel render error
+            "variables": {"token": {"type": "string", "trusted": True}},
+        }
+    )
 
     with pytest.raises(PromptingPressError) as excinfo:
         p.render(PlainVars, data={"token": secret})

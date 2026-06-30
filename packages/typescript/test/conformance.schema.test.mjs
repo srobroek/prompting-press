@@ -34,20 +34,22 @@ import { Prompt, LoadError, PromptingPressError } from "prompting-press";
 // --------------------------------------------------------------------------------------
 
 function findRepoRoot(startDir) {
-  let dir = startDir;
-  for (;;) {
-    try {
-      const entries = readdirSync(dir);
-      if (entries.includes("conformance")) return dir;
-    } catch {
-      // Unreadable dir — keep walking up.
-    }
-    const parent = dirname(dir);
-    if (parent === dir) {
-      throw new Error(`could not find repo root (no 'conformance/' dir) walking up from ${startDir}`);
-    }
-    dir = parent;
-  }
+	let dir = startDir;
+	for (;;) {
+		try {
+			const entries = readdirSync(dir);
+			if (entries.includes("conformance")) return dir;
+		} catch {
+			// Unreadable dir — keep walking up.
+		}
+		const parent = dirname(dir);
+		if (parent === dir) {
+			throw new Error(
+				`could not find repo root (no 'conformance/' dir) walking up from ${startDir}`,
+			);
+		}
+		dir = parent;
+	}
 }
 
 const repoRoot = findRepoRoot(dirname(fileURLToPath(import.meta.url)));
@@ -63,17 +65,20 @@ assert.ok(manifest.fixtures.length > 0, "manifest.fixtures must be non-empty");
 // --------------------------------------------------------------------------------------
 
 function resolveContainedPath(relPath) {
-  assert.ok(typeof relPath === "string" && relPath.length > 0, `bad manifest path: ${JSON.stringify(relPath)}`);
-  assert.ok(!isAbsolute(relPath), `SEC-001: absolute path rejected: ${relPath}`);
-  const segments = relPath.split(/[\\/]/);
-  assert.ok(!segments.includes(".."), `SEC-001: path traversal ('..') rejected: ${relPath}`);
-  const resolved = join(repoRoot, relPath);
-  // Defense in depth: the resolved path must still be inside the repo root.
-  assert.ok(
-    resolved === repoRoot || resolved.startsWith(repoRoot + sep),
-    `SEC-001: resolved path escapes repo root: ${resolved}`,
-  );
-  return resolved;
+	assert.ok(
+		typeof relPath === "string" && relPath.length > 0,
+		`bad manifest path: ${JSON.stringify(relPath)}`,
+	);
+	assert.ok(!isAbsolute(relPath), `SEC-001: absolute path rejected: ${relPath}`);
+	const segments = relPath.split(/[\\/]/);
+	assert.ok(!segments.includes(".."), `SEC-001: path traversal ('..') rejected: ${relPath}`);
+	const resolved = join(repoRoot, relPath);
+	// Defense in depth: the resolved path must still be inside the repo root.
+	assert.ok(
+		resolved === repoRoot || resolved.startsWith(repoRoot + sep),
+		`SEC-001: resolved path escapes repo root: ${resolved}`,
+	);
+	return resolved;
 }
 
 // --------------------------------------------------------------------------------------
@@ -81,38 +86,41 @@ function resolveContainedPath(relPath) {
 // --------------------------------------------------------------------------------------
 
 for (const entry of manifest.fixtures) {
-  const { path: relPath, form, verdict, note } = entry;
-  const label = `schema/${verdict}/${form}: ${relPath}${note ? ` (${note})` : ""}`;
+	const { path: relPath, form, verdict, note } = entry;
+	const label = `schema/${verdict}/${form}: ${relPath}${note ? ` (${note})` : ""}`;
 
-  test(label, () => {
-    const absPath = resolveContainedPath(relPath);
-    const text = readFileSync(absPath, "utf8");
+	test(label, () => {
+		const absPath = resolveContainedPath(relPath);
+		const text = readFileSync(absPath, "utf8");
 
-    const load = () => {
-      if (form === "json") Prompt.fromJson(text);
-      else if (form === "yaml") Prompt.fromYaml(text);
-      else throw new Error(`unknown manifest form: ${JSON.stringify(form)}`);
-    };
+		const load = () => {
+			if (form === "json") Prompt.fromJson(text);
+			else if (form === "yaml") Prompt.fromYaml(text);
+			else throw new Error(`unknown manifest form: ${JSON.stringify(form)}`);
+		};
 
-    if (verdict === "accept") {
-      assert.doesNotThrow(load, `expected '${relPath}' to load cleanly via ${form}`);
-    } else if (verdict === "reject") {
-      // Assert on the error TYPE only (SEC-002): it must be the normalized LoadError, which is an
-      // instanceof PromptingPressError. Never assert on the (scrubbed) message text.
-      assert.throws(
-        load,
-        (err) => {
-          assert.ok(
-            err instanceof LoadError,
-            `expected a LoadError for '${relPath}', got ${err?.constructor?.name ?? typeof err}`,
-          );
-          assert.ok(err instanceof PromptingPressError, "LoadError must be in the PromptingPressError hierarchy");
-          return true;
-        },
-        `expected '${relPath}' to be rejected via ${form}`,
-      );
-    } else {
-      throw new Error(`unknown manifest verdict: ${JSON.stringify(verdict)}`);
-    }
-  });
+		if (verdict === "accept") {
+			assert.doesNotThrow(load, `expected '${relPath}' to load cleanly via ${form}`);
+		} else if (verdict === "reject") {
+			// Assert on the error TYPE only (SEC-002): it must be the normalized LoadError, which is an
+			// instanceof PromptingPressError. Never assert on the (scrubbed) message text.
+			assert.throws(
+				load,
+				(err) => {
+					assert.ok(
+						err instanceof LoadError,
+						`expected a LoadError for '${relPath}', got ${err?.constructor?.name ?? typeof err}`,
+					);
+					assert.ok(
+						err instanceof PromptingPressError,
+						"LoadError must be in the PromptingPressError hierarchy",
+					);
+					return true;
+				},
+				`expected '${relPath}' to be rejected via ${form}`,
+			);
+		} else {
+			throw new Error(`unknown manifest verdict: ${JSON.stringify(verdict)}`);
+		}
+	});
 }

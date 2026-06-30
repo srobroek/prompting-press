@@ -8,7 +8,7 @@
     { "path": "schemas/jsonschema/tests/fixtures/invalid/missing-required.json", "form": "json", "verdict": "reject", "note": "missing a required field (serde: missing field)" },
     { "path": "schemas/jsonschema/tests/fixtures/invalid/extra-root-key.json", "form": "json", "verdict": "reject", "note": "unknown root key (serde: additionalProperties:false)" },
     { "path": "schemas/jsonschema/tests/fixtures/invalid/bad-role.json", "form": "json", "verdict": "reject", "note": "role not in enum (serde: unknown variant)" },
-    { "path": "schemas/jsonschema/tests/fixtures/invalid/bad-origin.json", "form": "json", "verdict": "reject", "note": "origin not in enum (serde: unknown variant)" },
+    { "path": "schemas/jsonschema/tests/fixtures/invalid/bad-origin.json", "form": "json", "verdict": "reject", "note": "trusted field has wrong type (serde: expected bool, got string)" },
     { "path": "schemas/jsonschema/tests/fixtures/invalid/variant-redefines-role.json", "form": "json", "verdict": "reject", "note": "a variant redefining role (serde: Variant is additionalProperties:false)" },
     { "path": "schemas/jsonschema/tests/fixtures/invalid/not-json.txt", "form": "json", "verdict": "reject", "note": "malformed (not parseable JSON)" },
     { "path": "conformance/schema/yaml/invalid-bad-role.yaml", "form": "yaml", "verdict": "reject", "note": "YAML twin of bad-role (load_yaml reject path)" }

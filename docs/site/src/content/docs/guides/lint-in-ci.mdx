@@ -16,7 +16,7 @@ un-analyzable templates, reserved variant names) are enforced **at construction*
 
 | Finding kind | Meaning |
 |---|---|
-| `untrusted_without_guard` | A variable is tagged `origin: untrusted` or `origin: external` but the prompt carries no `guard` key in its `metadata` map. |
+| `untrusted_without_guard` | A variable is declared `trusted: false` but the prompt carries no `guard` key in its `metadata` map. |
 
 This is an advisory — the library does not block rendering when this finding is present. It is
 the CI gate that chooses to fail on it.
@@ -138,7 +138,7 @@ body: "Tell me about {{ topic }}."
 variables:
   topic:
     type: string
-    origin: untrusted
+    trusted: false
 metadata:
   guard:
     enabled: true

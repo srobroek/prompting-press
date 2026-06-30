@@ -22,6 +22,6 @@ authors = ["Sjors Robroek"]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 minijinja = { version = "2.21", default-features = false, features = ["builtins", "deserialization", "serde", "std_collections", "adjacent_loop_items"] }
-sha2 = "0.10"
+sha2 = "0.11"
 # TOML support for the `Prompt::from_toml` factories (R3 — serde-native, crates.io max_stable).
 toml = "1.1.2"

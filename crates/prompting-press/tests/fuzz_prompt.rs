@@ -62,7 +62,7 @@ fn greeting_json() -> &'static str {
         "role": "user",
         "body": "Hi {{ name }}",
         "variables": {
-            "name": { "type": "string", "origin": "trusted" }
+            "name": { "type": "string", "trusted": true }
         }
     }"#
 }
@@ -279,10 +279,10 @@ fn check_never_panics_on_valid_prompts() {
     let prompts = vec![
         Prompt::from_json(greeting_json()).unwrap(),
         Prompt::from_json(
-            r#"{"name":"u","role":"user","body":"{{ payload }}","variables":{"payload":{"type":"string","origin":"untrusted"}}}"#
+            r#"{"name":"u","role":"user","body":"{{ payload }}","variables":{"payload":{"type":"string","trusted":false}}}"#
         ).unwrap(),
         Prompt::from_json(
-            r#"{"name":"g","role":"user","body":"{{ payload }}","variables":{"payload":{"type":"string","origin":"untrusted"}},"metadata":{"guard":{"enabled":true}}}"#
+            r#"{"name":"g","role":"user","body":"{{ payload }}","variables":{"payload":{"type":"string","trusted":false}},"metadata":{"guard":{"enabled":true}}}"#
         ).unwrap(),
     ];
     for p in &prompts {

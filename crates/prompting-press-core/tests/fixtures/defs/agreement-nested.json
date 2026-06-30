@@ -5,12 +5,12 @@
   "variables": {
     "greeting": {
       "type": "string",
-      "origin": "trusted",
+      "trusted": true,
       "description": "The greeting word."
     },
     "user": {
       "type": "object",
-      "origin": "trusted",
+      "trusted": true,
       "description": "The user object whose name is interpolated."
     }
   }
