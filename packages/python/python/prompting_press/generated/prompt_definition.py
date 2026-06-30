@@ -38,12 +38,6 @@ class TypeEnum(StrEnum):
     null = 'null'
 
 
-class Origin(StrEnum):
-    trusted = 'trusted'
-    untrusted = 'untrusted'
-    external = 'external'
-
-
 class PromptVariable(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -52,16 +46,16 @@ class PromptVariable(BaseModel):
         Type | list[TypeEnum],
         Field(description='JSON-Schema type keyword(s) for the variable.'),
     ]
-    origin: Annotated[
-        Origin,
+    trusted: Annotated[
+        bool,
         Field(
-            description='Per-field input-trust tag. DECLARATIVE METADATA ONLY — the library does not enforce this tag at render time; it is not a security guard by itself. Use `check()` to detect `untrusted`/`external` variables that lack a declared guard, and enable the opt-in guard to receive advisory guard text. This per-variable trust tag is distinct from the render-result content hashes (`template_hash`/`render_hash`).'
+            description="Per-field input-trust flag (spec 015). `true` ⇒ a trusted input (never delimited). `false` ⇒ untrusted input: when the opt-in guard is enabled, the variable's interpolated value is wrapped in injection-resistant `<untrusted>…</untrusted>` delimiters in the rendered body, and the guard advisory references the markers. Replaces the former `origin` enum (trusted|untrusted|external) — with one fixed delimiter the untrusted/external distinction was no longer meaningful. Use `check()` to detect untrusted variables (`trusted: false`) that lack a declared guard."
         ),
     ]
     validation_required: Annotated[
         bool | None,
         Field(
-            description='When true, a validator covering this variable MUST be supplied when the Prompt is constructed (spec 008). Orthogonal to `origin` — it MAY mark any variable, not only untrusted/external ones. Declarative metadata; enforcement is per-language (constitution Principle VI v1.2.0): TypeScript (Zod) and Python (Pydantic) introspect the supplied validator and throw/raise at construction if this variable is uncovered, while Rust guarantees coverage structurally at compile time. The kernel never reads this field (validation-blind).'
+            description='When true, a validator covering this variable MUST be supplied when the Prompt is constructed (spec 008). Orthogonal to `trusted` — it MAY mark any variable, trusted or not. Declarative metadata; enforcement is per-language (constitution Principle VI v1.2.0): TypeScript (Zod) and Python (Pydantic) introspect the supplied validator and throw/raise at construction if this variable is uncovered, while Rust guarantees coverage structurally at compile time. The kernel never reads this field (validation-blind).'
         ),
     ] = False
     description: Annotated[
