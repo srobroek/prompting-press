@@ -6,6 +6,9 @@
   "bump-minor-pre-major": true,
   "bump-patch-for-minor-pre-major": true,
 
+  "//release-as": "ONE-SHOT for the first release: from a 0.0.0 manifest, breaking changes would otherwise force 1.0.0 (the initial-transition rule that bump-minor-pre-major does not govern). Pin the first cut to 0.1.0 so we stay pre-1.0. REMOVE this `release-as` after 0.1.0 is released so normal bump-minor-pre-major logic resumes.",
+  "release-as": "0.1.0",
+
   "packages": {
     "crates/prompting-press-core": {
       "release-type": "rust",
