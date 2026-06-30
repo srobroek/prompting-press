@@ -132,9 +132,7 @@ const variantTable = renderTable(
 	schema.$defs ?? {},
 );
 
-// Origin enum values (from the PromptVariable.origin property)
-const originEnum = variableDeclDef.properties?.origin?.enum ?? [];
-const originList = originEnum.map((v) => `- \`"${v}"\``).join("\n");
+// (spec-015: origin enum replaced by trusted boolean — no enum list needed)
 
 // Backtick-containing strings that cannot live inside a template literal.
 const promptWord = "`Prompt`";
@@ -173,23 +171,21 @@ const bodySection = [
 	"",
 	"## `variables[*]` — PromptVariable",
 	"",
-	"Each entry in the `variables` map is a `PromptVariable`. The `type` and `origin` fields are required.",
+	"Each entry in the `variables` map is a `PromptVariable`. The `type` and `trusted` fields are required.",
 	"The optional `description` field is a human-readable annotation; validation constraints belong in the",
 	"per-language validator (Zod / Pydantic / garde) and are not part of this shape.",
 	"",
 	variableDeclTable,
-	"### `origin` values",
+	"### `trusted` flag",
 	"",
-	"The `origin` field is the **per-variable input-trust tag**.",
+	"The `trusted` field is the **per-variable input-trust flag**.",
 	"It is **declarative metadata** — the kernel does not enforce it at render time. Use `check()` to",
-	"detect untrusted variables that lack a declared guard.",
-	"",
-	originList,
+	"detect `trusted: false` variables that lack a declared guard.",
 	"",
 	'<Aside type="caution">',
-	"**`origin` ≠ render-result content hashes.** The per-variable `origin` tag (trust classification)",
+	"**`trusted` ≠ render-result content hashes.** The per-variable `trusted` flag (trust classification)",
 	"is distinct from the render-result hashes (`template_hash` / `render_hash`). The hashes are",
-	"content-addressed fingerprints of the template source and the rendered output; `origin` is a",
+	"content-addressed fingerprints of the template source and the rendered output; `trusted` is a",
 	"per-field trust annotation. The two are not the same thing.",
 	"</Aside>",
 	"",
@@ -217,7 +213,7 @@ const bodySection = [
 	"| `template_hash` (`templateHash` in TS) | `SHA256(resolved variant template source)` |",
 	"| `render_hash` (`renderHash` in TS) | `SHA256(rendered output text)` |",
 	"",
-	"These hashes are **not** the same as the per-variable `origin` tag. They are content-addressed",
+	"These hashes are **not** the same as the per-variable `trusted` flag. They are content-addressed",
 	"fingerprints that can be stored in a trace to pin exactly which template produced which output —",
 	"and because all three bindings share the same Rust engine, the hashes are **byte-identical** across",
 	"Rust, Python, and TypeScript for the same inputs.",

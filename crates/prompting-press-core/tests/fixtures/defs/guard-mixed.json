@@ -1,0 +1,17 @@
+{
+  "name": "guard-mixed",
+  "role": "user",
+  "body": "Trusted: {{ sys }}\nUntrusted: {{ user_input }}",
+  "variables": {
+    "sys": {
+      "type": "string",
+      "trusted": true,
+      "description": "Trusted system value — never delimited."
+    },
+    "user_input": {
+      "type": "string",
+      "trusted": false,
+      "description": "Untrusted user value — wrapped when guard enabled."
+    }
+  }
+}

@@ -8,7 +8,7 @@
  *   - T045: derive() immutability + merged-validation
  *   - T046: Composition over Prompt objects, no Registry, resolve() with no arg
  *
- * All tests use `origin` (not `provenance` — renamed in spec 008 Phase 1).
+ * All tests use `trusted` (spec 015 replaced the `origin` enum with a boolean).
  * All tests confirm no Registry symbol on the public surface (SC-001 post-reshape).
  *
  * Model invariants:
@@ -20,30 +20,28 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-
-import { z } from "zod";
-
 import {
-	Prompt,
 	Composition,
-	PromptingPressError,
-	PromptValidationError,
-	PromptRenderError,
 	LoadError,
+	Prompt,
+	PromptingPressError,
+	PromptRenderError,
+	PromptValidationError,
 } from "prompting-press";
+import { z } from "zod";
 
 const HEX64 = /^[0-9a-f]{64}$/;
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────────────────
 
-/** A minimal valid PromptDefinition object (using `origin`, not `provenance`). */
+/** A minimal valid PromptDefinition object (using `trusted`, not the old `origin` enum). */
 const GREET_SHAPE = {
 	name: "greet",
 	role: "user",
 	body: "Hi {{ name }}, you have {{ count }} messages",
 	variables: {
-		name: { type: "string", origin: "trusted" },
-		count: { type: "integer", origin: "trusted" },
+		name: { type: "string", trusted: true },
+		count: { type: "integer", trusted: true },
 	},
 };
 
@@ -52,8 +50,8 @@ name: greet
 role: user
 body: "Hi {{ name }}, you have {{ count }} messages"
 variables:
-  name: { type: string, origin: trusted }
-  count: { type: integer, origin: trusted }
+  name: { type: string, trusted: true }
+  count: { type: integer, trusted: true }
 `;
 
 const GREET_JSON = JSON.stringify(GREET_SHAPE);
@@ -65,11 +63,11 @@ body = "Hi {{ name }}, you have {{ count }} messages"
 
 [variables.name]
 type = "string"
-origin = "trusted"
+trusted = true
 
 [variables.count]
 type = "integer"
-origin = "trusted"
+trusted = true
 `;
 
 /** Vars schema for GREET prompts. */
@@ -193,7 +191,7 @@ test("T043: validation_required variable covered by validators.shape succeeds", 
 		role: "user",
 		body: "Hi {{ name }}",
 		variables: {
-			name: { type: "string", origin: "trusted", validation_required: true },
+			name: { type: "string", trusted: true, validation_required: true },
 		},
 	};
 	const schema = z.object({ name: z.string() });
@@ -208,7 +206,7 @@ test("T043: validation_required variable NOT covered throws PromptValidationErro
 		role: "user",
 		body: "Hi {{ name }}",
 		variables: {
-			name: { type: "string", origin: "trusted", validation_required: true },
+			name: { type: "string", trusted: true, validation_required: true },
 		},
 	};
 	const missingSchema = z.object({ other_field: z.string() });
@@ -234,7 +232,7 @@ test("T043: no validators supplied → validation_required check is skipped (doc
 		role: "user",
 		body: "Hi {{ name }}",
 		variables: {
-			name: { type: "string", origin: "trusted", validation_required: true },
+			name: { type: "string", trusted: true, validation_required: true },
 		},
 	};
 	// No validators → no coverage check → succeeds.
@@ -248,7 +246,7 @@ test("T043: validators without .shape → coverage check skipped (non-introspect
 		role: "user",
 		body: "Hi {{ name }}",
 		variables: {
-			name: { type: "string", origin: "trusted", validation_required: true },
+			name: { type: "string", trusted: true, validation_required: true },
 		},
 	};
 	// A ZodLikeSchema without .shape (e.g. a transform/refined schema) — coverage cannot be asserted.
@@ -268,7 +266,7 @@ body: "Hi {{ name }}"
 variables:
   name:
     type: string
-    origin: trusted
+    trusted: true
     validation_required: true
 `;
 	const schema = z.object({ name: z.string() });
@@ -322,7 +320,7 @@ test("T044: render with variant selector picks the named arm", () => {
 		name: "greetv",
 		role: "user",
 		body: "Hi {{ name }}",
-		variables: { name: { type: "string", origin: "trusted" } },
+		variables: { name: { type: "string", trusted: true } },
 		variants: { formal: { body: "Good day, {{ name }}" } },
 	};
 	const V = z.object({ name: z.string() });
@@ -347,7 +345,7 @@ test("T044: getSource(variant) returns the named variant source", () => {
 		name: "greetv",
 		role: "user",
 		body: "Hi {{ name }}",
-		variables: { name: { type: "string", origin: "trusted" } },
+		variables: { name: { type: "string", trusted: true } },
 		variants: { formal: { body: "Good day, {{ name }}" } },
 	};
 	const p = new Prompt(shape);
@@ -367,7 +365,7 @@ test("T044: check() returns advisory finding for unguarded untrusted variable", 
 		name: "unguarded",
 		role: "user",
 		body: "{{ payload }}",
-		variables: { payload: { type: "string", origin: "untrusted" } },
+		variables: { payload: { type: "string", trusted: false } },
 	};
 	const p = new Prompt(shape);
 	const report = p.check();
@@ -383,7 +381,7 @@ test("T044: check() passes when guard is configured", () => {
 		name: "guarded",
 		role: "user",
 		body: "{{ payload }}",
-		variables: { payload: { type: "string", origin: "untrusted" } },
+		variables: { payload: { type: "string", trusted: false } },
 		metadata: { guard: { enabled: true } },
 	};
 	const p = new Prompt(shape);
@@ -397,7 +395,9 @@ test("T045: derive() returns a new Prompt with the overlay applied; original unc
 	const originalBody = original.body;
 	const originalVariantsCount = Object.keys(original.variants ?? {}).length;
 
-	const derived = original.derive({ body: "Hey {{ name }}, you have {{ count }} messages" });
+	const derived = original.derive({
+		body: "Hey {{ name }}, you have {{ count }} messages",
+	});
 
 	assert.equal(derived.body, "Hey {{ name }}, you have {{ count }} messages");
 	assert.equal(original.body, originalBody, "original body unchanged");
@@ -422,7 +422,9 @@ test("T045: derive() on overlay that introduces undeclared variable throws Promp
 
 test("T045: derive() carries validators forward from source by default (R6)", () => {
 	const p = new Prompt(GREET_SHAPE, Greeting);
-	const derived = p.derive({ body: "Greetings {{ name }}, you have {{ count }} messages" });
+	const derived = p.derive({
+		body: "Greetings {{ name }}, you have {{ count }} messages",
+	});
 	// Derived inherits bound Greeting validator — bad data must throw PromptValidationError.
 	assert.throws(() => derived.render({ name: "", count: -1 }), PromptValidationError);
 });
@@ -442,7 +444,7 @@ test("T045: derive() coverage check on derived definition when validators overri
 		role: "user",
 		body: "Hi {{ name }}",
 		variables: {
-			name: { type: "string", origin: "trusted", validation_required: true },
+			name: { type: "string", trusted: true, validation_required: true },
 		},
 	};
 	const schema = z.object({ name: z.string() });
@@ -451,8 +453,8 @@ test("T045: derive() coverage check on derived definition when validators overri
 	// Overlay that adds a validation_required variable not covered by any validator → should throw.
 	const badOverlay = {
 		variables: {
-			name: { type: "string", origin: "trusted", validation_required: true },
-			newfield: { type: "string", origin: "trusted", validation_required: true },
+			name: { type: "string", trusted: true, validation_required: true },
+			newfield: { type: "string", trusted: true, validation_required: true },
 		},
 		body: "Hi {{ name }} {{ newfield }}",
 	};
@@ -472,10 +474,12 @@ const GREET_SIMPLE = {
 	name: "greet_simple",
 	role: "user",
 	body: "Hi {{ name }}",
-	variables: { name: { type: "string", origin: "trusted" } },
+	variables: { name: { type: "string", trusted: true } },
 };
 
-const Named = z.object({ name: z.string().refine((s) => s.length > 0, "name must not be empty") });
+const Named = z.object({
+	name: z.string().refine((s) => s.length > 0, "name must not be empty"),
+});
 const EmptyVars = z.object({});
 
 test("T046: Composition.fromMessages over Prompt objects resolves in order with roles", () => {

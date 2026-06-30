@@ -569,7 +569,7 @@ export class Prompt {
 
 	/**
 	 * The declared variables map (`{ [name]: PromptVariable }`). Read-only metadata. Each entry
-	 * carries the variable's `type`, `origin`, and optional `validation_required`.
+	 * carries the variable's `type`, `trusted` flag, and optional `validation_required`.
 	 */
 	get variables(): PromptDefinition["variables"] {
 		return this.#handle.variables as PromptDefinition["variables"];
@@ -665,7 +665,7 @@ export class Prompt {
 	}
 
 	/**
-	 * Pure advisory lint: returns a {@link CheckReport} containing only the origin/guard finding
+	 * Pure advisory lint: returns a {@link CheckReport} containing only the `trusted`/guard finding
 	 * class (`"untrusted_without_guard"`). Construction already enforces agreement, parse, and
 	 * reserved-name invariants; those are structurally unreachable here (R7 / Q4).
 	 *

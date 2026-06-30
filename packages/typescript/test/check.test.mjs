@@ -9,9 +9,9 @@
  *
  * Post-reshape (spec 008 / R7 / Q4): construction enforces the **hard** invariants (agreement,
  * parse, reserved-name). The only LIVE finding `check()` can surface is:
- *   - `untrusted_without_guard` — a prompt with untrusted/external vars and no guard configured.
+ *   - `untrusted_without_guard` — a prompt with `trusted: false` vars and no guard configured.
  *
- * All fixtures use `origin` (spec 008 rename from `provenance`).
+ * All fixtures use `trusted` (spec 015 replaced the `origin` enum with a boolean).
  */
 
 import assert from "node:assert/strict";
@@ -30,7 +30,7 @@ test("a trusted-only prompt passes with an empty report", () => {
 		name: "greet",
 		role: "user",
 		body: "Hi {{ name }}",
-		variables: { name: { type: "string", origin: "trusted" } },
+		variables: { name: { type: "string", trusted: true } },
 	});
 	const report = p.check();
 	assert.ok(report.passed(), "trusted-only prompt must pass");
@@ -45,7 +45,7 @@ test("an untrusted variable without a guard produces untrusted_without_guard fin
 		name: "ask",
 		role: "user",
 		body: "{{ topic }}",
-		variables: { topic: { type: "string", origin: "untrusted" } },
+		variables: { topic: { type: "string", trusted: false } },
 	});
 	const report = p.check();
 	assert.ok(!report.passed(), "unguarded untrusted var must fail the lint");
@@ -63,7 +63,7 @@ test("check() passes when a guard is configured in metadata", () => {
 		name: "guarded",
 		role: "user",
 		body: "{{ payload }}",
-		variables: { payload: { type: "string", origin: "untrusted" } },
+		variables: { payload: { type: "string", trusted: false } },
 		metadata: { guard: { enabled: true } },
 	});
 	assert.ok(p.check().passed(), "guard configured → check must pass");
@@ -74,7 +74,7 @@ test("check() passes when a guard is configured in metadata", () => {
 		name: "guarded_meta",
 		role: "user",
 		body: "{{ payload }}",
-		variables: { payload: { type: "string", origin: "untrusted" } },
+		variables: { payload: { type: "string", trusted: false } },
 		metadata: { guard: { enabled: true } },
 	});
 	assert.ok(p.check().passed(), "guard in metadata → check must pass");
@@ -87,7 +87,7 @@ test("check() is pure: calling it twice returns the same result (no mutation)", 
 		name: "ask",
 		role: "user",
 		body: "{{ topic }}",
-		variables: { topic: { type: "string", origin: "untrusted" } },
+		variables: { topic: { type: "string", trusted: false } },
 	});
 	const r1 = p.check();
 	const r2 = p.check();
@@ -114,7 +114,7 @@ test("report.findings is an array of Finding objects with stable fields", () => 
 		name: "ask",
 		role: "user",
 		body: "{{ topic }}",
-		variables: { topic: { type: "string", origin: "untrusted" } },
+		variables: { topic: { type: "string", trusted: false } },
 	});
 	const report = p.check();
 	assert.ok(Array.isArray(report.findings));
@@ -127,7 +127,12 @@ test("report.findings is an array of Finding objects with stable fields", () => 
 // ─── 5. Surface smoke ────────────────────────────────────────────────────────────────────
 
 test("check() is a method on a Prompt instance", () => {
-	const p = new Prompt({ name: "greet", role: "user", body: "hi", variables: {} });
+	const p = new Prompt({
+		name: "greet",
+		role: "user",
+		body: "hi",
+		variables: {},
+	});
 	assert.equal(typeof p.check, "function");
 });
 

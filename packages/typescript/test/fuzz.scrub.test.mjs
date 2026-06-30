@@ -20,8 +20,8 @@ import fc from "fast-check";
 import {
 	Prompt,
 	PromptingPressError,
-	PromptValidationError,
 	PromptRenderError,
+	PromptValidationError,
 } from "prompting-press";
 
 // ── constants ─────────────────────────────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ name: leaky
 role: user
 body: "Token: {{ token }}"
 variables:
-  token: { type: string, origin: trusted }
+  token: { type: string, trusted: true }
 `);
 
 	// API-key shaped secrets: "sk-LIVE-" prefix + random alphanumeric.
@@ -113,7 +113,7 @@ name: kernely
 role: user
 body: "{{ token | invalid_filter }}"
 variables:
-  token: { type: string, origin: trusted }
+  token: { type: string, trusted: true }
 `);
 
 	const secretArb = fc.string({ minLength: 8, maxLength: 40 }).map((suffix) => `sk-LIVE-${suffix}`);
@@ -180,7 +180,7 @@ name: anchor
 role: user
 body: "Key: {{ token }}"
 variables:
-  token: { type: string, origin: trusted }
+  token: { type: string, trusted: true }
 `);
 
 	const rejectSchema = {
@@ -215,8 +215,8 @@ name: multi
 role: user
 body: "A={{ a }} B={{ b }}"
 variables:
-  a: { type: string, origin: trusted }
-  b: { type: string, origin: trusted }
+  a: { type: string, trusted: true }
+  b: { type: string, trusted: true }
 `);
 
 	const secretA = "sk-LIVE-fieldA-secret";

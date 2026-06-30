@@ -57,8 +57,8 @@ greet = Prompt({
     "role": "user",
     "body": "Hi {{ name }}, you have {{ count }} messages",
     "variables": {
-        "name":  {"type": "string",  "origin": "trusted"},
-        "count": {"type": "integer", "origin": "trusted"},
+        "name":  {"type": "string",  "trusted": True},
+        "count": {"type": "integer", "trusted": True},
     },
 })
 
@@ -68,8 +68,8 @@ name: greet
 role: user
 body: "Hi {{ name }}, you have {{ count }} messages"
 variables:
-  name:  { type: string,  origin: trusted }
-  count: { type: integer, origin: trusted }
+  name:  { type: string,  trusted: true }
+  count: { type: integer, trusted: true }
 """)
 
 greet = Prompt.from_json('{"name": "greet", "role": "user", "body": "..."}')
@@ -110,8 +110,8 @@ name: greet
 role: user
 body: "Hi {{ name }}, you have {{ count }} messages"
 variables:
-  name:  { type: string,  origin: trusted }
-  count: { type: integer, origin: trusted }
+  name:  { type: string,  trusted: true }
+  count: { type: integer, trusted: true }
 """)
 
 result = greet.render(Greeting, data={"name": "Ada", "count": 3})
@@ -152,7 +152,7 @@ ghosty = Prompt({
     "name": "ghosty",
     "role": "user",
     "body": "Hi {{ name }}",
-    "variables": {"name": {"type": "string", "origin": "untrusted"}},
+    "variables": {"name": {"type": "string", "trusted": False}},
 })
 
 report = ghosty.check()
@@ -172,7 +172,7 @@ stable `kind` vocabulary is:
 | `kind`                    | meaning                                                              |
 | ------------------------- | -------------------------------------------------------------------- |
 | `undeclared_variable`     | the template references a name absent from the declared `variables`  |
-| `untrusted_without_guard` | a prompt declares an `untrusted`/`external` field but no guard        |
+| `untrusted_without_guard` | a prompt declares a `trusted: false` field but no guard               |
 | `reserved_variant_name`   | a variant key collides with the reserved `default` arm               |
 | `analysis_error`          | a template could not be statically analyzed (e.g. an excluded feature) |
 
@@ -231,7 +231,7 @@ no partial list is returned. An empty composition resolves to `[]`.
 
 ## Guard usage doctrine — the system-prompt addendum
 
-When a field is tagged `untrusted`/`external`, pass `guard=GuardConfig(enabled=True)` to
+When a field is tagged `trusted: false`, pass `guard=GuardConfig(enabled=True)` to
 `render`. The advisory `RenderResult.guard` string that comes back is an **opt-in, additive**
 instruction (decision C-09) — and it is **separate from `text` by design**: the library never
 concatenates them and there is deliberately **no composed field** (decided 2026-06-27, roadmap
@@ -255,7 +255,7 @@ ask = Prompt({
     "name": "ask",
     "role": "user",
     "body": "Tell me about {{ topic }}.",
-    "variables": {"topic": {"type": "string", "origin": "untrusted"}},
+    "variables": {"topic": {"type": "string", "trusted": False}},
 })
 
 result = ask.render(Ask, data={"topic": "rivers"}, guard=GuardConfig(enabled=True))
@@ -295,8 +295,8 @@ name: greet
 role: user
 body: "Hi {{ name }}, you have {{ count }} messages"
 variables:
-  name:  { type: string,  origin: trusted }
-  count: { type: integer, origin: trusted }
+  name:  { type: string,  trusted: true }
+  count: { type: integer, trusted: true }
 """)
 
 try:

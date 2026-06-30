@@ -359,3 +359,7 @@ packages/*/node_modules/
 # and .moon/tasks/ IS tracked — only the cache dir is ignored.
 .moon/cache/
 .moon/docker/
+
+# apm compile emits GEMINI.md by default, but Gemini is not a configured agent
+# target for this project (dropped pre-spec-002). Ignore the stray artifact.
+GEMINI.md

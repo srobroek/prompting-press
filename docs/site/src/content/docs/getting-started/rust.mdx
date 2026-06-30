@@ -47,10 +47,10 @@ body: "Hi {{ name }}, you have {{ count }} messages."
 variables:
   name:
     type: string
-    origin: trusted
+    trusted: true
   count:
     type: integer
-    origin: trusted
+    trusted: true
 ```
 </TabItem>
 <TabItem label="JSON">
@@ -60,8 +60,8 @@ variables:
   "role": "user",
   "body": "Hi {{ name }}, you have {{ count }} messages.",
   "variables": {
-    "name": { "type": "string", "origin": "trusted" },
-    "count": { "type": "integer", "origin": "trusted" }
+    "name": { "type": "string", "trusted": true },
+    "count": { "type": "integer", "trusted": true }
   }
 }
 ```
@@ -74,11 +74,11 @@ body = "Hi {{ name }}, you have {{ count }} messages."
 
 [variables.name]
 type = "string"
-origin = "trusted"
+trusted = true
 
 [variables.count]
 type = "integer"
-origin = "trusted"
+trusted = true
 ```
 </TabItem>
 </Tabs>
@@ -114,8 +114,8 @@ let def: PromptDefinition = serde_json::from_value(serde_json::json!({
     "role": "user",
     "body": "Hi {{ name }}, you have {{ count }} messages.",
     "variables": {
-        "name":  { "type": "string",  "origin": "trusted" },
-        "count": { "type": "integer", "origin": "trusted" }
+        "name":  { "type": "string",  "trusted": true },
+        "count": { "type": "integer", "trusted": true }
     }
 }))?;
 

@@ -61,7 +61,7 @@ GREET = Prompt(
         "name": "greet",
         "role": "user",
         "body": "Hi {{ name }}",
-        "variables": {"name": {"type": "string", "origin": "trusted"}},
+        "variables": {"name": {"type": "string", "trusted": True}},
     }
 )
 
@@ -70,7 +70,7 @@ FAREWELL = Prompt(
         "name": "farewell",
         "role": "user",
         "body": "Bye {{ name }}",
-        "variables": {"name": {"type": "string", "origin": "trusted"}},
+        "variables": {"name": {"type": "string", "trusted": True}},
     }
 )
 
@@ -80,7 +80,7 @@ WITH_VARIANT = Prompt(
         "role": "user",
         "body": "Hi {{ name }}",
         "variants": {"formal": {"body": "Good day, {{ name }}"}},
-        "variables": {"name": {"type": "string", "origin": "trusted"}},
+        "variables": {"name": {"type": "string", "trusted": True}},
     }
 )
 
@@ -90,7 +90,9 @@ WITH_VARIANT = Prompt(
 
 def test_append_path_preserves_order_roles_and_per_entry_text() -> None:
     comp = Composition()
-    assert comp.append(SYS_PREAMBLE, Empty()) is None, "append is non-fluent (returns None)"
+    assert comp.append(SYS_PREAMBLE, Empty()) is None, (
+        "append is non-fluent (returns None)"
+    )
     assert comp.append(GREET, Named(name="Ada")) is None
     assert len(comp) == 2
 
@@ -189,7 +191,9 @@ def test_no_fluent_chain_on_class_or_instance() -> None:
 
 
 def test_three_tuple_selects_named_variant() -> None:
-    via_factory = Composition.from_messages([(WITH_VARIANT, Named(name="Di"), "formal")])
+    via_factory = Composition.from_messages(
+        [(WITH_VARIANT, Named(name="Di"), "formal")]
+    )
     assert [m.text for m in via_factory.resolve()] == ["Good day, Di"]
 
     via_append_kw = Composition()

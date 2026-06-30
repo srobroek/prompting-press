@@ -13,17 +13,15 @@
  * leaves nothing partially loaded (FR-007 → LoadError), and that the consumer's YAML-1.2 /
  * Norway-safe parsing is inherited across FFI (research D2).
  *
- * All fixtures use `origin` (spec 008 rename from `provenance`).
+ * All fixtures use `trusted` (spec 015 replaced the `origin` enum with a boolean).
  */
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-
+import { fileURLToPath } from "node:url";
+import { LoadError, Prompt, PromptingPressError, PromptRenderError } from "prompting-press";
 import { z } from "zod";
-
-import { Prompt, LoadError, PromptRenderError, PromptingPressError } from "prompting-press";
 
 const HEX64 = /^[0-9a-f]{64}$/;
 
@@ -40,8 +38,8 @@ const GREET_OBJ = {
 	role: "user",
 	body: "Hi {{ name }}, you have {{ count }} messages",
 	variables: {
-		name: { type: "string", origin: "trusted" },
-		count: { type: "integer", origin: "trusted" },
+		name: { type: "string", trusted: true },
+		count: { type: "integer", trusted: true },
 	},
 };
 
@@ -54,10 +52,10 @@ body: "Hi {{ name }}, you have {{ count }} messages"
 variables:
   name:
     type: string
-    origin: trusted
+    trusted: true
   count:
     type: integer
-    origin: trusted
+    trusted: true
 `;
 
 const Greeting = z.object({ name: z.string(), count: z.number().int() });
@@ -130,7 +128,11 @@ test("the multi-variant valid fixture loads and resolves the default arm via fro
 	const fixtureText = readFixture("schemas/jsonschema/tests/fixtures/valid/multi-variant.json");
 	const p = Prompt.fromJson(fixtureText);
 
-	const Vars = z.object({ article: z.string(), max_words: z.number().int(), style: z.string() });
+	const Vars = z.object({
+		article: z.string(),
+		max_words: z.number().int(),
+		style: z.string(),
+	});
 	const res = p.render(Vars, {
 		article: "An article.",
 		max_words: 50,

@@ -20,7 +20,7 @@ bind one shared Rust engine, so a rendered prompt is byte-identical across them.
 
 ### Typed, validated inputs
 
-- **Declared, typed variables.** Each prompt declares its variables with a `type` and an `origin` tag. The
+- **Declared, typed variables.** Each prompt declares its variables with a `type` and a `trusted` boolean. The
   shape is one JSON Schema, code-generated into a Rust struct, Pydantic model, and TypeScript type.
 - **Agreement check.** A template that references a variable the prompt never declared is rejected at
   construction (and surfaced as a CI lint via `check()`) rather than rendering to a silent empty string.
@@ -29,12 +29,12 @@ bind one shared Rust engine, so a rendered prompt is byte-identical across them.
   `validation_required` to require that a validator covers it (enforced at construction in Python and
   TypeScript, at compile time in Rust).
 
-### Origin tagging and content hashes
+### Trust tagging and content hashes
 
-- **`origin` tagging and an advisory guard.** A variable is tagged `trusted`, `untrusted`, or `external`.
-  Enabling the guard at render returns a separate advisory string naming the untrusted fields for the
-  downstream model. The guard is advisory text; it does not sanitize values. See
-  **[The advisory guard](/guides/guard/)**.
+- **`trusted` flag and an advisory guard.** A variable is declared `trusted: true` or `trusted: false`.
+  When the guard is enabled at render, `trusted: false` values are delimited in the rendered body with
+  `<untrusted>…</untrusted>` markers, and a separate advisory string is returned for the downstream model.
+  See **[The advisory guard](/guides/guard/)**.
 - **Content hashes.** Every render returns a `template_hash` and a `render_hash` (SHA-256), so a trace can
   identify which template produced which output. Both are byte-identical across the three languages.
 - **Opaque metadata.** A prompt and each variant carry an optional `metadata` map (model hints, tags, an

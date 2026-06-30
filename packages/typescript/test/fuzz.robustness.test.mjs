@@ -47,8 +47,8 @@ function assertNeverCrash(fn) {
 		assert.ok(
 			err instanceof PromptingPressError,
 			`Expected PromptingPressError, got ${
-				err?.constructor ? err.constructor.name : typeof err
-			}: ${String(err?.message || err)}`,
+				err && err.constructor ? err.constructor.name : typeof err
+			}: ${String((err && err.message) || err)}`,
 		);
 		// Structured-error invariant: .errors must be an array of {field, code, message}
 		assert.ok(Array.isArray(err.errors), "err.errors must be an array");
@@ -66,7 +66,7 @@ const SIMPLE_SHAPE = {
 	name: "fuzz_anchor",
 	role: "user",
 	body: "Hello {{ name }}",
-	variables: { name: { type: "string", origin: "trusted" } },
+	variables: { name: { type: "string", trusted: true } },
 };
 
 // ── T014-A: hostile YAML strings never crash ─────────────────────────────────────────────
@@ -149,9 +149,9 @@ test("T014-D: new Prompt(shape) never crashes on hostile shape objects", () => {
 							fc.constantFrom("string", "integer", "float", "boolean"),
 							fc.string({ maxLength: 10 }),
 						),
-						origin: fc.oneof(
-							fc.constantFrom("trusted", "untrusted", "external"),
-							fc.string({ maxLength: 10 }),
+						trusted: fc.oneof(
+							fc.boolean(),
+							fc.string({ maxLength: 10 }), // hostile: wrong type, must not crash
 						),
 					}),
 				),
@@ -214,8 +214,6 @@ test("T014-E: render never crashes on hostile var-set values (static form)", () 
 
 test("T014-F: check() never crashes on any successfully-constructed prompt", () => {
 	// Build prompts from a variety of valid shapes, then call check() on each.
-	const origins = ["trusted", "untrusted", "external"];
-
 	const validShape = fc.record({
 		name: fc
 			.string({ minLength: 1, maxLength: 20 })
@@ -228,7 +226,7 @@ test("T014-F: check() never crashes on any successfully-constructed prompt", () 
 			fc.string({ minLength: 1, maxLength: 10 }).filter((s) => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(s)),
 			fc.record({
 				type: fc.constantFrom("string", "integer", "float", "boolean"),
-				origin: fc.constantFrom(...origins),
+				trusted: fc.boolean(),
 			}),
 			{ maxKeys: 5 },
 		),
@@ -244,7 +242,7 @@ test("T014-F: check() never crashes on any successfully-constructed prompt", () 
 				// Construction failure is expected for some generated shapes; skip check().
 				assert.ok(
 					err instanceof PromptingPressError,
-					`Construction threw unexpected: ${err?.constructor?.name}`,
+					`Construction threw unexpected: ${err && err.constructor && err.constructor.name}`,
 				);
 				return;
 			}
@@ -308,7 +306,7 @@ test("T014-H: validate-before-render — schema rejection is always PromptValida
 				(err) => {
 					assert.ok(
 						err instanceof PromptValidationError,
-						`Expected PromptValidationError, got ${err?.constructor?.name}`,
+						`Expected PromptValidationError, got ${err && err.constructor && err.constructor.name}`,
 					);
 					// SC-005: errors array names the field the schema reported.
 					assert.ok(Array.isArray(err.errors));

@@ -38,7 +38,7 @@ fn no_guard() -> GuardConfig {
 fn guard_on() -> GuardConfig {
     GuardConfig {
         enabled: true,
-        template: None,
+        ..Default::default()
     }
 }
 
@@ -64,7 +64,7 @@ fn one_var_def() -> PromptDefinition {
         "role": "user",
         "body": "Value: {{ x }}",
         "variables": {
-            "x": { "type": "string", "origin": "trusted" }
+            "x": { "type": "string", "trusted": true }
         }
     }))
     .expect("one-var def must deserialise")
@@ -77,7 +77,7 @@ fn untrusted_def() -> PromptDefinition {
         "role": "user",
         "body": "{{ payload }}",
         "variables": {
-            "payload": { "type": "string", "origin": "untrusted" }
+            "payload": { "type": "string", "trusted": false }
         }
     }))
     .expect("untrusted def must deserialise")
@@ -158,49 +158,20 @@ proptest! {
     }
 }
 
-// ── T004: guard-passthrough (FR-005, SC-006, C-09) ───────────────────────────
+// ── T004: guard delimiting (spec 015, SC-D01..SC-D04) ────────────────────────
 //
-// The guard is advisory text, NOT a sanitizer (constitution C-09, FR-006):
-//  - Enabling the guard does NOT alter `text` — body is byte-identical with guard off.
-//  - Injection-shaped values (prompt override attempts) pass through VERBATIM.
-//  - The guard field (when enabled) names the untrusted field but never mutates the body.
+// Spec 015 guard semantics:
+//  - Guard OFF: body is byte-identical to a plain render (SC-D04).
+//  - Guard ON, untrusted field: the value is entity-escaped and wrapped in
+//    <untrusted>…</untrusted> in the rendered body (SC-D01).
+//  - Guard advisory (the `guard` field) references the markers when enabled (SC-D08).
+//  - Injection-shaped values cannot break out of their wrapper (SC-D02).
 
 proptest! {
     #![proptest_config(bounded_config())]
 
-    /// SC-006 (a): an untrusted value renders VERBATIM — the output contains the value
-    /// byte-for-byte — no escaping, no stripping, no rewriting.
-    #[test]
-    fn prop_untrusted_value_renders_verbatim(
-        // Generate values that "look like" injection attempts: override instructions,
-        // nested template syntax, long strings, special chars.
-        payload in prop_injection_shaped_string()
-    ) {
-        let def = untrusted_def();
-        let values = minijinja::Value::from_serialize(serde_json::json!({ "payload": payload }));
-
-        let result = render(&def, None, values, &no_guard());
-        match result {
-            Ok(r) => {
-                // The rendered text must contain the payload verbatim.
-                prop_assert!(
-                    r.text.contains(&payload),
-                    "untrusted value must appear verbatim in rendered text; \
-                     got text={:?}, payload={:?}",
-                    r.text, payload
-                );
-            }
-            Err(e) => {
-                // A render error is acceptable (e.g. if the value contains something
-                // MiniJinja cannot handle); a PANIC is not.  We just verify it's a
-                // KernelError, not an unexpected outcome.
-                let _ = e; // KernelError: fine
-            }
-        }
-    }
-
-    /// SC-006 (b): guard-enabled body is byte-identical to guard-disabled body (the guard
-    /// is purely additive and never mutates `text`).
+    /// SC-D04 / SC-D01: guard-off body equals plain render; guard-on body differs and
+    /// the value appears entity-escaped inside the wrapper.
     #[test]
     fn prop_guard_does_not_alter_rendered_body(
         payload in prop_injection_shaped_string()
@@ -213,26 +184,60 @@ proptest! {
 
         match (no_g, with_g) {
             (Ok(r_off), Ok(r_on)) => {
-                // Body byte-identical — the guard is additive only.
-                prop_assert_eq!(&r_off.text, &r_on.text,
-                    "guard must not alter the rendered body (SC-006 / C-09); \
-                     payload={:?}", payload);
-                // Guard field present when enabled, absent when disabled.
+                // Guard OFF: no advisory, no wrapping tags.
                 prop_assert!(r_off.guard.is_none(), "guard=off → None");
-                prop_assert!(r_on.guard.is_some(),  "guard=on  → Some");
-                // Guard text must name the untrusted field.
-                let guard_text = r_on.guard.as_deref().unwrap_or("");
                 prop_assert!(
-                    guard_text.contains("payload"),
-                    "guard text must name the untrusted field 'payload'; got {guard_text:?}"
+                    !r_off.text.contains("<untrusted>"),
+                    "guard-off body must not contain wrapping tags; payload={:?}", payload
+                );
+
+                // Guard ON: advisory present, body contains the wrapper.
+                prop_assert!(r_on.guard.is_some(), "guard=on → Some advisory");
+                prop_assert!(
+                    r_on.text.contains("<untrusted>"),
+                    "guard-on body must contain <untrusted> wrapper; payload={:?}", payload
+                );
+                prop_assert!(
+                    r_on.text.contains("</untrusted>"),
+                    "guard-on body must contain </untrusted> wrapper; payload={:?}", payload
+                );
+
+                // Injection resistance: the closing tag from the payload cannot appear
+                // as a raw closing tag (it would be entity-escaped).
+                let close_count = r_on.text.matches("</untrusted>").count();
+                prop_assert_eq!(close_count, 1,
+                    "must have exactly one </untrusted> close tag; payload={:?}", payload);
+            }
+            // Both error → fine; we only assert body properties on the success path.
+            (Err(_), Err(_)) => {}
+            // One errors and the other doesn't → also fine; the guard can change
+            // rendering when the pre-pass modifies the template.
+            _ => {}
+        }
+    }
+
+    /// SC-D04: guard-off body is byte-identical to a plain render (no wrapping).
+    #[test]
+    fn prop_untrusted_value_renders_verbatim(
+        payload in prop_injection_shaped_string()
+    ) {
+        let def = untrusted_def();
+        let values = minijinja::Value::from_serialize(serde_json::json!({ "payload": payload }));
+
+        // With guard OFF, the value must pass through verbatim (no escaping).
+        let result = render(&def, None, values, &no_guard());
+        match result {
+            Ok(r) => {
+                prop_assert!(
+                    r.text.contains(&payload),
+                    "guard-off: untrusted value must appear verbatim; \
+                     got text={:?}, payload={:?}",
+                    r.text, payload
                 );
             }
-            // Both error with the same payload → fine; the test is about no-panic and
-            // body-identity on the success path.
-            (Err(_), Err(_)) => {}
-            // If one errors and the other doesn't that's fine too — the guard does not
-            // change whether render succeeds or fails.
-            _ => {}
+            Err(e) => {
+                let _ = e; // render error is acceptable; panic is not
+            }
         }
     }
 

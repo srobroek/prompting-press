@@ -36,31 +36,27 @@ types, Rust serde structs) are **code-generated** from it at build time and neve
 
 ## `variables[*]` — PromptVariable
 
-Each entry in the `variables` map is a `PromptVariable`. The `type` and `origin` fields are required.
+Each entry in the `variables` map is a `PromptVariable`. The `type` and `trusted` fields are required.
 The optional `description` field is a human-readable annotation; validation constraints belong in the
 per-language validator (Zod / Pydantic / garde) and are not part of this shape.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `type` | `"string" \| "integer" \| "number" \| "boolean" \| "array" \| "object" \| array` | Yes | JSON-Schema type keyword(s) for the variable. |
-| `origin` | `"trusted" \| "untrusted" \| "external"` | Yes | Per-field input-trust tag. DECLARATIVE METADATA ONLY — the library does not enforce this tag at render time; it is not a security guard by itself. Use `check()` to detect `untrusted`/`external` variables that lack a declared guard, and enable the opt-in guard to receive advisory guard text. This per-variable trust tag is distinct from the render-result content hashes (`template_hash`/`render_hash`). |
-| `validation_required` | `boolean` | No | When true, a validator covering this variable MUST be supplied when the Prompt is constructed. Orthogonal to `origin` — it MAY mark any variable, not only untrusted/external ones. Declarative metadata; enforcement is per-language: TypeScript (Zod) and Python (Pydantic) introspect the supplied validator and throw/raise at construction if this variable is uncovered, while Rust guarantees coverage structurally at compile time. The kernel never reads this field (validation-blind). Default: `false`. |
+| `trusted` | `boolean` | Yes | Per-field input-trust flag. `true` ⇒ a trusted input (never delimited). `false` ⇒ untrusted input: when the opt-in guard is enabled, the variable's interpolated value is wrapped in injection-resistant `<untrusted>…</untrusted>` delimiters in the rendered body, and the guard advisory references the markers. Replaces the former `origin` enum (trusted\\\|untrusted\\\|external) — with one fixed delimiter the untrusted/external distinction was no longer meaningful. Use `check()` to detect untrusted variables (`trusted: false`) that lack a declared guard. |
+| `validation_required` | `boolean` | No | When true, a validator covering this variable MUST be supplied when the Prompt is constructed. Orthogonal to `trusted` — it MAY mark any variable, trusted or not. Declarative metadata; enforcement is per-language: TypeScript (Zod) and Python (Pydantic) introspect the supplied validator and throw/raise at construction if this variable is uncovered, while Rust guarantees coverage structurally at compile time. The kernel never reads this field (validation-blind). Default: `false`. |
 | `description` | `string` | No | Optional human-readable description of the variable. |
 
-### `origin` values
+### `trusted` flag
 
-The `origin` field is the **per-variable input-trust tag**.
+The `trusted` field is the **per-variable input-trust flag**.
 It is **declarative metadata** — the kernel does not enforce it at render time. Use `check()` to
-detect untrusted variables that lack a declared guard.
-
-- `"trusted"`
-- `"untrusted"`
-- `"external"`
+detect `trusted: false` variables that lack a declared guard.
 
 <Aside type="caution">
-**`origin` ≠ render-result content hashes.** The per-variable `origin` tag (trust classification)
+**`trusted` ≠ render-result content hashes.** The per-variable `trusted` flag (trust classification)
 is distinct from the render-result hashes (`template_hash` / `render_hash`). The hashes are
-content-addressed fingerprints of the template source and the rendered output; `origin` is a
+content-addressed fingerprints of the template source and the rendered output; `trusted` is a
 per-field trust annotation. The two are not the same thing.
 </Aside>
 
@@ -92,7 +88,7 @@ addition to the rendered `text`):
 | `template_hash` (`templateHash` in TS) | `SHA256(resolved variant template source)` |
 | `render_hash` (`renderHash` in TS) | `SHA256(rendered output text)` |
 
-These hashes are **not** the same as the per-variable `origin` tag. They are content-addressed
+These hashes are **not** the same as the per-variable `trusted` flag. They are content-addressed
 fingerprints that can be stored in a trace to pin exactly which template produced which output —
 and because all three bindings share the same Rust engine, the hashes are **byte-identical** across
 Rust, Python, and TypeScript for the same inputs.

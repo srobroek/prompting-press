@@ -42,8 +42,8 @@ fn greeting_prompt() -> Prompt {
         "role": "user",
         "body": "Hi {{ name }}, n={{ n }}",
         "variables": {
-            "name": { "type": "string",  "origin": "untrusted" },
-            "n":    { "type": "integer", "origin": "trusted" }
+            "name": { "type": "string",  "trusted": false },
+            "n":    { "type": "integer", "trusted": true }
         }
     }"#,
     )
@@ -103,7 +103,8 @@ fn render_is_deterministic() {
 }
 
 /// F5 — the consumer PLUMBS `GuardConfig` through to the kernel and surfaces the `guard`
-/// field. Enabled → `Some`; default (disabled) → `None`. Assert plumbing only (not wording).
+/// field. Enabled → `Some` (and untrusted values are wrapped in the rendered text per spec 015);
+/// default (disabled) → `None` and plain text. Assert plumbing and delimiting behavior.
 #[test]
 fn guard_config_is_plumbed_through() {
     let prompt = greeting_prompt();
@@ -122,7 +123,7 @@ fn guard_config_is_plumbed_through() {
 
     let enabled_cfg = GuardConfig {
         enabled: true,
-        template: None,
+        ..Default::default()
     };
     let enabled = prompt
         .render(&vars, None, &enabled_cfg, false)
@@ -132,10 +133,22 @@ fn guard_config_is_plumbed_through() {
         "enabled GuardConfig must surface guard = Some"
     );
 
-    // Purely additive: guard must not alter rendered text.
-    assert_eq!(
-        disabled.text, enabled.text,
-        "guard must not alter rendered text"
+    // Spec 015: when the guard is enabled, untrusted values are wrapped in
+    // <untrusted>…</untrusted> in the rendered body. The `name` field is declared
+    // trusted: false, so with the guard enabled its value is delimited.
+    assert!(
+        enabled.text.contains("<untrusted>"),
+        "enabled guard must wrap untrusted values in the rendered text"
+    );
+    // The trusted field `n` must not be wrapped.
+    assert!(
+        !enabled.text.contains("untrusted>1"),
+        "trusted field must not be wrapped by the guard"
+    );
+    // The disabled render has no delimiters.
+    assert!(
+        !disabled.text.contains("<untrusted>"),
+        "disabled guard must produce plain rendered text"
     );
 }
 
@@ -150,7 +163,7 @@ fn variants_prompt() -> Prompt {
             "concise": { "body": "Hi {{ name }}" }
         },
         "variables": {
-            "name": { "type": "string", "origin": "trusted" }
+            "name": { "type": "string", "trusted": true }
         }
     }"#,
     )

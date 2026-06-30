@@ -70,7 +70,7 @@ The conversational role (`"system"` / `"user"` / `"assistant"`).
 get variables(): object | undefined
 ```
 
-The declared variables map (`&#123; [name]: PromptVariable &#125;`). Read-only metadata. Each entry carries the variable's `type`, `origin`, and optional `validation_required`.
+The declared variables map (`&#123; [name]: PromptVariable &#125;`). Read-only metadata. Each entry carries the variable's `type`, `trusted` flag, and optional `validation_required`.
 
 #### `variants`
 
@@ -94,7 +94,7 @@ Primary public constructor — constructs a `Prompt` from a `PromptDefinition`-s
 check(): CheckReport
 ```
 
-Pure advisory lint: returns a CheckReport containing only the origin/guard finding class (`"untrusted_without_guard"`). Construction already enforces agreement, parse, and reserved-name invariants; those are structurally unreachable here. Pure: never renders, never mutates.
+Pure advisory lint: returns a CheckReport containing only the `trusted`/guard finding class (`"untrusted_without_guard"`). Construction already enforces agreement, parse, and reserved-name invariants; those are structurally unreachable here. Pure: never renders, never mutates.
 
 #### `derive`
 
@@ -160,7 +160,7 @@ A rendered prompt + its content-addressed provenance, read-only from JS. The Nod
 get guard(): string | null
 ```
 
-The opt-in guard instruction text (present iff a guard was enabled and the prompt declares an untrusted/external field); `null` for a plain render. Never part of `text`.
+The opt-in guard instruction text (present iff a guard was enabled and the prompt declares a `trusted: false` field); `null` for a plain render. Never part of `text`.
 
 #### `name`
 
@@ -210,7 +210,7 @@ The resolved variant name (the reserved `default`, or the named arm).
 interface GuardConfig
 ```
 
-The opt-in guard-expansion config, accepted from JS as a plain object and **plumbed through** to the kernel. A 1:1 mirror of the kernel's GuardConfig — `enabled` plus an optional override `template`. This is **config only**; it carries no logic. The kernel owns guard *expansion*; the binding only marshals these two fields across the boundary and surfaces whatever [`RenderResult::guard`] the kernel populates. Accepted from JS as a plain TS object `&#123; enabled, template? &#125;`.
+The opt-in guard-expansion config, accepted from JS as a plain object and **plumbed through** to the kernel. A 1:1 mirror of the kernel's GuardConfig — `enabled` only. This is **config only**; it carries no logic. The kernel owns guard *expansion*; the binding only marshals `enabled` across the boundary and surfaces whatever [`RenderResult::guard`] the kernel populates. Accepted from JS as a plain TS object `&#123; enabled &#125;`.
 
 #### `enabled`
 
@@ -219,14 +219,6 @@ enabled: boolean
 ```
 
 When `false`, the render is plain and [`RenderResult::guard`] is `None`.
-
-#### `template`
-
-```ts
-template?: string
-```
-
-Optional caller override of the guard instruction text; absent ⇒ the kernel default.
 
 ### `RenderOptions`
 

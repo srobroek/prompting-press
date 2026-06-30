@@ -5,7 +5,7 @@
   "variables": {
     "y": {
       "type": "string",
-      "origin": "trusted",
+      "trusted": true,
       "description": "An external root; `x` is a set target, not a root."
     }
   }

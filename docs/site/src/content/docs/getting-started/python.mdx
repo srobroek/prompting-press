@@ -60,10 +60,10 @@ body: "Hi {{ name }}, you have {{ count }} messages."
 variables:
   name:
     type: string
-    origin: trusted
+    trusted: true
   count:
     type: integer
-    origin: trusted
+    trusted: true
 ```
 </TabItem>
 <TabItem label="JSON">
@@ -73,8 +73,8 @@ variables:
   "role": "user",
   "body": "Hi {{ name }}, you have {{ count }} messages.",
   "variables": {
-    "name": { "type": "string", "origin": "trusted" },
-    "count": { "type": "integer", "origin": "trusted" }
+    "name": { "type": "string", "trusted": true },
+    "count": { "type": "integer", "trusted": true }
   }
 }
 ```
@@ -87,11 +87,11 @@ body = "Hi {{ name }}, you have {{ count }} messages."
 
 [variables.name]
 type = "string"
-origin = "trusted"
+trusted = true
 
 [variables.count]
 type = "integer"
-origin = "trusted"
+trusted = true
 ```
 </TabItem>
 </Tabs>
@@ -122,14 +122,14 @@ greet.body   # => "Hi {{ name }}, you have {{ count }} messages."
 from prompting_press import Prompt, PromptDefinition
 
 # PromptDefinition is the generated Pydantic shape — an editor/type-checker
-# checks the fields, the role enum, and each variable's `origin` at author time.
+# checks the fields, the role enum, and each variable's `trusted` flag at author time.
 definition = PromptDefinition(
     name="greet",
     role="user",
     body="Hi {{ name }}, you have {{ count }} messages.",
     variables={
-        "name":  {"type": "string",  "origin": "trusted"},
-        "count": {"type": "integer", "origin": "trusted"},
+        "name":  {"type": "string",  "trusted": True},
+        "count": {"type": "integer", "trusted": True},
     },
 )
 
@@ -148,8 +148,8 @@ greet = Prompt({
     "role": "user",
     "body": "Hi {{ name }}, you have {{ count }} messages.",
     "variables": {
-        "name":  {"type": "string",  "origin": "trusted"},
-        "count": {"type": "integer", "origin": "trusted"},
+        "name":  {"type": "string",  "trusted": True},
+        "count": {"type": "integer", "trusted": True},
     },
 })
 

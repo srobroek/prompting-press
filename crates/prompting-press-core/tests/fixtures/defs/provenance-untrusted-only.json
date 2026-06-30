@@ -5,7 +5,7 @@
   "variables": {
     "q": {
       "type": "string",
-      "origin": "untrusted",
+      "trusted": false,
       "description": "A single untrusted input interpolated verbatim into the body."
     }
   }

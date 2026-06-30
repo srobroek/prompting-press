@@ -36,10 +36,10 @@ body: "Summarise the following article in {{ max_words }} words:\n\n{{ article }
 variables:
   article:
     type: string
-    origin: untrusted
+    trusted: false
   max_words:
     type: integer
-    origin: trusted
+    trusted: true
 variants:
   concise:
     body: "In one sentence, summarise: {{ article }}"
@@ -56,8 +56,8 @@ variants:
   "role": "user",
   "body": "Summarise the following article in {{ max_words }} words:\n\n{{ article }}",
   "variables": {
-    "article": { "type": "string", "origin": "untrusted" },
-    "max_words": { "type": "integer", "origin": "trusted" }
+    "article": { "type": "string", "trusted": false },
+    "max_words": { "type": "integer", "trusted": true }
   },
   "variants": {
     "concise": { "body": "In one sentence, summarise: {{ article }}" },
@@ -77,11 +77,11 @@ body = "Summarise the following article in {{ max_words }} words:\n\n{{ article 
 
 [variables.article]
 type = "string"
-origin = "untrusted"
+trusted = false
 
 [variables.max_words]
 type = "integer"
-origin = "trusted"
+trusted = true
 
 [variants.concise]
 body = "In one sentence, summarise: {{ article }}"
@@ -113,8 +113,8 @@ let def: PromptDefinition = serde_json::from_value(serde_json::json!({
     "role": "user",
     "body": "Summarise the following article in {{ max_words }} words:\n\n{{ article }}",
     "variables": {
-        "article":   { "type": "string",  "origin": "untrusted" },
-        "max_words": { "type": "integer", "origin": "trusted" }
+        "article":   { "type": "string",  "trusted": false },
+        "max_words": { "type": "integer", "trusted": true }
     },
     "variants": {
         "concise":    { "body": "In one sentence, summarise: {{ article }}" },
@@ -138,8 +138,8 @@ summary = Prompt({
     "role": "user",
     "body": "Summarise the following article in {{ max_words }} words:\n\n{{ article }}",
     "variables": {
-        "article":   {"type": "string",  "origin": "untrusted"},
-        "max_words": {"type": "integer", "origin": "trusted"},
+        "article":   {"type": "string",  "trusted": False},
+        "max_words": {"type": "integer", "trusted": True},
     },
     "variants": {
         "concise":    {"body": "In one sentence, summarise: {{ article }}"},
@@ -161,8 +161,8 @@ const definition: PromptDefinition = {
   role: "user",
   body: "Summarise the following article in {{ max_words }} words:\n\n{{ article }}",
   variables: {
-    article: { type: "string", origin: "untrusted" },
-    max_words: { type: "integer", origin: "trusted" },
+    article: { type: "string", trusted: false },
+    max_words: { type: "integer", trusted: true },
   },
   variants: {
     concise: { body: "In one sentence, summarise: {{ article }}" },

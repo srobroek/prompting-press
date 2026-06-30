@@ -5,7 +5,7 @@
   "variables": {
     "n": {
       "type": "integer",
-      "origin": "trusted",
+      "trusted": true,
       "description": "An external root; `range` is an engine global (allowlisted out), `i` is a loop local."
     }
   }

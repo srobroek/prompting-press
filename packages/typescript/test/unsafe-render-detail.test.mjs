@@ -23,7 +23,7 @@ const GREET_JSON = JSON.stringify({
 	name: "greet",
 	role: "user",
 	body: "Hello {{ name }}",
-	variables: { name: { type: "string", origin: "trusted" } },
+	variables: { name: { type: "string", trusted: true } },
 });
 
 /** A prompt whose body uses an unknown Jinja filter — forces a Render error at render time. */
@@ -31,7 +31,7 @@ const RENDER_FAIL_JSON = JSON.stringify({
 	name: "fail",
 	role: "user",
 	body: "{{ name | nonexistent_filter_abc }}",
-	variables: { name: { type: "string", origin: "trusted" } },
+	variables: { name: { type: "string", trusted: true } },
 });
 
 const Vars = z.object({ name: z.string() });

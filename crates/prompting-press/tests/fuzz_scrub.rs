@@ -182,7 +182,7 @@ fn corpus_secret_in_render_error_is_scrubbed() {
                 "role": "user",
                 "body": "{{ name }}",
                 "variables": {
-                    "name": { "type": "string", "origin": "trusted" }
+                    "name": { "type": "string", "trusted": true }
                 }
             }"#,
         )
@@ -249,7 +249,7 @@ proptest! {
                 "role": "user",
                 "body": "{{ name }}",
                 "variables": {
-                    "name": { "type": "string", "origin": "trusted" }
+                    "name": { "type": "string", "trusted": true }
                 }
             }"#,
         )
@@ -342,7 +342,7 @@ fn default_render_false_scrubs_render_path() {
             "role": "user",
             "body": "{{ name | nonexistent_filter_abc }}",
             "variables": {
-                "name": { "type": "string", "origin": "trusted" }
+                "name": { "type": "string", "trusted": true }
             }
         }"#,
     )

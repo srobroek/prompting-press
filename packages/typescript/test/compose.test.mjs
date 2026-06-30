@@ -16,25 +16,25 @@
  *   - no `.chain()` on the class or an instance (FR-013).
  *   - a `variant` entry field selects the variant arm.
  *
- * All fixtures use `origin` (spec 008 rename from `provenance`).
+ * All fixtures use `trusted` (spec 015 replaced the `origin` enum with a boolean).
  */
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-
-import { z } from "zod";
-
 import {
-	Prompt,
 	Composition,
+	Prompt,
 	PromptingPressError,
 	PromptRenderError,
 	PromptValidationError,
 } from "prompting-press";
+import { z } from "zod";
 
 // ── Zod Vars schemas ──────────────────────────────────────────────────────────────────────
 
-const Named = z.object({ name: z.string().refine((s) => s.length > 0, "name must be non-empty") });
+const Named = z.object({
+	name: z.string().refine((s) => s.length > 0, "name must be non-empty"),
+});
 const EmptyVars = z.object({});
 
 // ── Prompt helpers ────────────────────────────────────────────────────────────────────────
@@ -53,20 +53,20 @@ const GREET = makePrompt({
 	name: "greet",
 	role: "user",
 	body: "Hi {{ name }}",
-	variables: { name: { type: "string", origin: "trusted" } },
+	variables: { name: { type: "string", trusted: true } },
 });
 const FAREWELL = makePrompt({
 	name: "farewell",
 	role: "user",
 	body: "Bye {{ name }}",
-	variables: { name: { type: "string", origin: "trusted" } },
+	variables: { name: { type: "string", trusted: true } },
 });
 const WITH_VARIANT = makePrompt({
 	name: "salute",
 	role: "user",
 	body: "Hi {{ name }}",
 	variants: { formal: { body: "Good day, {{ name }}" } },
-	variables: { name: { type: "string", origin: "trusted" } },
+	variables: { name: { type: "string", trusted: true } },
 });
 
 // ── 1. Order + roles (SC-008) — both construction paths ──────────────────────────────────
@@ -209,7 +209,12 @@ test("there is no fluent .chain() on the class or an instance (FR-013)", () => {
 
 test("a variant entry field selects the named variant arm", () => {
 	const viaFactory = Composition.fromMessages([
-		{ prompt: WITH_VARIANT, schema: Named, data: { name: "Di" }, variant: "formal" },
+		{
+			prompt: WITH_VARIANT,
+			schema: Named,
+			data: { name: "Di" },
+			variant: "formal",
+		},
 	]);
 	assert.deepEqual(
 		viaFactory.resolve().map((m) => m.text),
