@@ -48,7 +48,7 @@ Repository = "https://github.com/prompting-press/prompting-press"
 # To upgrade: edit the specifier here, then run `uv lock --project packages/python`.
 # CI install: `uv sync --project packages/python --group codegen --no-install-project --frozen`
 # (then run packages/python/scripts/codegen.sh).
-codegen = ["datamodel-code-generator==0.65.1", "ruff==0.15.12"]
+codegen = ["datamodel-code-generator==0.66.0", "ruff==0.15.20"]
 
 # Property-based / adversarial fuzzing framework (spec 009 T008 — test-only;
 # MUST NOT enter the published wheel's runtime `[project.dependencies]`).
