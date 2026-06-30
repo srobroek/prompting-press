@@ -80,9 +80,9 @@ description: "Task list for spec 012 — native docs versioning, snapshot-per-re
 
 **Independent test**: simulate a minor + a patch release event; confirm new-bucket vs overwrite; confirm patches add no dropdown entry.
 
-- [ ] T014 [US2] Extend `.github/workflows/release.yml`: after the release-please step yields a version/tag, compute `bucketAction(new, prev-tag)` via version.mjs (FR-016), run `moon run docs:snapshot -- --version <new>`, then trigger the docs deploy. Fail loudly on unparseable/ambiguous (FR-013). Publish stays gated (FR-014). **GATE**: a simulated minor release runs the snapshot + deploy; a patch overwrites; bad version fails.
-- [ ] T015 [US2] `next`/main deploy (IO-1 / #26): `docs.yml` (push to main) publishes the current docs into the `next` slot of the multi-version site (the `next` manifest entry). No new CI — docs.yml IS the nightly. **GATE**: a push to main updates `next`; released minors remain frozen.
-- [ ] T016 [US2] The multi-version site is published by the existing GitHub Pages deploy (FR-011) — confirm the build emits all versions (latest + next + pinned) into the Pages artifact. **GATE**: deployed artifact contains all version trees.
+- [x] T014 [US2] Extend `.github/workflows/release.yml`: after the release-please step yields a version/tag, compute `bucketAction(new, prev-tag)` via version.mjs (FR-016), run `moon run docs:snapshot -- --version <new>`, then trigger the docs deploy. Fail loudly on unparseable/ambiguous (FR-013). Publish stays gated (FR-014). **GATE**: a simulated minor release runs the snapshot + deploy; a patch overwrites; bad version fails. — DONE: `docs-snapshot` job (gated on `releases_created`); commits frozen tree back to main → triggers `docs.yml`. Retargeted "deploy" to the split-topology cross-repo publish. Verified locally.
+- [x] T015 [US2] `next`/main deploy (IO-1 / #26): `docs.yml` (push to main) publishes the current docs into the `next` slot of the multi-version site (the `next` manifest entry). No new CI — docs.yml IS the nightly. **GATE**: a push to main updates `next`; released minors remain frozen. — DONE: `next` = the live unprefixed build of `src/content/docs/`; route excludes `next`/latest from `/v/` prefixes; snapshot preserves the `next` manifest entry. Confirmed live (root URL serves current docs).
+- [x] T016 [US2] The multi-version site is published by the existing GitHub Pages deploy (FR-011) — confirm the build emits all versions (latest + next + pinned) into the Pages artifact. **GATE**: deployed artifact contains all version trees. — DONE: multi-version build emits latest at bare path + pinned `/v/X.Y/` trees; verified `dist/v/1.0/` after a 1.0/1.1/1.1.1 quickstart run.
 
 **Checkpoint (US2)**: releases drive snapshots automatically; main is `next`.
 
@@ -90,9 +90,9 @@ description: "Task list for spec 012 — native docs versioning, snapshot-per-re
 
 ## Phase 6: Polish & Cross-cutting
 
-- [ ] T017 [P] Principle V guard: confirm NO library version axis leaked — versioning lives only in docs/site (manifest + route), driven by git/release-please; `ci:check-ffi` green; no `version=` render API. **GATE**: inspection + ci:check-ffi.
-- [ ] T018 [P] No publishing enabled (FR-014/SC-007): the snapshot/deploy path runs no cargo/maturin/pnpm publish. **GATE**: grep release.yml — publish job still `if: false`.
-- [ ] T019 Quickstart validation: run the full quickstart.md locally (snapshot 1.0/1.1/1.1.1, build multi-version site, verify route/dropdown/noindex/footer/idempotence). **GATE**: all quickstart checks pass.
+- [x] T017 [P] Principle V guard: confirm NO library version axis leaked — versioning lives only in docs/site (manifest + route), driven by git/release-please; `ci:check-ffi` green; no `version=` render API. **GATE**: inspection + ci:check-ffi. — DONE: `ci:check-ffi` green (exit 0); no `version=` param in any render API signature across crates/packages.
+- [x] T018 [P] No publishing enabled (FR-014/SC-007): the snapshot/deploy path runs no cargo/maturin/pnpm publish. **GATE**: grep release.yml — publish job still `if: false`. — DONE: publish job still `if: false`; the docs-snapshot job writes only docs files (no cargo/maturin/pnpm publish).
+- [x] T019 Quickstart validation: run the full quickstart.md locally (snapshot 1.0/1.1/1.1.1, build multi-version site, verify route/dropdown/noindex/footer/idempotence). **GATE**: all quickstart checks pass. — DONE: 1.0.0→1.1.0→1.1.1 sequence retains 1.0, overwrites 1.1 on patch (lastPatch=1.1.1), idempotent (twice-run zero-diff); build emits latest at bare path + pinned `/v/1.0/` with noindex (latest not noindexed); per-version changelog page present.
 
 ---
 
