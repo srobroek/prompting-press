@@ -11,6 +11,16 @@ workspace:
     exclude: ['build', 'test']
 
 tasks:
+  lint:
+    description: 'Biome format + lint check on src/** and test/** (excludes src/generated/**).'
+    command: 'pnpm -C packages/typescript check'
+    inputs:
+      - '/packages/typescript/src/**'
+      - '/packages/typescript/test/**'
+      - '/packages/typescript/biome.json'
+    options:
+      runFromWorkspaceRoot: true
+
   codegen:
     description: 'T026 — Regenerate TypeScript types from JSON Schema (FR-016).'
     command: 'pnpm -C packages/typescript codegen'

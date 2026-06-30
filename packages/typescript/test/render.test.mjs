@@ -42,9 +42,7 @@ const TwoFields = z.object({
 });
 
 const Secretful = z.object({
-	token: z
-		.string()
-		.refine((v) => !v.startsWith("sk-"), "token has a forbidden prefix"),
+	token: z.string().refine((v) => !v.startsWith("sk-"), "token has a forbidden prefix"),
 });
 
 const Secret = z.object({ token: z.string() });
@@ -80,11 +78,7 @@ test("valid render produces text, name, variant, and 64-hex provenance hashes", 
 
 	assert.equal(result.text, "Hi Ada, you have 3 messages");
 	assert.equal(result.name, "greet");
-	assert.equal(
-		result.variant,
-		"default",
-		"no variant selected ⇒ the reserved default arm",
-	);
+	assert.equal(result.variant, "default", "no variant selected ⇒ the reserved default arm");
 	assert.match(result.templateHash, HEX64, result.templateHash);
 	assert.match(result.renderHash, HEX64, result.renderHash);
 	assert.equal(result.guard, null);
@@ -108,10 +102,7 @@ test("invalid input raises PromptValidationError naming the field, before any re
 	assert.throws(
 		() => p.render(Greeting, { name: "Ada", count: -1 }),
 		(err) => {
-			assert.ok(
-				err instanceof PromptValidationError,
-				"must be a PromptValidationError",
-			);
+			assert.ok(err instanceof PromptValidationError, "must be a PromptValidationError");
 			const offending = err.errors.filter((row) => row.field === "count");
 			assert.ok(
 				offending.length > 0,
@@ -134,10 +125,7 @@ test("validation failure names EVERY offending field (SC-002)", () => {
 		(err) => {
 			assert.ok(err instanceof PromptValidationError);
 			const fields = new Set(err.errors.map((row) => row.field));
-			assert.ok(
-				fields.has("name") && fields.has("count"),
-				`got ${[...fields].join(",")}`,
-			);
+			assert.ok(fields.has("name") && fields.has("count"), `got ${[...fields].join(",")}`);
 			assert.ok(err.errors.every((row) => row.code === "validation"));
 			return true;
 		},
@@ -177,24 +165,13 @@ variables:
 		() => p.render(Secretful, { token: secret }),
 		(err) => {
 			assert.ok(err instanceof PromptValidationError);
-			assert.ok(
-				!String(err.message).includes(secret),
-				`message leaked: ${err.message}`,
-			);
+			assert.ok(!String(err.message).includes(secret), `message leaked: ${err.message}`);
 			assert.ok(!String(err.stack).includes(secret), "stack leaked the secret");
 			for (const row of err.errors) {
-				assert.ok(
-					!row.message.includes(secret),
-					`row message leaked: ${row.message}`,
-				);
-				assert.ok(
-					!row.field.includes(secret),
-					`row field leaked: ${row.field}`,
-				);
+				assert.ok(!row.message.includes(secret), `row message leaked: ${row.message}`);
+				assert.ok(!row.field.includes(secret), `row field leaked: ${row.field}`);
 			}
-			assert.ok(
-				err.errors.some((row) => row.message.includes("forbidden prefix")),
-			);
+			assert.ok(err.errors.some((row) => row.message.includes("forbidden prefix")));
 			return true;
 		},
 	);
@@ -261,11 +238,7 @@ test("an enabled guard is plumbed through and stays separate from text", () => {
 	const p = Prompt.fromYaml(ASK_YAML);
 
 	const plain = p.render(Topic, { topic: "rivers" });
-	const guarded = p.render(
-		Topic,
-		{ topic: "rivers" },
-		{ guard: { enabled: true } },
-	);
+	const guarded = p.render(Topic, { topic: "rivers" }, { guard: { enabled: true } });
 
 	assert.equal(plain.guard, null);
 	assert.notEqual(guarded.guard, null);
@@ -280,11 +253,7 @@ test("a disabled / absent guard config matches no guard at all", () => {
 	const p = Prompt.fromYaml(ASK_YAML);
 
 	const noGuard = p.render(Topic, { topic: "rivers" });
-	const disabled = p.render(
-		Topic,
-		{ topic: "rivers" },
-		{ guard: { enabled: false } },
-	);
+	const disabled = p.render(Topic, { topic: "rivers" }, { guard: { enabled: false } });
 
 	assert.equal(noGuard.guard, null);
 	assert.equal(disabled.guard, null);
