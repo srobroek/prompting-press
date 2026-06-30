@@ -12,10 +12,14 @@ tasks:
     # Usage: moon run docs:snapshot -- --version X.Y.Z
     #
     # Idempotent: running twice for the same version yields zero git diff (SC-004).
-    # Locally runnable: no CI context required.
+    # Locally runnable AND runnable in CI: the release workflow (release.yml's
+    # docs-snapshot job) invokes this on a real release to freeze the released
+    # version. `runInCI: false` previously made moon report "No tasks found" under
+    # CI=true (set by GitHub Actions), so the release snapshot silently failed —
+    # the task MUST be allowed to run in CI for T014 to work.
     command: node scripts/snapshot-docs.mjs
     args: []
     options:
       # Mark cacheable; the cache key includes --version arg + source content hash.
       cache: true
-      runInCI: false
+      runInCI: true

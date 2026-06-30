@@ -30,8 +30,8 @@ Templates checked:
   ✅ .specify/memory/constitution.md (this file)
   ✅ .specify/memory/DECISIONS.md (amendment recorded)
   ⚠ .specify/templates/{plan,spec,tasks}-template.md — no structural template change required.
-  ⚠ CLAUDE.md — APM-rendered copy of this constitution is STALE (still v1.0.0 body + hash);
-     regenerate via APM after this lands (tracked separately).
+  ✅ CLAUDE.md + AGENTS.md — regenerated via `apm compile` to this v2.0.0 body + matching hash
+     (PRs #218/#220); the APM-rendered copies are in sync.
 
 PRIOR SYNC IMPACT REPORT
 ==================
