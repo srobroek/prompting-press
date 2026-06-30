@@ -21,7 +21,7 @@ build-backend = "maturin"
 # `prompting-press` is the PyPI distribution name. The importable module is
 # `prompting_press` (see [tool.maturin].module-name).
 name = "prompting-press"
-version = "0.0.0" # pre-release: nothing is published in spec 001
+version = "0.1.0" # pre-release: nothing is published in spec 001
 description = "Python distribution of Prompting Press — a thin wrapper around the Rust core via PyO3."
 readme = "README.md"
 # Pydantic v2 target floor (US3 generates Pydantic v2 models). Decoupled from the

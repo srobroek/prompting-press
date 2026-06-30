@@ -1,8 +1,8 @@
 {
-  "crates/prompting-press-core": "0.0.0",
-  "crates/prompting-press": "0.0.0",
-  "crates/prompting-press-py": "0.0.0",
-  "crates/prompting-press-node": "0.0.0",
-  "packages/python": "0.0.0",
-  "packages/typescript": "0.0.0"
+  "crates/prompting-press-core": "0.1.0",
+  "crates/prompting-press": "0.1.0",
+  "crates/prompting-press-py": "0.1.0",
+  "crates/prompting-press-node": "0.1.0",
+  "packages/python": "0.1.0",
+  "packages/typescript": "0.1.0"
 }
