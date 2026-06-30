@@ -1,9 +1,32 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.3.0 → 1.3.1
-Bump rationale: PATCH — refinements within the existing 1.3.0 spec-008 entry from the
-  continued 2026-06-28 design conversation (no new spec, no decision reversed): registry
+Version change: 1.3.1 → 1.4.0
+Bump rationale: MINOR — reconcile the roadmap with shipped reality (it had stalled at spec 010).
+  Four NEW spec entries added (011 auto-gen API refs, 012 docs versioning, 013 opt-in render-error
+  detail, 015 guard delimiting) and three status transitions recorded (008/009/010 planned →
+  implemented). Structural additions → MINOR. No constraint reversed.
+
+Changes this revision (1.4.0, 2026-06-30):
+  - Spec 008 status: planned → implemented (pre-publish API/schema reshape; provenance→origin,
+    validation_required, prompt-as-object; 54/54 tasks; verified by artifacts).
+  - Spec 009 status: planned → implemented (adversarial fuzzing; 10 proptest/hypothesis/fast-check
+    suites across all three languages; 19/19 tasks).
+  - Spec 010 status: planned → implemented (Astro/Starlight docs site is built + LIVE at the org
+    root; its tasks.md checkboxes lag the shipped reality — a checkbox reconcile, not unbuilt work).
+  - Added spec 011 [implemented] — auto-generated per-language API-reference pages + freshness gate
+    (PR #196); one task (T018, readability polish) explicitly deferred.
+  - Added spec 012 [implemented] — native docs versioning, snapshot-per-released-minor (PR #211);
+    landed with the code/docs repo split + per-version changelog.
+  - Added spec 013 [implemented] — opt-in full render-error detail (PR #208).
+  - Added spec 015 [specced → in implementation, PR #214 open] — guard delimiting redesign; requires
+    + carries the MAJOR constitution amendment to v2.0.0 (guard body-invariant redefined).
+  - Note: there is no spec 014 (the "tested-doc-samples" idea folded into 011/012; no committed spec).
+  - 007 (v1 release) remains [status: planned] — the only genuinely-unbuilt spec (publish enablement,
+    deliberately gated).
+
+Prior revision (1.3.1, 2026-06-28) — PATCH — refinements within the existing 1.3.0 spec-008 entry from
+  the continued 2026-06-28 design conversation (no new spec, no decision reversed): registry
   RESOLVED (dropped from the object model → query-registry added as a Deferred wishlist
   entry, C-08-gated); construction taxonomy refined (shape = primary constructor, not
   `.fromObject`; named factories parse foreign text); `Prompt.fromToml` + the TS
@@ -412,7 +435,7 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   builder, not a library/wheel/native-addon publisher — see C-10). Verify exact
   tool versions when 007 is specced.
 
-### 008 — Pre-publish API & schema reshape  [status: planned]
+### 008 — Pre-publish API & schema reshape  [status: implemented]
 
 - **Description:** The pre-publish reshape of the public contract — the LAST chance to change the API
   shape + schema before packages go on the registries (post-publish these are breaking changes). Bundles
@@ -482,7 +505,7 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   constructor shape — `new Prompt({...})` that THROWS on invalid, vs `Prompt.create({...})` returning a
   result (a TS `new` can't return a `Result`).
 
-### 009 — Adversarial hardening & fuzzing  [status: planned]
+### 009 — Adversarial hardening & fuzzing  [status: implemented]
 
 - **Description:** A library-hardening test pass: fuzzing + hostile-input + scrub-verification tests in
   the library's OWN suites (not the examples repo), proving the boundary holds under abuse.
@@ -508,7 +531,7 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   floating-version gate). Origin: user asked for fuzzing + failure-mode + "break the model" coverage
   2026-06-28; the honest framing (library robustness, not LLM jailbreak) is load-bearing.
 
-### 010 — Documentation site (Astro/Starlight)  [status: planned]
+### 010 — Documentation site (Astro/Starlight)  [status: implemented]
 
 - **Description:** A published end-user documentation site for the library, built with Astro (Starlight
   docs theme), with content derived from the codebase + the JSON Schema + the supported template
@@ -535,6 +558,78 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
   docs with overview/howto/FAQ/getting-started/API-ref, schema-derived; README points to it). The
   spec-007 "package READMEs + quickstart" scope was narrowed to short per-package READMEs that point
   here.
+
+### 011 — Auto-generated API reference pages  [status: implemented]
+
+- **Description:** Generate the per-language API-reference doc pages (Rust/Python/TypeScript) from the
+  source doc-comments, rather than hand-maintaining them — closing the schema↔docs↔code drift gap that
+  spec 010's hand-written reference pages would otherwise re-open on every API change.
+- **Outcome:** Three extractors (`extract-rust-api.mjs` over nightly rustdoc JSON, `extract-python-api.py`
+  via griffe, `extract-ts-api.mjs` over the napi-emitted `index.d.ts`) feed `gen-api-refs.mjs`, which
+  renders `docs/site/src/content/docs/reference/{rust,python,typescript}.mdx` + the schema-derived
+  prompt-definition shape table. A CI freshness gate (`check-api-refs-fresh.sh`) fails if the committed
+  pages drift from a fresh regeneration — full-autogen, no sidecar prose.
+- **Scope (out):** narrative/guide pages (hand-written, spec 010); T018 readability polish DEFERRED
+  (enrich thin source doc-comments + clear `prompting-press-core` private-item rustdoc-link warnings;
+  non-blocking quality pass).
+- **Depends on:** 010 (the site it populates), 008 (final shapes). **Governed by:** C-07 (schema/source as
+  the single doc source).
+- **Notes:** Implemented (PR #196). 20/21 tasks; the one open task (T018) is explicitly deferred polish.
+
+### 012 — Native docs versioning (snapshot-per-released-minor)  [status: implemented]
+
+- **Description:** Multi-version documentation: readers switch between doc versions; each released minor
+  is frozen and served at a stable `/v/X.Y/` URL while latest stays canonical at the bare path, and
+  releases drive the snapshots automatically.
+- **Outcome:** A version-switcher dropdown over a committed `versions.json` manifest; a dynamic Astro
+  `/v/[version]/[...slug]` route serving frozen `src/versions/vX.Y/` trees (non-latest `noindex`); a
+  `docs:snapshot` moon task (idempotent) that freezes current docs + captures the per-version changelog
+  on a release; the `release.yml` trigger wires it (minor ⇒ new bucket, patch ⇒ rollup) and publishes via
+  the existing Pages pipeline. `next` = the live unprefixed build of `main`.
+- **Scope (out):** any library version axis (Principle V — versioning lives only in docs/site); enabling
+  publishing (the snapshot path runs no publish — FR-014).
+- **Depends on:** 010 (the site), 011 (per-version API-ref regeneration via an adapter seam).
+  **Governed by:** Principle V (no managed library version axis).
+- **Notes:** Implemented (PR #211). Pre-1.0, `next` is the only live version until the first released
+  minor; the machinery is built + locally validated, the first real snapshot fires at the first release.
+  Landed alongside the code/docs repo split (docs published from `prompting-press.github.io` at the org
+  root) and the per-version changelog capture (R5).
+
+### 013 — Opt-in full render-error detail  [status: implemented]
+
+- **Description:** An off-by-default opt-in to surface the full underlying render-error detail for
+  debugging, without weakening the default scrubbed-error boundary (raw bound-value content never leaks
+  into a default error or log).
+- **Outcome:** A `reveal_render_detail` / `unsafeRevealRenderDetail` flag threaded through the render
+  surface across Rust/Python/TS; default `false` keeps the scrubbed `KernelError` detail, `true` opts
+  into the full underlying message for local debugging. Breaking API addition (`feat!`).
+- **Scope (out):** changing the DEFAULT scrubbing behavior (FR-014/015 preserved); any always-on detail.
+- **Depends on:** 002 (the error normalization boundary it opts past). **Governed by:** C-06 (error
+  normalization), Principle III (boundary).
+- **Notes:** Implemented (PR #208).
+
+### 015 — Guard delimiting redesign  [status: specced → in implementation (PR open)]
+
+- **Description:** Make the opt-in guard actually defensible: delimit untrusted values directly in the
+  rendered body (fixed `<untrusted>…</untrusted>` tags, entity-escaped) so a downstream model can locate
+  every untrusted span, instead of only naming the fields in a separate advisory while leaving the body
+  unchanged.
+- **Outcome:** The per-variable `origin` enum collapses to a `trusted` boolean; when the guard is enabled,
+  untrusted (`trusted: false`) interpolations are wrapped via a value-blind kernel pre-pass keyed on the
+  interpolation's root identifier (covers `user.*`; no `unstable_machinery`); `render_hash` covers the
+  delimited body when the guard is on; the `<untrusted>` markers are fixed (security contract) while the
+  advisory sentence is an overridable, marker-validated `GuardConfig.advisory`. The advisory stays a
+  separate field (never concatenated into the body), preserving the system/user prompt split.
+- **Scope (out):** configurable markers (deferred — gated on a real consumer per C-08); surfacing the
+  advisory override to the Python/TS bindings (follow-up — kernel + Rust support it).
+- **Depends on:** 002 (kernel guard/origin), 008 (the `origin` field it renames). **Governed by:**
+  Principles I (kernel-once parity), III (boundary; marker insertion is in-boundary), IV (no
+  `unstable_machinery`), V (`render_hash` over the delimited body). **Requires a MAJOR constitution
+  amendment** (v2.0.0) redefining the spec-002 guard body-invariant (FR-022/023/SC-005); recorded in
+  DECISIONS.md.
+- **Notes:** Constitution amended to v2.0.0; implementation complete across kernel + schema + 3 shapes + 3
+  bindings + 2 facades + docs, all gates green. PR #214 open (in CI). The lost original spec was recovered
+  from the `015-guard-delimiting` branch and re-clarified 2026-06-30.
 
 ## Deferred
 
@@ -669,4 +764,4 @@ Status legend (lifecycle): **undecided** · **needs-info** · **planned** ·
 
 ---
 
-**Version**: 1.3.1 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-28
+**Version**: 1.4.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-30
