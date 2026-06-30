@@ -24,7 +24,7 @@ export default defineConfig({
         {
           icon: "github",
           label: "GitHub",
-          href: "https://github.com/prompting-press/prompting-press.github.io",
+          href: "https://github.com/prompting-press/prompting-press",
         },
       ],
       sidebar: [
