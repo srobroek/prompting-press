@@ -9,42 +9,41 @@
 
 from enum import StrEnum
 from typing import Annotated, Any
-
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class Role(StrEnum):
-    system = 'system'
-    user = 'user'
-    assistant = 'assistant'
+    system = "system"
+    user = "user"
+    assistant = "assistant"
 
 
 class Type(StrEnum):
-    string = 'string'
-    integer = 'integer'
-    number = 'number'
-    boolean = 'boolean'
-    array = 'array'
-    object = 'object'
+    string = "string"
+    integer = "integer"
+    number = "number"
+    boolean = "boolean"
+    array = "array"
+    object = "object"
 
 
 class TypeEnum(StrEnum):
-    string = 'string'
-    integer = 'integer'
-    number = 'number'
-    boolean = 'boolean'
-    array = 'array'
-    object = 'object'
-    null = 'null'
+    string = "string"
+    integer = "integer"
+    number = "number"
+    boolean = "boolean"
+    array = "array"
+    object = "object"
+    null = "null"
 
 
 class PromptVariable(BaseModel):
     model_config = ConfigDict(
-        extra='forbid',
+        extra="forbid",
     )
     type: Annotated[
         Type | list[TypeEnum],
-        Field(description='JSON-Schema type keyword(s) for the variable.'),
+        Field(description="JSON-Schema type keyword(s) for the variable."),
     ]
     trusted: Annotated[
         bool,
@@ -55,18 +54,18 @@ class PromptVariable(BaseModel):
     validation_required: Annotated[
         bool | None,
         Field(
-            description='When true, a validator covering this variable MUST be supplied when the Prompt is constructed (spec 008). Orthogonal to `trusted` — it MAY mark any variable, trusted or not. Declarative metadata; enforcement is per-language (constitution Principle VI v1.2.0): TypeScript (Zod) and Python (Pydantic) introspect the supplied validator and throw/raise at construction if this variable is uncovered, while Rust guarantees coverage structurally at compile time. The kernel never reads this field (validation-blind).'
+            description="When true, a validator covering this variable MUST be supplied when the Prompt is constructed (spec 008). Orthogonal to `trusted` — it MAY mark any variable, trusted or not. Declarative metadata; enforcement is per-language (constitution Principle VI v1.2.0): TypeScript (Zod) and Python (Pydantic) introspect the supplied validator and throw/raise at construction if this variable is uncovered, while Rust guarantees coverage structurally at compile time. The kernel never reads this field (validation-blind)."
         ),
     ] = False
     description: Annotated[
         str | None,
-        Field(description='Optional human-readable description of the variable.'),
+        Field(description="Optional human-readable description of the variable."),
     ] = None
 
 
 class PromptVariant(BaseModel):
     model_config = ConfigDict(
-        extra='forbid',
+        extra="forbid",
     )
     body: Annotated[
         str,
@@ -77,14 +76,14 @@ class PromptVariant(BaseModel):
     metadata: Annotated[
         dict[str, Any] | None,
         Field(
-            description='Library-OPAQUE per-variant metadata (selection labels like weight/group/tags, or a `guard` key). Stored + exposed; never interpreted by the library (caller selects). No schema-enforced selection semantics (FR-011c). Mirrors the prompt-level `metadata` bag.'
+            description="Library-OPAQUE per-variant metadata (selection labels like weight/group/tags, or a `guard` key). Stored + exposed; never interpreted by the library (caller selects). No schema-enforced selection semantics (FR-011c). Mirrors the prompt-level `metadata` bag."
         ),
     ] = None
 
 
 class PromptDefinition(BaseModel):
     model_config = ConfigDict(
-        extra='forbid',
+        extra="forbid",
     )
     name: Annotated[
         str,
@@ -95,7 +94,7 @@ class PromptDefinition(BaseModel):
     role: Annotated[
         Role,
         Field(
-            description='Conversational role; first-class metadata the caller reads. Shared across all variants.'
+            description="Conversational role; first-class metadata the caller reads. Shared across all variants."
         ),
     ]
     body: Annotated[
@@ -104,13 +103,17 @@ class PromptDefinition(BaseModel):
             description="The DEFAULT variant's template source. The root body IS the default arm (FR-011); surfaced under reserved name 'default' with is_default=true."
         ),
     ]
-    variables: Annotated[dict[str, PromptVariable] | None, Field(description="Declared input variables, shared across all variants. Each entry declares the variable's type and input-trust origin.", validate_default=True)] = {
-
-    }
+    variables: Annotated[
+        dict[str, PromptVariable] | None,
+        Field(
+            description="Declared input variables, shared across all variants. Each entry declares the variable's type and input-trust origin.",
+            validate_default=True,
+        ),
+    ] = {}
     variants: Annotated[
         dict[str, PromptVariant] | None,
         Field(
-            description='Named alternative arms. Absent => the prompt has only the default (root body) arm. Each arm differs ONLY in body (+ optional opaque metadata).'
+            description="Named alternative arms. Absent => the prompt has only the default (root body) arm. Each arm differs ONLY in body (+ optional opaque metadata)."
         ),
     ] = None
     output_model: Annotated[
@@ -122,6 +125,6 @@ class PromptDefinition(BaseModel):
     metadata: Annotated[
         dict[str, Any] | None,
         Field(
-            description='Arbitrary prompt-level metadata; library-OPAQUE (may include uninterpreted model/param hints, selection labels like weight/group/tags, or a `guard` key). Stored and echoed; never interpreted by the library. The prompt and each variant each carry exactly one `metadata` bag.'
+            description="Arbitrary prompt-level metadata; library-OPAQUE (may include uninterpreted model/param hints, selection labels like weight/group/tags, or a `guard` key). Stored and echoed; never interpreted by the library. The prompt and each variant each carry exactly one `metadata` bag."
         ),
     ] = None
