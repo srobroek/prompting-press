@@ -376,7 +376,7 @@ mod tests {
             "name": "greet",
             "role": "user",
             "body": "Hi {{ name }}",
-            "variables": { "name": { "type": "string", "origin": "trusted" } },
+            "variables": { "name": { "type": "string", "trusted": true } },
         });
         let p = prompt_new(shape).expect("valid shape must construct");
         assert_eq!(p.name(), "greet");
@@ -386,21 +386,21 @@ mod tests {
 
     #[test]
     fn prompt_from_json_valid_constructs() {
-        let json = r#"{"name":"greet","role":"user","body":"Hi {{ name }}","variables":{"name":{"type":"string","origin":"trusted"}}}"#;
+        let json = r#"{"name":"greet","role":"user","body":"Hi {{ name }}","variables":{"name":{"type":"string","trusted":true}}}"#;
         let p = prompt_from_json(json.to_string()).expect("valid JSON");
         assert_eq!(p.name(), "greet");
     }
 
     #[test]
     fn prompt_from_yaml_valid_constructs() {
-        let yaml = "name: greet\nrole: user\nbody: \"Hi {{ name }}\"\nvariables:\n  name:\n    type: string\n    origin: trusted\n";
+        let yaml = "name: greet\nrole: user\nbody: \"Hi {{ name }}\"\nvariables:\n  name:\n    type: string\n    trusted: true\n";
         let p = prompt_from_yaml(yaml.to_string()).expect("valid YAML");
         assert_eq!(p.name(), "greet");
     }
 
     #[test]
     fn prompt_from_toml_valid_constructs() {
-        let toml_text = "name = \"greet\"\nrole = \"user\"\nbody = \"Hi {{ name }}\"\n[variables.name]\ntype = \"string\"\norigin = \"trusted\"\n";
+        let toml_text = "name = \"greet\"\nrole = \"user\"\nbody = \"Hi {{ name }}\"\n[variables.name]\ntype = \"string\"\ntrusted = true\n";
         let p = prompt_from_toml(toml_text.to_string()).expect("valid TOML");
         assert_eq!(p.name(), "greet");
     }
@@ -456,7 +456,7 @@ mod tests {
             "name": "greet",
             "role": "user",
             "body": "Hi {{ name }}!",
-            "variables": { "name": { "type": "string", "origin": "trusted" } },
+            "variables": { "name": { "type": "string", "trusted": true } },
         });
         let p = prompt_new(shape).expect("valid");
         let result = p
@@ -475,7 +475,7 @@ mod tests {
             "name": "greet",
             "role": "user",
             "body": "Hi {{ name }}",
-            "variables": { "name": { "type": "string", "origin": "trusted" } },
+            "variables": { "name": { "type": "string", "trusted": true } },
         });
         let p = prompt_new(shape).expect("valid");
         let src = p.get_source_prompt(None).expect("source");
@@ -490,7 +490,7 @@ mod tests {
             "name": "unguarded",
             "role": "user",
             "body": "{{ payload }}",
-            "variables": { "payload": { "type": "string", "origin": "untrusted" } },
+            "variables": { "payload": { "type": "string", "trusted": false } },
         });
         let p = prompt_new(shape).expect("valid shape");
         let report = p.check_prompt();
@@ -506,7 +506,7 @@ mod tests {
             "name": "guarded",
             "role": "user",
             "body": "{{ payload }}",
-            "variables": { "payload": { "type": "string", "origin": "untrusted" } },
+            "variables": { "payload": { "type": "string", "trusted": false } },
             "metadata": { "guard": { "enabled": true } },
         });
         let p = prompt_new(shape).expect("valid shape");
@@ -524,7 +524,7 @@ mod tests {
             "name": "greet",
             "role": "user",
             "body": "Hi {{ name }}",
-            "variables": { "name": { "type": "string", "origin": "trusted" } },
+            "variables": { "name": { "type": "string", "trusted": true } },
         });
         let original = prompt_new(shape).expect("valid");
         let original_body = original.body();
@@ -546,7 +546,7 @@ mod tests {
             "name": "greet",
             "role": "user",
             "body": "Hi {{ name }}",
-            "variables": { "name": { "type": "string", "origin": "trusted" } },
+            "variables": { "name": { "type": "string", "trusted": true } },
         });
         let original = prompt_new(shape).expect("valid");
         // Overlay introduces an undeclared variable.

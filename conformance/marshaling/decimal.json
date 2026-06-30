@@ -7,12 +7,12 @@
     "variables": {
       "amount": {
         "description": "A monetary amount as an exact decimal string.",
-        "origin": "trusted",
+        "trusted": true,
         "type": "string"
       },
       "rate": {
         "description": "A precise rate as a decimal string.",
-        "origin": "trusted",
+        "trusted": true,
         "type": "string"
       }
     }

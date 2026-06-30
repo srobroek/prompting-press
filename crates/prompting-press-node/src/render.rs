@@ -33,26 +33,20 @@ use prompting_press_core::{GuardConfig as KernelGuardConfig, RenderResult as Ker
 /// The opt-in guard-expansion config, accepted from JS as a plain object and **plumbed through**
 /// to the kernel (FR-009).
 ///
-/// A 1:1 mirror of the kernel's [`prompting_press_core::GuardConfig`] — `enabled` plus an optional
-/// override `template`. This is **config only**; it carries no logic. The kernel owns guard
-/// *expansion* (spec 002 / FR-022..025 — naming the declared untrusted/external fields, the
-/// `{fields}` substitution, the never-touches-`text` invariant); the binding only marshals these
-/// two fields across the boundary and surfaces whatever [`RenderResult::guard`] the kernel
-/// populates. Accepted from JS as a plain TS object `{ enabled, template? }`.
+/// A 1:1 mirror of the kernel's [`prompting_press_core::GuardConfig`] — `enabled` only (spec 015
+/// removed the custom `template` override; the guard wording is now fixed). This is **config only**;
+/// it carries no logic. The kernel owns guard *expansion* (spec 015 / FR-022..025); the binding
+/// only marshals `enabled` across the boundary and surfaces whatever [`RenderResult::guard`] the
+/// kernel populates. Accepted from JS as a plain TS object `{ enabled }`.
 #[napi(object)]
 pub struct GuardConfig {
     /// When `false`, the render is plain and [`RenderResult::guard`] is `None`.
     pub enabled: bool,
-    /// Optional caller override of the guard instruction text; absent ⇒ the kernel default.
-    pub template: Option<String>,
 }
 
 impl From<GuardConfig> for KernelGuardConfig {
     fn from(g: GuardConfig) -> Self {
-        Self {
-            enabled: g.enabled,
-            template: g.template,
-        }
+        Self { enabled: g.enabled }
     }
 }
 
@@ -259,13 +253,14 @@ mod tests {
     /// (spec 002) and is NOT re-tested here.
     #[test]
     fn guard_config_is_plumbed_through() {
-        // A prompt declaring an `untrusted` variable, so the guard text has something to name.
+        // A prompt declaring an untrusted variable (trusted: false), so the guard has something
+        // to delimit.
         let def = def_from_json(
             r#"{
                 "name": "ask",
                 "role": "user",
                 "body": "Answer: {{ q }}",
-                "variables": { "q": { "type": "string", "origin": "untrusted" } }
+                "variables": { "q": { "type": "string", "trusted": false } }
             }"#,
         );
 
@@ -273,10 +268,7 @@ mod tests {
 
         // Enabled guard (built via the binding type → kernel `From`, the SAME conversion `render`
         // performs) ⇒ guard text present.
-        let enabled = GuardConfig {
-            enabled: true,
-            template: None,
-        };
+        let enabled = GuardConfig { enabled: true };
         let kernel_cfg = KernelGuardConfig::from(enabled);
         let with_guard = prompting_press_core::render(&def, None, make_values(), &kernel_cfg)
             .map(RenderResult::from)
@@ -285,8 +277,11 @@ mod tests {
             with_guard.guard.is_some(),
             "an enabled guard on a prompt with an untrusted field must surface guard text"
         );
-        // Plumb-through, not concatenation: the body text is unchanged by the guard (FR-023).
-        assert_eq!(with_guard.text, "Answer: hello");
+        // Spec 015: untrusted values are wrapped in <untrusted>…</untrusted> in the rendered body.
+        assert!(
+            with_guard.text.contains("<untrusted>"),
+            "enabled guard must wrap untrusted values in the rendered body text"
+        );
 
         // Default (disabled) guard ⇒ no guard text.
         let plain =

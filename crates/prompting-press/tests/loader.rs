@@ -43,7 +43,7 @@ body: \"You are a helpful assistant. Today is {{ date }}.\"
 variables:
   date:
     type: string
-    origin: trusted
+    trusted: true
 ";
     let prompt = Prompt::from_yaml(yaml).expect("well-formed YAML loads");
     assert_eq!(prompt.name(), "greeting");
@@ -68,7 +68,7 @@ body: \"You are a helpful assistant. Today is {{date}}.\"
 variables:
   date:
     type: string
-    origin: trusted
+    trusted: true
     description: \"The current date injected by the server.\"
 output_model: GreetingOutput
 metadata:
@@ -85,7 +85,7 @@ metadata:
         "variables": {
             "date": {
                 "type": "string",
-                "origin": "trusted",
+                "trusted": true,
                 "description": "The current date injected by the server."
             }
         },
@@ -125,17 +125,17 @@ fn yaml_and_json_parse_to_equal_definitions_multi_variant() {
         "variables": {
             "article": {
                 "type": "string",
-                "origin": "untrusted",
+                "trusted": false,
                 "description": "Raw article text supplied by the end user."
             },
             "max_words": {
                 "type": "integer",
-                "origin": "trusted",
+                "trusted": true,
                 "description": "Maximum word count for the summary."
             },
             "style": {
                 "type": "string",
-                "origin": "trusted",
+                "trusted": true,
                 "description": "Output style preference."
             }
         },

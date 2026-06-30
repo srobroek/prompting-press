@@ -30,7 +30,7 @@ fn well_formed_prompt_passes() {
         "body": "Summarize: {{ doc }}",
         "metadata": { "guard": { "enabled": true } },
         "variables": {
-            "doc": { "type": "string", "origin": "untrusted" }
+            "doc": { "type": "string", "trusted": false }
         }
     }"#,
     )
@@ -54,7 +54,7 @@ fn untrusted_without_guard_is_flagged() {
         "role": "user",
         "body": "Process {{ payload }}",
         "variables": {
-            "payload": { "type": "string", "origin": "untrusted" }
+            "payload": { "type": "string", "trusted": false }
         }
     }"#,
     )
@@ -91,17 +91,17 @@ fn untrusted_without_guard_is_flagged() {
     );
 }
 
-/// An `external`-tagged field triggers the guard obligation exactly like `untrusted`. A
-/// `guard` key in `metadata` satisfies it.
+/// A `trusted: false` field triggers the guard obligation. A `guard` key in `metadata` satisfies it.
+/// (Previously tested with `origin: "external"`; that enum collapsed to `trusted: false` in spec 015.)
 #[test]
-fn external_field_obligation_and_metadata_guard_satisfaction() {
-    // External field, NO guard anywhere → flagged.
+fn untrusted_false_field_obligation_and_metadata_guard_satisfaction() {
+    // Untrusted field (trusted: false), NO guard anywhere → flagged.
     let no_guard = Prompt::from_json(
         r#"{
         "name": "ext",
         "role": "user",
         "body": "{{ feed }}",
-        "variables": { "feed": { "type": "string", "origin": "external" } }
+        "variables": { "feed": { "type": "string", "trusted": false } }
     }"#,
     )
     .expect("valid shape must construct");
@@ -111,7 +111,7 @@ fn external_field_obligation_and_metadata_guard_satisfaction() {
         .iter()
         .filter(|f| matches!(&f.kind, FindingKind::UntrustedWithoutGuard { .. }))
         .collect();
-    assert_eq!(prov.len(), 1, "external field must carry the obligation");
+    assert_eq!(prov.len(), 1, "untrusted (trusted: false) field must carry the obligation");
     let FindingKind::UntrustedWithoutGuard { field } = &prov[0].kind;
     assert_eq!(field, "feed");
 
@@ -122,7 +122,7 @@ fn external_field_obligation_and_metadata_guard_satisfaction() {
         "role": "user",
         "body": "{{ feed }}",
         "metadata": { "guard": "configured-elsewhere" },
-        "variables": { "feed": { "type": "string", "origin": "external" } }
+        "variables": { "feed": { "type": "string", "trusted": false } }
     }"#,
     )
     .expect("valid shape must construct");
@@ -141,8 +141,8 @@ fn trusted_only_prompt_passes_check() {
         "role": "user",
         "body": "Hi {{ name }}, you have {{ count }} messages",
         "variables": {
-            "name":  { "type": "string",  "origin": "trusted" },
-            "count": { "type": "integer", "origin": "trusted" }
+            "name":  { "type": "string",  "trusted": true },
+            "count": { "type": "integer", "trusted": true }
         }
     }"#,
     )
@@ -165,7 +165,7 @@ fn check_report_type_is_accessible() {
         "name": "t",
         "role": "user",
         "body": "{{ x }}",
-        "variables": { "x": { "type": "string", "origin": "trusted" } }
+        "variables": { "x": { "type": "string", "trusted": true } }
     }"#,
     )
     .expect("valid");

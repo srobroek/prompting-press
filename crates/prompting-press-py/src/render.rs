@@ -40,12 +40,12 @@ use crate::error::consumer_error_to_pyerr;
 /// The opt-in guard-expansion config, surfaced to Python and **plumbed through** to the kernel
 /// (FR-009).
 ///
-/// A 1:1 mirror of the kernel's [`prompting_press_core::GuardConfig`] — `enabled` plus an optional
-/// override `template`. This pyclass is **config only**; it carries no logic. The kernel owns
-/// guard *expansion* (spec 002 / FR-022..025 — naming the declared untrusted/external fields, the
-/// `{fields}` substitution, the never-touches-`text` invariant); the binding only marshals these
-/// two fields across the boundary and surfaces whatever [`RenderResult::guard`] the kernel
-/// populates. Read-only after construction (`frozen`): build it once via the constructor.
+/// A 1:1 mirror of the kernel's [`prompting_press_core::GuardConfig`] — `enabled` only (spec 015
+/// removed the custom `template` override; the guard wording is now fixed). This pyclass is
+/// **config only**; it carries no logic. The kernel owns guard *expansion* (spec 015 / FR-022..025);
+/// the binding only marshals `enabled` across the boundary and surfaces whatever
+/// [`RenderResult::guard`] the kernel populates. Read-only after construction (`frozen`): build
+/// it once via the constructor.
 // `skip_from_py_object`: it is constructed by `#[new]` and read by-ref in `render`'s signature
 // (PyO3 extracts an `Option<&GuardConfig>` from the pyclass registry directly), never via a
 // `FromPyObject` derive — so opt out of the implicit derive PyO3 0.29 would otherwise pull in.
@@ -60,37 +60,30 @@ pub struct GuardConfig {
     /// When `False`, the render is plain and [`RenderResult::guard`] is `None`.
     #[pyo3(get)]
     pub enabled: bool,
-    /// Optional caller override of the guard instruction text; `None` ⇒ the kernel default.
-    #[pyo3(get)]
-    pub template: Option<String>,
 }
 
 #[pymethods]
 impl GuardConfig {
-    /// `GuardConfig(enabled=False, template=None)` — defaults match a disabled guard, so
+    /// `GuardConfig(enabled=False)` — defaults match a disabled guard, so
     /// `GuardConfig()` is equivalent to passing no guard at all.
     #[new]
-    #[pyo3(signature = (*, enabled=false, template=None))]
-    fn new(enabled: bool, template: Option<String>) -> Self {
-        Self { enabled, template }
+    #[pyo3(signature = (*, enabled=false))]
+    fn new(enabled: bool) -> Self {
+        Self { enabled }
     }
 
-    /// `repr(guard)` — fixed-shape; the template is caller-supplied advisory text, not a secret.
+    /// `repr(guard)` — fixed-shape.
     fn __repr__(&self) -> String {
         format!(
-            "GuardConfig(enabled={}, template={:?})",
-            if self.enabled { "True" } else { "False" },
-            self.template
+            "GuardConfig(enabled={})",
+            if self.enabled { "True" } else { "False" }
         )
     }
 }
 
 impl From<&GuardConfig> for KernelGuardConfig {
     fn from(g: &GuardConfig) -> Self {
-        Self {
-            enabled: g.enabled,
-            template: g.template.clone(),
-        }
+        Self { enabled: g.enabled }
     }
 }
 
@@ -449,13 +442,14 @@ mod tests {
     #[test]
     fn guard_config_is_plumbed_through() {
         Python::attach(|py| {
-            // A prompt declaring an `untrusted` variable, so the guard text has something to name.
+            // A prompt declaring an untrusted variable (trusted: false), so the guard has
+            // something to delimit.
             let def = def_from_json(
                 r#"{
                     "name": "ask",
                     "role": "user",
                     "body": "Answer: {{ q }}",
-                    "variables": { "q": { "type": "string", "origin": "untrusted" } }
+                    "variables": { "q": { "type": "string", "trusted": false } }
                 }"#,
             );
 
@@ -467,7 +461,7 @@ mod tests {
 
             // Enabled guard (built via the binding pyclass → kernel `From`, the SAME conversion
             // `render` performs) ⇒ guard text present.
-            let enabled = GuardConfig::new(true, None);
+            let enabled = GuardConfig::new(true);
             let kernel_cfg = KernelGuardConfig::from(&enabled);
             let with_guard = prompting_press_core::render(&def, None, make_values(), &kernel_cfg)
                 .map(RenderResult::from)
@@ -476,8 +470,12 @@ mod tests {
                 with_guard.guard.is_some(),
                 "an enabled guard on a prompt with an untrusted field must surface guard text"
             );
-            // Plumb-through, not concatenation: the body text is unchanged by the guard (FR-023).
-            assert_eq!(with_guard.text, "Answer: hello");
+            // Spec 015: untrusted values are wrapped in <untrusted>…</untrusted> in the rendered
+            // body.
+            assert!(
+                with_guard.text.contains("<untrusted>"),
+                "enabled guard must wrap untrusted values in the rendered body text"
+            );
 
             // Default (disabled) guard ⇒ no guard text.
             let plain = prompting_press_core::render(

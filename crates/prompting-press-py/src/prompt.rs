@@ -750,7 +750,7 @@ mod tests {
     }
 
     fn valid_json() -> &'static str {
-        r#"{"name":"greet","role":"user","body":"Hi {{ name }}","variables":{"name":{"type":"string","origin":"trusted"}}}"#
+        r#"{"name":"greet","role":"user","body":"Hi {{ name }}","variables":{"name":{"type":"string","trusted":true}}}"#
     }
 
     // ── construction (T035) ───────────────────────────────────────────────────
@@ -771,7 +771,7 @@ mod tests {
     /// `from_json` rejects undeclared variables — construction fails with a ConsumerError.
     #[test]
     fn from_json_undeclared_variable_raises() {
-        let json = r#"{"name":"bad","role":"user","body":"{{ ghost }}","variables":{"name":{"type":"string","origin":"trusted"}}}"#;
+        let json = r#"{"name":"bad","role":"user","body":"{{ ghost }}","variables":{"name":{"type":"string","trusted":true}}}"#;
         let result = prompting_press::Prompt::from_json(json);
         assert!(
             result.is_err(),
@@ -810,7 +810,7 @@ body = "Hi {{ name }}"
 
 [variables.name]
 type = "string"
-origin = "trusted"
+trusted = true
 "#;
         let p = prompting_press::Prompt::from_toml(toml_text).expect("TOML must construct");
         assert_eq!(p.name(), "greeting");
@@ -821,7 +821,7 @@ origin = "trusted"
 
     #[test]
     fn from_yaml_valid_constructs() {
-        let yaml = "name: hi\nrole: user\nbody: \"Hello {{ name }}\"\nvariables:\n  name:\n    type: string\n    origin: trusted\n";
+        let yaml = "name: hi\nrole: user\nbody: \"Hello {{ name }}\"\nvariables:\n  name:\n    type: string\n    trusted: true\n";
         let p = prompting_press::Prompt::from_yaml(yaml).expect("YAML must construct");
         assert_eq!(p.name(), "hi");
     }
@@ -841,7 +841,7 @@ origin = "trusted"
     #[test]
     fn validation_required_without_validators_raises() {
         Python::attach(|py| {
-            let json = r#"{"name":"strict","role":"user","body":"Hi {{ name }}","variables":{"name":{"type":"string","origin":"trusted","validation_required":true}}}"#;
+            let json = r#"{"name":"strict","role":"user","body":"Hi {{ name }}","variables":{"name":{"type":"string","trusted":true,"validation_required":true}}}"#;
             // Build the consumer Prompt directly (bypasses the coverage check, which is
             // the binding's responsibility). Then test the coverage function directly.
             let inner = prompting_press::Prompt::from_json(json).expect("consumer accepts");
@@ -920,7 +920,7 @@ origin = "trusted"
     #[test]
     fn check_returns_origin_advisory() {
         Python::attach(|_py| {
-            let json = r#"{"name":"unguarded","role":"user","body":"{{ payload }}","variables":{"payload":{"type":"string","origin":"untrusted"}}}"#;
+            let json = r#"{"name":"unguarded","role":"user","body":"{{ payload }}","variables":{"payload":{"type":"string","trusted":false}}}"#;
             let prompt = make(json);
             let report = prompt.check();
             assert!(

@@ -44,7 +44,7 @@
 //!
 //! Rendering, the agreement analysis, variant resolution, and SHA-256 hashing live **once**,
 //! in [`prompting_press_core`]; this crate adds **none** of them. [`Prompt::render`] delegates
-//! to the kernel's `render`; [`Prompt::check`] uses the kernel's `origin_view`; [`Prompt::get_source`]
+//! to the kernel's `render`; [`Prompt::check`] uses the kernel's `untrusted_fields`; [`Prompt::get_source`]
 //! delegates to the kernel's `get_source`. What this crate adds is exactly what the kernel
 //! omits: the typed-Vars (garde) facade, the text-format factories, the advisory lint,
 //! idiomatic render/compose ergonomics, and error normalization. Cross-language byte-identity
@@ -105,8 +105,8 @@
 //! role: user
 //! body: "Hi {{ name }}, you have {{ count }} messages"
 //! variables:
-//!   name:  { type: string,  origin: trusted }
-//!   count: { type: integer, origin: trusted }
+//!   name:  { type: string,  trusted: true }
+//!   count: { type: integer, trusted: true }
 //! "#;
 //!
 //! let prompt = Prompt::from_yaml(prompt_doc).expect("well-formed prompt definition");
@@ -147,8 +147,8 @@
 //! role: user
 //! body: "Hi {{ name }}, you have {{ count }} messages"
 //! variables:
-//!   name:  { type: string,  origin: trusted }
-//!   count: { type: integer, origin: trusted }
+//!   name:  { type: string,  trusted: true }
+//!   count: { type: integer, trusted: true }
 //! "#;
 //!
 //! let prompt = Prompt::from_yaml(prompt_doc).expect("well-formed prompt definition");
