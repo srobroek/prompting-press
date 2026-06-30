@@ -9,10 +9,7 @@ use common::{load_def_fixture, load_prompt_definition};
 use prompting_press_core::{render, GuardConfig, KernelError};
 
 fn no_guard() -> GuardConfig {
-    GuardConfig {
-        enabled: false,
-        template: None,
-    }
+    GuardConfig { enabled: false }
 }
 
 /// V1.7 — rendering `"Hello {{ name }}"` with no `name` supplied is a LOUD error,

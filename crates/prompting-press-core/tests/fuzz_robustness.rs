@@ -1,7 +1,7 @@
 //! Adversarial robustness corpus for the kernel (spec 009, T002).
 //!
 //! Feeds malformed / oversized / deeply-nested / Unicode / control-character bodies and
-//! values to every kernel entry point (`render`, `required_roots`, `origin_view`).
+//! values to every kernel entry point (`render`, `required_roots`, `untrusted_fields`).
 //! Each call must return `Ok(…)` or `Err(KernelError)` — it MUST NEVER panic.
 //!
 //! This is a static corpus (enumerated cases), not a proptest run. Proptest properties
@@ -11,7 +11,7 @@ mod common;
 
 use common::load_def_fixture;
 use prompting_press_core::{
-    origin_view, render, required_roots, GuardConfig, KernelError, PromptDefinition,
+    render, required_roots, untrusted_fields, GuardConfig, KernelError, PromptDefinition,
 };
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -84,7 +84,7 @@ fn robustness_1mb_plain_body_does_not_panic() {
         &no_guard(),
     );
     let _ = required_roots(&def, None);
-    let _ = origin_view(&def);
+    let _ = untrusted_fields(&def);
 }
 
 /// A body of 1 MB of `{{ expr }}` repetitions — lots of template nodes. Must not panic.
@@ -99,7 +99,7 @@ fn robustness_1mb_template_expression_body_does_not_panic() {
         "role": "user",
         "body": body,
         "variables": {
-            "x": { "type": "string", "origin": "trusted" }
+            "x": { "type": "string", "trusted": true }
         }
     }))
     .expect("definition must deserialise");
@@ -178,7 +178,7 @@ fn robustness_control_char_body_does_not_panic() {
         &no_guard(),
     );
     let _ = required_roots(&def, None);
-    let _ = origin_view(&def);
+    let _ = untrusted_fields(&def);
 }
 
 /// Body with combining marks, bidi override characters, zero-width joiners. Must not panic.
@@ -276,9 +276,9 @@ fn robustness_unknown_variant_does_not_panic() {
     );
 }
 
-/// `origin_view` on a definition with no variables must not panic.
+/// `untrusted_fields` on a definition with no variables must not panic.
 #[test]
-fn robustness_origin_view_empty_variables_does_not_panic() {
+fn robustness_untrusted_fields_empty_variables_does_not_panic() {
     let def: PromptDefinition = serde_json::from_value(serde_json::json!({
         "name": "empty-vars",
         "role": "user",
@@ -286,9 +286,8 @@ fn robustness_origin_view_empty_variables_does_not_panic() {
         "variables": {}
     }))
     .expect("definition must deserialise");
-    let view = origin_view(&def);
-    assert!(view.untrusted.is_empty());
-    assert!(view.external.is_empty());
+    let fields = untrusted_fields(&def);
+    assert!(fields.is_empty());
 }
 
 /// `required_roots` on a body that is only whitespace must not panic.
@@ -320,15 +319,12 @@ fn robustness_guard_enabled_on_render_error_does_not_panic() {
         "role": "user",
         "body": "{{ q }}",
         "variables": {
-            "q": { "type": "string", "origin": "untrusted" }
+            "q": { "type": "string", "trusted": false }
         }
     }))
     .expect("definition must deserialise");
 
-    let guard_on = GuardConfig {
-        enabled: true,
-        template: None,
-    };
+    let guard_on = GuardConfig { enabled: true };
     let _ = render(
         &def,
         None,

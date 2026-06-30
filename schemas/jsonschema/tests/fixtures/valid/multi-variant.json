@@ -5,17 +5,17 @@
   "variables": {
     "article": {
       "type": "string",
-      "origin": "untrusted",
+      "trusted": false,
       "description": "Raw article text supplied by the end user."
     },
     "max_words": {
       "type": "integer",
-      "origin": "trusted",
+      "trusted": true,
       "description": "Maximum word count for the summary."
     },
     "style": {
       "type": "string",
-      "origin": "trusted",
+      "trusted": true,
       "description": "Output style preference."
     }
   },

@@ -12,10 +12,7 @@ use prompting_press_core::{get_source, render, GuardConfig, RenderResult};
 use sha2::{Digest, Sha256};
 
 fn no_guard() -> GuardConfig {
-    GuardConfig {
-        enabled: false,
-        template: None,
-    }
+    GuardConfig { enabled: false }
 }
 
 /// Independent lowercase-hex SHA-256 of a string's UTF-8 bytes, used to cross-check the
