@@ -44,7 +44,7 @@ uv run --project packages/python --group codegen --no-sync datamodel-codegen \
   --use-annotated \
   --disable-future-imports \
   --disable-timestamp \
-  --formatters builtin \
+  --formatters ruff-format \
   --custom-file-header "${HEADER}" \
   --output "${OUT}"
 

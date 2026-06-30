@@ -44,23 +44,24 @@ No. They cover different things:
   Catches `template references ⊄ declared variables`. Hard error; a `Prompt` that constructs
   is always agreement-sound.
 - **`check()`** — pure advisory lint on a constructed `Prompt`. The only live finding it can
-  return is `untrusted_without_guard`: a declared `untrusted`/`external` variable without a
-  guard key. Advisory only — rendering still succeeds.
+  return is `untrusted_without_guard`: a `trusted: false` variable without a guard key. Advisory
+  only — rendering still succeeds.
 
 ---
 
-## Origin and types
+## Trusted flag and types
 
-### Is `origin` enforced at runtime?
+### Is `trusted` enforced at runtime?
 
-**No.** The `origin` tag (`trusted` / `untrusted` / `external`) is **declarative metadata** —
-the rendering kernel does not gate, block, or alter rendering based on it. An `untrusted` field
-renders exactly as a `trusted` field. The tag drives:
+**No.** The `trusted` boolean is **declarative metadata** — the rendering kernel does not gate,
+block, or alter rendering based on it. A `trusted: false` field renders just like a `trusted: true`
+field in `result.text`. The flag drives two opt-in behaviors:
 
-1. `check()` advisory — prompts with `untrusted`/`external` vars and no guard key produce an
-   advisory finding.
-2. The opt-in guard text — when `GuardConfig { enabled: true }` is passed to `render`, the
-   `RenderResult.guard` string names the untrusted/external fields.
+1. `check()` advisory — prompts with `trusted: false` vars and no guard key produce an
+   `untrusted_without_guard` finding.
+2. The opt-in guard — when `GuardConfig { enabled: true }` is passed to `render`, `trusted: false`
+   variable values are wrapped in `<untrusted>…</untrusted>` delimiters in the rendered body, and
+   `RenderResult.guard` carries an advisory instruction for the downstream model.
 
 Neither of these is enforcement. Actual sanitization belongs in the application layer, before the
 vars are constructed.
@@ -101,11 +102,11 @@ coupling). Storing them in a trace pins exactly which template produced which ou
 three bindings share the same Rust engine, the hashes are **byte-identical** across Rust, Python,
 and TypeScript for the same inputs.
 
-### Is `template_hash` / `render_hash` the same as the per-variable `origin` tag?
+### Is `template_hash` / `render_hash` the same as the per-variable `trusted` flag?
 
 No. They are different concepts:
 
-- **`origin`** — a per-variable trust classification (`trusted` / `untrusted` / `external`).
+- **`trusted`** — a per-variable input-trust flag (`true` = trusted, `false` = untrusted).
   Set in the prompt definition. Declarative metadata.
 - **`template_hash` / `render_hash`** — content-addressed fingerprints of the template source
   and the rendered output. Computed at render time and returned on the result.
@@ -116,17 +117,19 @@ No. They are different concepts:
 
 ### Is the advisory guard a sanitizer?
 
-No. The guard text **names** the untrusted/external fields in an advisory instruction; it does
-not inspect, escape, or rewrite any bound value. Enabling the guard does not change `result.text`
-at all — the rendered body is byte-for-byte identical with or without a guard.
+No. When the guard is enabled, `trusted: false` variable values are wrapped in
+`<untrusted>…</untrusted>` delimiters in the rendered body (with `&`/`<`/`>` entity-escaped), and
+`RenderResult.guard` carries an advisory instruction for the downstream model. This is delimiting,
+not sanitization — the library never inspects or rewrites the semantic content of a value. The
+`result.text` with guard-on differs from guard-off only in those delimiter wrappers.
 
 ### How do I actually protect against prompt injection?
 
 The library's scope is narrow. Prompt-injection protection is the application's responsibility:
 apply sanitization in the application layer before building the vars, and route the guard text as
-a system-prompt addendum that instructs the downstream model. The library's role is to name which
-fields are untrusted (via `origin`) and to surface that advisory in the guard text — it does not
-provide the protection itself.
+a system-prompt addendum that instructs the downstream model. The library's role is to delimit
+which fields are untrusted (via `trusted: false`) and surface the advisory — it does not provide
+the protection itself.
 
 ---
 

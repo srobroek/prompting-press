@@ -33,9 +33,10 @@
 //!    `template_hash = SHA256(variant source)` and `render_hash = SHA256(rendered text)`,
 //!    as plain data on the return value — no telemetry sink, and there is no `vars_hash`
 //!    (Principle V).
-//! 4. **Var-origin + opt-in guard** ([`origin_view`], [`GuardConfig`],
-//!    [`OriginView`]) — surfaces which fields are tagged `untrusted` / `external` and,
-//!    only when opted in per render, returns a separate guard instruction naming them.
+//! 4. **Var-trust query + opt-in guard** ([`untrusted_fields`], [`GuardConfig`]) —
+//!    reports which fields are declared `trusted: false` and, when `GuardConfig.enabled`
+//!    is true, wraps untrusted interpolations in `<untrusted>…</untrusted>` in the
+//!    rendered body and places a fixed advisory in [`RenderResult::guard`].
 //!
 //! ## Invariants
 //!
@@ -59,17 +60,16 @@
 //! These are guarantees a consumer **must not** mistake for protections the kernel
 //! provides. The kernel is a renderer and analyzer, not a sanitizer or an enforcer:
 //!
-//! - **The guard field does NOT sanitize.** When guard expansion is enabled, the result's
-//!   guard string merely *names* the untrusted/external fields in an advisory instruction.
-//!   It does not inspect, escape, strip, rewrite, or otherwise transform any bound value.
-//!   Untrusted and external values pass through into the rendered `text` **byte-for-byte**;
-//!   enabling the guard does not change the rendered body at all (SC-005). The guard is a
-//!   *suggestion to the downstream model*, never a runtime filter.
-//! - **Origin tags are declarative metadata with NO runtime enforcement.** The
-//!   `untrusted` / `external` / `trusted` tags on a field are surfaced ([`origin_view`])
-//!   and can drive an opt-in guard or a consumer-side lint, but the kernel does not gate,
-//!   block, or alter rendering based on them. A template that interpolates an `untrusted`
-//!   field renders exactly as one that interpolates a `trusted` field.
+//! - **The guard advisory does NOT sanitize.** The `RenderResult::guard` string is a
+//!   fixed advisory referencing the `<untrusted>…</untrusted>` markers. The actual value
+//!   delimiting happens in the rendered body (when `GuardConfig.enabled` is true and
+//!   untrusted fields exist), but the delimiters are a suggestion to the downstream model
+//!   about where user-supplied data starts and ends — not a security barrier.
+//! - **`trusted` is declarative metadata.** The `trusted: bool` flag on a field drives
+//!   the opt-in guard delimiting and is queryable via [`untrusted_fields`], but the kernel
+//!   never gates or blocks rendering based on it when the guard is off. With the guard
+//!   disabled, a template interpolating a `trusted: false` field renders exactly as one
+//!   interpolating a `trusted: true` field.
 //! - **`output_model` is a reference that is never parsed.** The `output_model` field on a
 //!   definition is carried as a metadata reference only; the kernel never parses, validates
 //!   against, or coerces anything to it (Principle III).
@@ -90,14 +90,14 @@
 //!         "role": "user",
 //!         "body": "Hello {{ name }}",
 //!         "variables": {
-//!             "name": { "type": "string", "origin": "trusted" }
+//!             "name": { "type": "string", "trusted": true }
 //!         }
 //!     }"#,
 //! )
 //! .expect("valid prompt definition");
 //!
 //! let values = minijinja::Value::from_serialize(serde_json::json!({ "name": "Ada" }));
-//! let no_guard = GuardConfig::default(); // { enabled: false, template: None } — guard opt-out
+//! let no_guard = GuardConfig::default(); // { enabled: false } — guard opt-out
 //!
 //! let result = render(&def, None, values, &no_guard).expect("render succeeds");
 //!
@@ -137,19 +137,21 @@ mod hashing;
 /// minus an env-derived globals allowlist (research D2, FR-016..FR-020).
 pub mod agreement;
 
-/// Origin exposure + the opt-in, additive guard expansion (`origin_view`,
-/// `OriginView`, `GuardConfig`): surfaces the `untrusted`/`external` field tags and,
-/// when opted in per render, names them in a separate guard instruction (constitution
-/// Principle IV / C-09; research F5, FR-021..FR-025). Pure analysis; never mutates the
-/// template, values, or rendered body, and never inspects or sanitizes a value.
-/// (The per-variable tag was named `provenance` through spec 006; renamed to `origin` in
-/// spec 008. Distinct from the render-result provenance hashes, which keep their name.)
+/// Var-trust query, opt-in guard instruction, and injection-resistant delimiting
+/// (spec 015; `GuardConfig`, `untrusted_fields`, `build_guard_text`,
+/// `apply_guard_prepass`, `guard_wrap_filter`). When `GuardConfig.enabled` is true
+/// and the definition has untrusted fields (`trusted: false`), untrusted values are
+/// wrapped in `<untrusted>…</untrusted>` in the rendered body, and a fixed advisory
+/// is placed in `RenderResult::guard`. Pure analysis; never mutates the template,
+/// values, or rendered body outside of the opt-in pre-pass (Principle III / C-03).
+/// (The per-variable tag was `origin` enum through spec 014; spec 015 collapsed it
+/// to a required `trusted: bool`.)
 pub mod origin;
 
 pub use agreement::{required_roots, Agreement};
 pub use engine::{get_source, render, RenderResult};
 pub use error::KernelError;
-pub use origin::{origin_view, GuardConfig, OriginView};
+pub use origin::{untrusted_fields, GuardConfig, DEFAULT_GUARD_ADVISORY};
 
 /// Returns the kernel's package version, sourced from Cargo at compile time.
 ///

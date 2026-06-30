@@ -50,7 +50,7 @@ name: greet
 role: user
 body: "Hi {{ name }}"
 variables:
-  name: { type: string, origin: trusted }
+  name: { type: string, trusted: true }
 "#)?;
 
 let result = p.render(&Vars { name: "Ada".into() }, None, &GuardConfig::default())?;
@@ -76,7 +76,7 @@ name: greet
 role: user
 body: "Hi {{ name }}"
 variables:
-  name: { type: string, origin: trusted }
+  name: { type: string, trusted: true }
 """)
 
 result = p.render(Vars, data={"name": "Ada"})
@@ -101,7 +101,7 @@ name: greet
 role: user
 body: "Hi {{ name }}"
 variables:
-  name: { type: string, origin: trusted }
+  name: { type: string, trusted: true }
 `);
 
 const result = p.render(Vars, { name: "Ada" });

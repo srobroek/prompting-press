@@ -11,7 +11,7 @@ These tests prove:
   representation (byte-identical render + provenance hashes — SC-003 / FR-005).
 - Malformed input raises `LoadError` and NOTHING is partially constructed (FR-007).
 - Norway-safe YAML parsing is inherited across FFI (YAML-1.2 / research D2).
-- `provenance` (old field name) is rejected by the serde layer; `origin` is accepted.
+- `provenance` and `origin` (old field names) are rejected by the serde layer; `trusted` is the current field.
 """
 
 from __future__ import annotations
@@ -57,8 +57,8 @@ GREET_OBJ = {
     "role": "user",
     "body": "Hi {{ name }}, you have {{ count }} messages",
     "variables": {
-        "name": {"type": "string", "origin": "trusted"},
-        "count": {"type": "integer", "origin": "trusted"},
+        "name": {"type": "string", "trusted": True},
+        "count": {"type": "integer", "trusted": True},
     },
 }
 
@@ -73,10 +73,10 @@ GREET_YAML = textwrap.dedent(
     variables:
       name:
         type: string
-        origin: trusted
+        trusted: true
       count:
         type: integer
-        origin: trusted
+        trusted: true
     """
 )
 
@@ -88,11 +88,11 @@ GREET_TOML = textwrap.dedent(
 
     [variables.name]
     type = "string"
-    origin = "trusted"
+    trusted = true
 
     [variables.count]
     type = "integer"
-    origin = "trusted"
+    trusted = true
     """
 )
 
@@ -226,25 +226,33 @@ def test_yaml_norway_values_parse_as_strings_not_booleans(literal: str) -> None:
 
 
 # --------------------------------------------------------------------------------------
-# 5. `origin` accepted, `provenance` (old field) rejected
+# 5. `trusted` accepted, `origin` (pre-spec-015 field) and `provenance` (older) rejected
 # --------------------------------------------------------------------------------------
 
 
-def test_origin_accepted_provenance_rejected() -> None:
-    """Phase 1 renamed `provenance` → `origin`. `origin` is the valid field; `provenance`
-    must be rejected by the serde layer (deny_unknown_fields)."""
-    # `origin` → accepted
+def test_trusted_accepted_old_fields_rejected() -> None:
+    """spec-015 replaced the `origin` enum with `trusted: bool`. `trusted` is the valid
+    field; `origin` (pre-spec-015) and `provenance` (even older) must be rejected by the
+    serde layer (deny_unknown_fields)."""
+    # `trusted` → accepted
     p = Prompt(
         {
             "name": "ok",
             "role": "user",
             "body": "Hi {{ x }}",
-            "variables": {"x": {"type": "string", "origin": "trusted"}},
+            "variables": {"x": {"type": "string", "trusted": True}},
         }
     )
     assert p.name == "ok"
 
-    # `provenance` (old field name) in the JSON text path → must fail
+    # `origin` (pre-spec-015 field name) in the JSON text path → must fail
+    with pytest.raises(LoadError):
+        Prompt.from_json(
+            '{"name":"bad","role":"user","body":"Hi {{ x }}",'
+            '"variables":{"x":{"type":"string","origin":"trusted"}}}'
+        )
+
+    # `provenance` (even older field name) → must also fail
     with pytest.raises(LoadError):
         Prompt.from_json(
             '{"name":"bad","role":"user","body":"Hi {{ x }}",'

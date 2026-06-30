@@ -151,7 +151,7 @@ mod tests {
                 "name": "ask",
                 "role": "user",
                 "body": "{{ topic }}",
-                "variables": { "topic": { "type": "string", "origin": "untrusted" } }
+                "variables": { "topic": { "type": "string", "trusted": false } }
             }"#,
         )
         .expect("valid prompt definition");
@@ -185,7 +185,7 @@ mod tests {
                 "name": "greet",
                 "role": "user",
                 "body": "Hi {{ name }}",
-                "variables": { "name": { "type": "string", "origin": "trusted" } }
+                "variables": { "name": { "type": "string", "trusted": true } }
             }"#,
         )
         .expect("valid prompt definition");

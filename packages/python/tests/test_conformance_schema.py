@@ -52,7 +52,9 @@ def _safe_resolve(rel_path: str) -> Path:
     here is a manifest-hygiene error, surfaced as a test failure (not silently skipped).
     """
     pure = Path(rel_path)
-    assert not pure.is_absolute(), f"SEC-001: fixture path must be relative, got {rel_path!r}"
+    assert not pure.is_absolute(), (
+        f"SEC-001: fixture path must be relative, got {rel_path!r}"
+    )
     assert ".." not in pure.parts, (
         f"SEC-001: fixture path must not contain `..`, got {rel_path!r}"
     )

@@ -26,7 +26,10 @@ import pytest
 from pydantic import BaseModel
 
 import prompting_press
-from prompting_press import Prompt, PromptingPressError, PromptRenderError, PromptValidationError
+from prompting_press import (
+    Prompt,
+    PromptingPressError,
+)
 
 # --------------------------------------------------------------------------------------
 # The stable finding `kind` strings (the binding's public vocabulary). Asserted by value
@@ -60,8 +63,8 @@ def test_clean_prompt_passes_with_empty_report() -> None:
             "role": "user",
             "body": "Hi {{ name }}, you have {{ count }} messages",
             "variables": {
-                "name": {"type": "string", "origin": "trusted"},
-                "count": {"type": "integer", "origin": "trusted"},
+                "name": {"type": "string", "trusted": True},
+                "count": {"type": "integer", "trusted": True},
             },
         }
     )
@@ -96,7 +99,7 @@ def test_undeclared_variable_is_a_construction_error() -> None:
                 "name": "ghosty",
                 "role": "user",
                 "body": "Hi {{ name }} and {{ ghost }}",
-                "variables": {"name": {"type": "string", "origin": "trusted"}},
+                "variables": {"name": {"type": "string", "trusted": True}},
             }
         )
 
@@ -108,7 +111,7 @@ def test_finding_attributes_are_read_only() -> None:
             "name": "search",
             "role": "user",
             "body": "Query: {{ q }}",
-            "variables": {"q": {"type": "string", "origin": "untrusted"}},
+            "variables": {"q": {"type": "string", "trusted": False}},
         }
     )
     finding = p.check().findings[0]
@@ -131,7 +134,7 @@ def test_untrusted_variable_without_guard_is_flagged() -> None:
             "name": "search",
             "role": "user",
             "body": "Query: {{ q }}",
-            "variables": {"q": {"type": "string", "origin": "untrusted"}},
+            "variables": {"q": {"type": "string", "trusted": False}},
         }
     )
     report = p.check()
@@ -152,7 +155,7 @@ def test_guard_presence_under_metadata_clears_the_finding() -> None:
             "name": "search",
             "role": "user",
             "body": "Query: {{ q }}",
-            "variables": {"q": {"type": "string", "origin": "untrusted"}},
+            "variables": {"q": {"type": "string", "trusted": False}},
             "metadata": {"guard": "sanitized upstream"},
         }
     )
@@ -175,7 +178,7 @@ def test_variant_named_default_is_a_construction_error() -> None:
                 "name": "rv",
                 "role": "user",
                 "body": "Base {{ x }}",
-                "variables": {"x": {"type": "string", "origin": "trusted"}},
+                "variables": {"x": {"type": "string", "trusted": True}},
                 "variants": {"default": {"body": "Variant {{ x }}"}},
             }
         )
@@ -210,7 +213,7 @@ def test_check_is_pure_and_repeated_checks_are_equal() -> None:
             "name": "greet",
             "role": "user",
             "body": "Hi {{ name }}",
-            "variables": {"name": {"type": "string", "origin": "trusted"}},
+            "variables": {"name": {"type": "string", "trusted": True}},
         }
     )
 
@@ -240,7 +243,7 @@ def test_multiple_untrusted_prompts_yield_findings() -> None:
                 "name": "alpha",
                 "role": "user",
                 "body": "Q {{ q }}",
-                "variables": {"q": {"type": "string", "origin": "untrusted"}},
+                "variables": {"q": {"type": "string", "trusted": False}},
             }
         ),
         Prompt(
@@ -248,7 +251,7 @@ def test_multiple_untrusted_prompts_yield_findings() -> None:
                 "name": "beta",
                 "role": "user",
                 "body": "Q {{ q }}",
-                "variables": {"q": {"type": "string", "origin": "untrusted"}},
+                "variables": {"q": {"type": "string", "trusted": False}},
             }
         ),
     ]
@@ -287,7 +290,7 @@ def test_check_report_collection_protocol() -> None:
             "name": "untrusted",
             "role": "user",
             "body": "{{ q }}",
-            "variables": {"q": {"type": "string", "origin": "untrusted"}},
+            "variables": {"q": {"type": "string", "trusted": False}},
         }
     )
 

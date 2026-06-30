@@ -28,7 +28,7 @@ _PROMPT_JSON = """{
     "role": "user",
     "body": "Hello {{ name }}",
     "variables": {
-        "name": {"type": "string", "origin": "trusted"}
+        "name": {"type": "string", "trusted": true}
     }
 }"""
 
@@ -60,8 +60,12 @@ def test_reveal_flag_does_not_change_success_path() -> None:
     r_true = p.render(Vars, data=data, unsafe_reveal_render_detail=True)
 
     assert r_false.text == r_true.text, "text must be byte-identical"
-    assert r_false.template_hash == r_true.template_hash, "template_hash must be byte-identical"
-    assert r_false.render_hash == r_true.render_hash, "render_hash must be byte-identical"
+    assert r_false.template_hash == r_true.template_hash, (
+        "template_hash must be byte-identical"
+    )
+    assert r_false.render_hash == r_true.render_hash, (
+        "render_hash must be byte-identical"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +133,7 @@ def test_reveal_true_surfaces_render_detail() -> None:
         "role": "user",
         "body": "{{ name | nonexistent_filter_abc }}",
         "variables": {
-            "name": {"type": "string", "origin": "trusted"}
+            "name": {"type": "string", "trusted": true}
         }
     }"""
     p = Prompt.from_json(render_fail_json)
@@ -159,9 +163,9 @@ def test_reveal_true_surfaces_render_detail() -> None:
         "reveal=True must NOT produce the fixed scrubbed message"
     )
     # The detail embeds the filter name from the template — verify it's present.
-    assert "nonexistent_filter_abc" in revealed_msg or len(revealed_msg) > len("render error"), (
-        f"reveal=True message should carry filter-name context, got: {revealed_msg!r}"
-    )
+    assert "nonexistent_filter_abc" in revealed_msg or len(revealed_msg) > len(
+        "render error"
+    ), f"reveal=True message should carry filter-name context, got: {revealed_msg!r}"
 
 
 def test_reveal_false_scrubs_render_detail() -> None:
@@ -171,7 +175,7 @@ def test_reveal_false_scrubs_render_detail() -> None:
         "role": "user",
         "body": "{{ name | nonexistent_filter_xyz }}",
         "variables": {
-            "name": {"type": "string", "origin": "trusted"}
+            "name": {"type": "string", "trusted": true}
         }
     }"""
     p = Prompt.from_json(render_fail_json)
@@ -195,9 +199,14 @@ def test_reveal_false_scrubs_render_detail() -> None:
 def test_no_implicit_enable_no_module_attribute() -> None:
     """The opt-in cannot be enabled globally — it exists only as a per-call kwarg."""
     import prompting_press
+
     # There must be no module-level attribute that enables the flag globally.
-    for name in ("reveal_render_detail", "unsafe_reveal_render_detail",
-                 "enable_render_detail", "render_detail_enabled"):
+    for name in (
+        "reveal_render_detail",
+        "unsafe_reveal_render_detail",
+        "enable_render_detail",
+        "render_detail_enabled",
+    ):
         assert not hasattr(prompting_press, name), (
             f"module-level toggle {name!r} must not exist (FR-003 / SC-003)"
         )

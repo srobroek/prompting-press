@@ -5,17 +5,17 @@
   "variables": {
     "alpha": {
       "type": "string",
-      "origin": "trusted",
+      "trusted": true,
       "description": "A root."
     },
     "beta": {
       "type": "object",
-      "origin": "untrusted",
+      "trusted": false,
       "description": "A root with a nested field."
     },
     "delta": {
       "type": "array",
-      "origin": "external",
+      "trusted": false,
       "description": "An iterated root."
     }
   }

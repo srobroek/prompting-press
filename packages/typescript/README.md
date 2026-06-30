@@ -36,8 +36,8 @@ name: greet
 role: user
 body: "Hi {{ name }}, you have {{ count }} messages"
 variables:
-  name:  { type: string,  origin: trusted }
-  count: { type: integer, origin: trusted }
+  name:  { type: string,  trusted: true }
+  count: { type: integer, trusted: true }
 `);
 
 const r = greet.render(Greeting, { name: "Ada", count: 3 });
@@ -65,7 +65,7 @@ r.renderHash;    // 64-hex SHA-256 of the rendered output
 `prompt.check()` is a **pure** analysis pass (never mutates, never renders) — the static guarantee no
 file-based prompt library provides. The hard agreement invariants (a template referencing an
 **undeclared variable**, an un-analyzable template) are now caught at **construction**; `check()` surfaces
-the remaining advisory: an `untrusted`/`external` field used **without a declared guard**. Wire it as a CI
+the remaining advisory: a `trusted: false` field used **without a declared guard**. Wire it as a CI
 gate over your prompts:
 
 ```ts
@@ -119,7 +119,7 @@ never the rejected value.
 
 ## Guard usage (the system-prompt addendum doctrine)
 
-When a prompt declares `untrusted`/`external` inputs and you enable a guard, the rendered `guard` text is
+When a prompt declares `trusted: false` inputs and you enable a guard, the rendered `guard` text is
 returned as a **separate** field on `RenderResult` — it is **never** concatenated into `text`. Route it
 as a **system-prompt addendum**:
 

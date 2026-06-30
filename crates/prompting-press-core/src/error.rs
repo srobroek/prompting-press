@@ -53,6 +53,18 @@ pub enum KernelError {
         /// Human-readable detail from the underlying render failure.
         detail: String,
     },
+
+    /// A caller-supplied guard advisory override (`GuardConfig::advisory`) does not
+    /// reference the delimiter contract. To prevent shipping a guard whose advisory
+    /// fails to explain the `<untrusted>` markers (a silently half-broken defense),
+    /// an override MUST contain the opening tag `<untrusted>`, the closing tag
+    /// `</untrusted>`, and an indication that the markers are escaped inside values
+    /// (one of `&amp;`, `&lt;`, `&gt;`, or the word "escap"). The fixed default
+    /// satisfies this by construction; only an override can trip it. [spec 015]
+    GuardAdvisoryInvalid {
+        /// Human-readable detail naming which required element(s) are missing.
+        detail: String,
+    },
 }
 
 impl std::fmt::Display for KernelError {
@@ -72,6 +84,9 @@ impl std::fmt::Display for KernelError {
             }
             Self::Render { detail } => {
                 write!(f, "render error: {detail}")
+            }
+            Self::GuardAdvisoryInvalid { detail } => {
+                write!(f, "guard advisory override is invalid: {detail}")
             }
         }
     }

@@ -365,7 +365,7 @@ mod tests {
         Python::attach(|py| {
             let prompt_py = make_prompt_py(
                 py,
-                r#"{"name":"greet","role":"user","body":"Hi {{ name }}","variables":{"name":{"type":"string","origin":"trusted"}}}"#,
+                r#"{"name":"greet","role":"user","body":"Hi {{ name }}","variables":{"name":{"type":"string","trusted":true}}}"#,
             );
 
             let comp = Composition {
@@ -396,11 +396,11 @@ mod tests {
         Python::attach(|py| {
             let system_py = make_prompt_py(
                 py,
-                r#"{"name":"sys","role":"system","body":"You are {{ persona }}.","variables":{"persona":{"type":"string","origin":"trusted"}}}"#,
+                r#"{"name":"sys","role":"system","body":"You are {{ persona }}.","variables":{"persona":{"type":"string","trusted":true}}}"#,
             );
             let user_py = make_prompt_py(
                 py,
-                r#"{"name":"ask","role":"user","body":"Question: {{ q }}","variables":{"q":{"type":"string","origin":"trusted"}}}"#,
+                r#"{"name":"ask","role":"user","body":"Question: {{ q }}","variables":{"q":{"type":"string","trusted":true}}}"#,
             );
 
             let comp = Composition {
@@ -442,7 +442,7 @@ mod tests {
             let ok_py = make_prompt_py(py, r#"{"name":"ok","role":"user","body":"fine"}"#);
             let needs_py = make_prompt_py(
                 py,
-                r#"{"name":"needs","role":"user","body":"Hello {{ missing }}!","variables":{"missing":{"type":"string","origin":"trusted"}}}"#,
+                r#"{"name":"needs","role":"user","body":"Hello {{ missing }}!","variables":{"missing":{"type":"string","trusted":true}}}"#,
             );
 
             let comp = Composition {

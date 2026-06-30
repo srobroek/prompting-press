@@ -1,4 +1,4 @@
-//! Advisory lint types and shared helpers for the agreement + origin check
+//! Advisory lint types and shared helpers for the agreement + trusted/guard check
 //! (spec 008 reshape; FR-016..020).
 //!
 //! Post-reshape, the lint runs **per-`Prompt`** via [`Prompt::check`](crate::Prompt::check),
@@ -6,8 +6,8 @@
 //! referenced roots ⊆ declared variables, no reserved variant name). The only LIVE finding
 //! `Prompt::check()` can surface is the advisory:
 //!
-//! 1. **Origin / guard advisory (FR-018, reframed).** A `Prompt` that declares one or more
-//!    `untrusted`/`external` variables but carries no `"guard"` key in its `metadata`
+//! 1. **Trust / guard advisory (FR-018, reframed).** A `Prompt` that declares one or more
+//!    `trusted: false` variables but carries no `"guard"` key in its `metadata`
 //!    map → [`FindingKind::UntrustedWithoutGuard`] per uncovered field.
 //!
 //! `UntrustedWithoutGuard` is the only `FindingKind` variant; the hard invariants (undeclared
@@ -38,7 +38,7 @@ pub struct Finding {
     /// The prompt's name.
     pub prompt: String,
     /// The variant the finding pertains to (`Some("default")` / `Some("<name>")` for an
-    /// agreement or analysis finding); `None` for a prompt-level origin finding.
+    /// agreement or analysis finding); `None` for a prompt-level trust/guard finding.
     pub variant: Option<String>,
     /// The kind of failure (the discriminant a consumer matches on).
     pub kind: FindingKind,
@@ -54,11 +54,11 @@ pub struct Finding {
 /// from a live `Prompt`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FindingKind {
-    /// The prompt declares `field` as `untrusted`/`external` but configures no guard for it
-    /// (the origin advisory — FR-018; the `metadata.guard` convention, module docs). The only
+    /// The prompt declares `field` as `trusted: false` but configures no guard for it
+    /// (the trust/guard advisory — FR-018; the `metadata.guard` convention, module docs). The only
     /// advisory class surfaced by `Prompt::check()`.
     UntrustedWithoutGuard {
-        /// The uncovered untrusted/external field name.
+        /// The uncovered `trusted: false` field name.
         field: String,
     },
 }

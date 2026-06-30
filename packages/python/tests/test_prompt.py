@@ -8,7 +8,7 @@ Tests the new `Prompt` pyclass surface introduced in the api-schema reshape:
 
 Also exercises:
 - `Composition` with `Prompt` objects (T039 reshape: no registry, no name strings).
-- The `origin` field name (Phase 1 rename from `provenance`).
+- The `trusted` boolean field (spec 015; replaced the `origin` enum from spec 008).
 - `Registry` is absent from `__all__` / `prompting_press` public surface.
 """
 
@@ -24,7 +24,6 @@ from prompting_press import (
     CheckReport,
     Composition,
     GuardConfig,
-    Message,
     Prompt,
     PromptRenderError,
     PromptValidationError,
@@ -72,18 +71,19 @@ class EmptyVars(BaseModel):
 
 class SecretVars(BaseModel):
     """Passes Pydantic validation — used to drive a kernel-path render error."""
+
     token: str
 
 
-# ─── fixture dicts (use `origin` not `provenance` — Phase 1 rename) ──────────
+# ─── fixture dicts (use `trusted` boolean — spec 015 replaced `origin` enum) ─
 
 GREET_DEF = {
     "name": "greet",
     "role": "user",
     "body": "Hi {{ name }}, you have {{ count }} messages",
     "variables": {
-        "name": {"type": "string", "origin": "trusted"},
-        "count": {"type": "integer", "origin": "trusted"},
+        "name": {"type": "string", "trusted": True},
+        "count": {"type": "integer", "trusted": True},
     },
 }
 
@@ -91,14 +91,14 @@ SIMPLE_DEF = {
     "name": "simple",
     "role": "user",
     "body": "Hi {{ name }}",
-    "variables": {"name": {"type": "string", "origin": "trusted"}},
+    "variables": {"name": {"type": "string", "trusted": True}},
 }
 
 ASK_DEF = {
     "name": "ask",
     "role": "user",
     "body": "Tell me about {{ topic }}.",
-    "variables": {"topic": {"type": "string", "origin": "untrusted"}},
+    "variables": {"topic": {"type": "string", "trusted": False}},
 }
 
 SYS_DEF = {
@@ -143,7 +143,7 @@ def test_construct_rejects_undeclared_variable() -> None:
         "name": "bad",
         "role": "user",
         "body": "{{ ghost }}",
-        "variables": {"name": {"type": "string", "origin": "trusted"}},
+        "variables": {"name": {"type": "string", "trusted": True}},
     }
     with pytest.raises(PromptingPressError) as excinfo:
         Prompt(bad)
@@ -178,7 +178,7 @@ def test_construct_rejects_parse_error() -> None:
 
 def test_from_json_valid() -> None:
     """Prompt.from_json(text) constructs from a JSON string."""
-    json_text = '{"name":"hi","role":"user","body":"Hello {{ name }}","variables":{"name":{"type":"string","origin":"trusted"}}}'
+    json_text = '{"name":"hi","role":"user","body":"Hello {{ name }}","variables":{"name":{"type":"string","trusted":true}}}'
     p = Prompt.from_json(json_text)
     assert p.name == "hi"
     assert p.body == "Hello {{ name }}"
@@ -187,8 +187,8 @@ def test_from_json_valid() -> None:
 def test_from_yaml_valid() -> None:
     """Prompt.from_yaml(text) constructs from a YAML string."""
     yaml_text = (
-        "name: hi\nrole: user\nbody: \"Hello {{ name }}\"\n"
-        "variables:\n  name:\n    type: string\n    origin: trusted\n"
+        'name: hi\nrole: user\nbody: "Hello {{ name }}"\n'
+        "variables:\n  name:\n    type: string\n    trusted: true\n"
     )
     p = Prompt.from_yaml(yaml_text)
     assert p.name == "hi"
@@ -203,7 +203,7 @@ def test_from_toml_valid() -> None:
         "\n"
         "[variables.name]\n"
         'type = "string"\n'
-        'origin = "trusted"\n'
+        "trusted = true\n"
     )
     p = Prompt.from_toml(toml_text)
     assert p.name == "greeting"
@@ -226,23 +226,31 @@ def test_from_yaml_missing_required_field_raises() -> None:
         Prompt.from_yaml("name: hi\nrole: user\n")
 
 
-def test_origin_field_accepted_provenance_rejected() -> None:
-    """Phase 1 renamed `provenance` → `origin`. `origin` must be accepted; `provenance` must
-    be rejected by the serde layer (deny_unknown_fields)."""
+def test_trusted_field_accepted_old_names_rejected() -> None:
+    """spec-015 replaced `origin` enum with `trusted: bool`. `trusted` must be accepted;
+    `origin` (the old string enum field) and `provenance` (even older) must be rejected
+    by the serde layer (deny_unknown_fields)."""
     from prompting_press import LoadError
 
-    # origin → accepted
+    # trusted → accepted
     p = Prompt(
         {
             "name": "ok",
             "role": "user",
             "body": "Hi {{ x }}",
-            "variables": {"x": {"type": "string", "origin": "trusted"}},
+            "variables": {"x": {"type": "string", "trusted": True}},
         }
     )
     assert p.name == "ok"
 
-    # provenance (the old field name, removed in Phase 1) → must fail (unknown field)
+    # origin (the pre-spec-015 field name) → must fail (unknown field)
+    with pytest.raises(LoadError):
+        Prompt.from_json(
+            '{"name":"bad","role":"user","body":"Hi {{ x }}",'
+            '"variables":{"x":{"type":"string","origin":"trusted"}}}'
+        )
+
+    # provenance (older field name) → must also fail
     with pytest.raises(LoadError):
         Prompt.from_json(
             '{"name":"bad","role":"user","body":"Hi {{ x }}",'
@@ -259,7 +267,9 @@ def test_validation_required_without_validators_raises() -> None:
         "name": "strict",
         "role": "user",
         "body": "Hi {{ name }}",
-        "variables": {"name": {"type": "string", "origin": "trusted", "validation_required": True}},
+        "variables": {
+            "name": {"type": "string", "trusted": True, "validation_required": True}
+        },
     }
     with pytest.raises(PromptValidationError) as excinfo:
         Prompt(strict)
@@ -273,7 +283,9 @@ def test_validation_required_with_covering_validators_ok() -> None:
         "name": "strict",
         "role": "user",
         "body": "Hi {{ name }}",
-        "variables": {"name": {"type": "string", "origin": "trusted", "validation_required": True}},
+        "variables": {
+            "name": {"type": "string", "trusted": True, "validation_required": True}
+        },
     }
     # Named has `name` in model_fields → covers the required variable.
     p = Prompt(strict, validators=Named)
@@ -286,7 +298,9 @@ def test_validation_required_with_non_covering_validators_raises() -> None:
         "name": "strict",
         "role": "user",
         "body": "Hi {{ name }}",
-        "variables": {"name": {"type": "string", "origin": "trusted", "validation_required": True}},
+        "variables": {
+            "name": {"type": "string", "trusted": True, "validation_required": True}
+        },
     }
     with pytest.raises(PromptValidationError) as excinfo:
         Prompt(strict, validators=EmptyVars)  # EmptyVars has no `name` field
@@ -356,7 +370,7 @@ def test_render_sec004_pydantic_path_secret_not_leaked() -> None:
             "name": "leaky",
             "role": "user",
             "body": "Using {{ token }}",
-            "variables": {"token": {"type": "string", "origin": "trusted"}},
+            "variables": {"token": {"type": "string", "trusted": True}},
         }
     )
     with pytest.raises(PromptValidationError) as excinfo:
@@ -376,7 +390,7 @@ def test_render_with_named_variant() -> None:
             "role": "user",
             "body": "Hi {{ name }}",
             "variants": {"formal": {"body": "Good day, {{ name }}."}},
-            "variables": {"name": {"type": "string", "origin": "trusted"}},
+            "variables": {"name": {"type": "string", "trusted": True}},
         }
     )
     result = p.render(Named(name="Di"), variant="formal")
@@ -385,15 +399,17 @@ def test_render_with_named_variant() -> None:
 
 
 def test_render_guard_plumbed_through() -> None:
-    """Guard is plumbed through; text and guard are separate (FR-009)."""
+    """spec-015: guard wraps untrusted values; advisory is a separate non-empty string."""
     p = Prompt(ASK_DEF)
     plain = p.render(TopicVars(topic="rivers"))
     guarded = p.render(TopicVars(topic="rivers"), guard=GuardConfig(enabled=True))
 
     assert plain.guard is None
     assert guarded.guard is not None
-    assert "topic" in guarded.guard
-    assert plain.text == guarded.text  # body text is unchanged by the guard
+    assert isinstance(guarded.guard, str) and len(guarded.guard) > 0
+    # spec-015: body IS altered — untrusted values wrapped in <untrusted>…</untrusted>.
+    assert "<untrusted>" in guarded.text
+    assert plain.text != guarded.text  # delimiting changes the body
 
 
 def test_get_source_returns_unrendered_template() -> None:
@@ -412,7 +428,7 @@ def test_get_source_named_variant() -> None:
             "role": "user",
             "body": "root {{ x }}",
             "variants": {"v": {"body": "variant {{ x }}"}},
-            "variables": {"x": {"type": "string", "origin": "trusted"}},
+            "variables": {"x": {"type": "string", "trusted": True}},
         }
     )
     assert p.get_source(variant="v") == "variant {{ x }}"
@@ -494,7 +510,9 @@ def test_derive_validators_carry_forward() -> None:
         "name": "strict",
         "role": "user",
         "body": "Hi {{ name }}",
-        "variables": {"name": {"type": "string", "origin": "trusted", "validation_required": True}},
+        "variables": {
+            "name": {"type": "string", "trusted": True, "validation_required": True}
+        },
     }
     original = Prompt(strict, validators=Named)
     # Derive without supplying validators — they carry forward from original.
@@ -508,7 +526,9 @@ def test_derive_validators_override() -> None:
         "name": "strict",
         "role": "user",
         "body": "Hi {{ name }}",
-        "variables": {"name": {"type": "string", "origin": "trusted", "validation_required": True}},
+        "variables": {
+            "name": {"type": "string", "trusted": True, "validation_required": True}
+        },
     }
     original = Prompt(strict, validators=Named)
 

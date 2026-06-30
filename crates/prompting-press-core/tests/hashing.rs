@@ -14,7 +14,7 @@ use sha2::{Digest, Sha256};
 fn no_guard() -> GuardConfig {
     GuardConfig {
         enabled: false,
-        template: None,
+        ..Default::default()
     }
 }
 
@@ -23,7 +23,12 @@ fn no_guard() -> GuardConfig {
 fn sha256_hex(s: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(s.as_bytes());
-    format!("{:x}", hasher.finalize())
+    // sha2 0.11: digest is a `hybrid_array::Array` (no `LowerHex`); hex-encode bytes.
+    let mut hex = String::new();
+    for byte in hasher.finalize() {
+        hex.push_str(&format!("{byte:02x}"));
+    }
+    hex
 }
 
 /// V1.2 — re-rendering with identical inputs is byte-identical with equal hashes.

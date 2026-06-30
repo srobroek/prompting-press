@@ -51,13 +51,13 @@ let sys_def: PromptDefinition = serde_json::from_value(serde_json::json!({
     "name": "system-preamble",
     "role": "system",
     "body": "{{ instructions }}",
-    "variables": { "instructions": { "type": "string", "origin": "trusted" } }
+    "variables": { "instructions": { "type": "string", "trusted": true } }
 }))?;
 let user_def: PromptDefinition = serde_json::from_value(serde_json::json!({
     "name": "user-turn",
     "role": "user",
     "body": "{{ query }}",
-    "variables": { "query": { "type": "string", "origin": "untrusted" } }
+    "variables": { "query": { "type": "string", "trusted": false } }
 }))?;
 
 let sys = Prompt::new(sys_def)?;
@@ -105,13 +105,13 @@ sys_prompt = Prompt({
     "name": "system-preamble",
     "role": "system",
     "body": "{{ instructions }}",
-    "variables": {"instructions": {"type": "string", "origin": "trusted"}},
+    "variables": {"instructions": {"type": "string", "trusted": true}},
 })
 user_prompt = Prompt({
     "name": "user-turn",
     "role": "user",
     "body": "{{ query }}",
-    "variables": {"query": {"type": "string", "origin": "untrusted"}},
+    "variables": {"query": {"type": "string", "trusted": false}},
 })
 
 comp = Composition()
@@ -170,13 +170,13 @@ const sysPrompt = new Prompt({
   name: "system-preamble",
   role: "system",
   body: "{{ instructions }}",
-  variables: { instructions: { type: "string", origin: "trusted" } },
+  variables: { instructions: { type: "string", trusted: true } },
 });
 const userPrompt = new Prompt({
   name: "user-turn",
   role: "user",
   body: "{{ query }}",
-  variables: { query: { type: "string", origin: "untrusted" } },
+  variables: { query: { type: "string", trusted: false } },
 });
 
 // fromMessages: all validation runs before any Composition state is created.

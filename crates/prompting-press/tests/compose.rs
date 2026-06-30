@@ -47,7 +47,7 @@ fn three_prompts() -> (Prompt, Prompt, Prompt) {
         "name": "greet",
         "role": "system",
         "body": "You are talking to {{ name }}.",
-        "variables": { "name": { "type": "string", "origin": "trusted" } }
+        "variables": { "name": { "type": "string", "trusted": true } }
     }"#,
     )
     .expect("valid greet prompt");
@@ -57,7 +57,7 @@ fn three_prompts() -> (Prompt, Prompt, Prompt) {
         "name": "ask",
         "role": "user",
         "body": "Tell me about {{ topic }}.",
-        "variables": { "topic": { "type": "string", "origin": "trusted" } }
+        "variables": { "topic": { "type": "string", "trusted": true } }
     }"#,
     )
     .expect("valid ask prompt");
@@ -67,7 +67,7 @@ fn three_prompts() -> (Prompt, Prompt, Prompt) {
         "name": "answer",
         "role": "assistant",
         "body": "Here is what I know: {{ answer }}",
-        "variables": { "answer": { "type": "string", "origin": "trusted" } }
+        "variables": { "answer": { "type": "string", "trusted": true } }
     }"#,
     )
     .expect("valid answer prompt");
@@ -190,7 +190,7 @@ fn fragment_by_value_into_parent() {
         "name": "fragment",
         "role": "user",
         "body": "the {{ adjective }} fox",
-        "variables": { "adjective": { "type": "string", "origin": "trusted" } }
+        "variables": { "adjective": { "type": "string", "trusted": true } }
     }"#,
     )
     .expect("valid fragment prompt");
@@ -200,7 +200,7 @@ fn fragment_by_value_into_parent() {
         "name": "parent",
         "role": "user",
         "body": "Story: {{ fragment }} jumped.",
-        "variables": { "fragment": { "type": "string", "origin": "trusted" } }
+        "variables": { "fragment": { "type": "string", "trusted": true } }
     }"#,
     )
     .expect("valid parent prompt");

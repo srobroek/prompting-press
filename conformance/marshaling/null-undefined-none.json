@@ -7,7 +7,7 @@
     "variables": {
       "explicit_null": {
         "description": "An explicitly null value.",
-        "origin": "trusted",
+        "trusted": true,
         "type": [
           "string",
           "null"
@@ -15,12 +15,12 @@
       },
       "missing": {
         "description": "A field that is absent from the input.",
-        "origin": "trusted",
+        "trusted": true,
         "type": "string"
       },
       "present": {
         "description": "A present, non-null value.",
-        "origin": "trusted",
+        "trusted": true,
         "type": "string"
       }
     }

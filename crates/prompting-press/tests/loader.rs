@@ -19,8 +19,8 @@
 use prompting_press::{ConsumerError, Prompt, PromptDefinition};
 
 /// The spec-001 valid fixtures, reused as JSON loader inputs (FR-008: the crate consumes the
-/// kernel's `PromptDefinition`, no parallel shape). These fixtures use `origin` (renamed in
-/// spec 008 Phase 1 from `provenance`).
+/// kernel's `PromptDefinition`, no parallel shape). These fixtures use `trusted` (spec 015
+/// replaced the `origin` enum with a boolean; spec 008 renamed it from `provenance`).
 const SINGLE_BODY_JSON: &str =
     include_str!("../../../schemas/jsonschema/tests/fixtures/valid/single-body.json");
 const MULTI_VARIANT_JSON: &str =
@@ -43,7 +43,7 @@ body: \"You are a helpful assistant. Today is {{ date }}.\"
 variables:
   date:
     type: string
-    origin: trusted
+    trusted: true
 ";
     let prompt = Prompt::from_yaml(yaml).expect("well-formed YAML loads");
     assert_eq!(prompt.name(), "greeting");
@@ -60,7 +60,7 @@ variables:
 #[test]
 fn yaml_and_json_parse_to_equal_definitions_single_body() {
     // The hand-written YAML below is the field-for-field equivalent of single-body.json.
-    // Uses `origin` (renamed from `provenance` in spec 008 Phase 1).
+    // Uses `trusted` (spec 015 boolean; spec 008 renamed from `provenance`).
     let yaml = "\
 name: greeting
 role: system
@@ -68,7 +68,7 @@ body: \"You are a helpful assistant. Today is {{date}}.\"
 variables:
   date:
     type: string
-    origin: trusted
+    trusted: true
     description: \"The current date injected by the server.\"
 output_model: GreetingOutput
 metadata:
@@ -85,7 +85,7 @@ metadata:
         "variables": {
             "date": {
                 "type": "string",
-                "origin": "trusted",
+                "trusted": true,
                 "description": "The current date injected by the server."
             }
         },
@@ -117,7 +117,7 @@ metadata:
 /// `PromptDefinition`s.
 #[test]
 fn yaml_and_json_parse_to_equal_definitions_multi_variant() {
-    // Field-for-field equivalent of multi-variant.json. Uses `origin` for variable tags.
+    // Field-for-field equivalent of multi-variant.json. Uses `trusted` for variable tags.
     let equiv_def: PromptDefinition = serde_json::from_value(serde_json::json!({
         "name": "content-summariser",
         "role": "user",
@@ -125,17 +125,17 @@ fn yaml_and_json_parse_to_equal_definitions_multi_variant() {
         "variables": {
             "article": {
                 "type": "string",
-                "origin": "untrusted",
+                "trusted": false,
                 "description": "Raw article text supplied by the end user."
             },
             "max_words": {
                 "type": "integer",
-                "origin": "trusted",
+                "trusted": true,
                 "description": "Maximum word count for the summary."
             },
             "style": {
                 "type": "string",
-                "origin": "trusted",
+                "trusted": true,
                 "description": "Output style preference."
             }
         },

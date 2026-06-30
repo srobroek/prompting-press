@@ -3,6 +3,63 @@
 Records constitution amendments per the Governance section's amendment policy (written rationale +
 version bump + propagation). Newest first.
 
+## 2026-06-30 — v1.2.0 → v2.0.0 (MAJOR): guard delimits untrusted values in the body
+
+**Change**: The opt-in guard, when enabled, now **delimits untrusted values directly in the rendered
+body** — wrapping each untrusted interpolation in fixed `<untrusted>…</untrusted>` tags with `<`/`>`/`&`
+inside the value entity-escaped — instead of leaving the body byte-identical to a plain render and only
+naming the fields in a separate advisory string. The advisory text now references those markers so the
+downstream model can locate every untrusted span. Two coupled breaking changes land with it: the
+per-variable `origin` enum (`trusted|untrusted|external`) collapses to a **`trusted` boolean**, and the
+caller-supplied **custom guard template (spec 002 FR-024) is removed** (the advisory is fixed and
+references the markers).
+
+**Why (rationale)**: a guard that names untrusted fields but leaves the body unchanged is incomplete —
+a model told "treat `query` as data" cannot locate where `query`'s value appears once the key name is
+gone and only the substituted value remains. Wrapping untrusted spans with explicit delimiters is the
+industry-standard injection defense (Anthropic, OpenAI, OWASP LLM guidance); it gives the model both a
+policy statement and a textual locator. Fixed tags + entity-escaping (not random nonces) keep the output
+deterministic, preserving cross-binding parity (Principle I) and `render_hash` determinism.
+
+**Constitution clauses amended**:
+- **Principle III (Minimal Boundary)** — clarified that inserting structural delimiter markers around an
+  untrusted value's interpolation is IN-boundary (still rendered-text + provenance; no I/O / LLM / request
+  assembly). Non-mutation doctrine narrowed: VALUE CONTENT is never altered (spec 002 FR-025 preserved —
+  no sanitize/strip/semantic change; entity-escaping is reversible structure), but the guard-on body is no
+  longer byte-identical to a plain render.
+- **Principle V (Provenance)** — `render_hash = SHA256(rendered output)` preserved in form; the rendered
+  output now depends on the guard mode (guard-on ⇒ delimited body; guard-off ⇒ plain body). Both
+  deterministic; a trace records which mode produced a hash. `template_hash` unaffected.
+
+**Spec 002 FR/SC redefined** (downstream of the amendment, applied in spec 015):
+- **FR-022** — "MUST NOT concatenate the guard into the body … body identical to a plain render": the
+  guard-OFF half is preserved; the guard-ON half is replaced — the body now carries delimiter markup.
+- **FR-023** — "producing the guard MUST NOT modify the rendered body content": narrowed — structural
+  marker insertion is permitted; value content remains unaltered.
+- **FR-024** — caller-overridable guard template: **removed** (fixed advisory referencing the markers).
+- **SC-005** — split: guard-off body byte-identity preserved; guard-on body-identity replaced by the new
+  SC-D01/SC-D04 (untrusted spans wrapped; guard-off unchanged).
+- **FR-025** — PRESERVED: untrusted values are never sanitized/stripped/semantically mutated.
+
+**Roadmap decision amended**: **C-09** ("var provenance is metadata + lint + opt-in guard, never silent
+mutation") — the guard now also inserts structural delimiters into the body when opted in, while the
+no-silent-value-mutation core is reaffirmed.
+
+**Migration**: callers who enabled the guard and relied on the body being byte-identical to a plain
+render MUST update — the guard-on body now contains `<untrusted>` markup and `render_hash` differs from
+the guard-off render. The guard-OFF body invariant is fully preserved (no markup, no escaping). Callers
+using a custom guard template must drop it (the advisory is now fixed). Schema consumers must migrate
+`origin: trusted|untrusted|external` → `trusted: true|false`.
+
+**Propagation**: spec 015 implements the kernel pre-pass, the schema change (+ regenerated Rust/Pydantic/TS
+shapes), the binding updates, and the guard-guide rewrite (written as current behavior, landing in the
+same PR). CLAUDE.md carries an APM-rendered copy of this constitution that is independently stale (still
+v1.0.0) — regenerate via APM; tracked separately from this amendment.
+
+**Note**: Authored directly (not via `/speckit.constitution`, which is not installed as an extension)
+under explicit user direction in an unattended session — the same precedent as the v1.1.0/v1.2.0
+amendments. The change is faithful to the amendment policy (rationale + MAJOR bump + propagation recorded).
+
 ## 2026-06-28 — v1.1.0 → v1.2.0 (MINOR): Principle VI gains construction-time validator binding + per-variable `validation_required`
 
 **Change**: Added three bullets to **Principle VI (Per-Language Idiom Over Forced Uniformity)**: (1) validators

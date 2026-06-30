@@ -173,7 +173,7 @@ const NAPI_ADDON_DOCS = new Map([
 			"Read-only class surfaced 1:1 from the Rust engine. " +
 			"Carries a `passed()` boolean and a `findings` array. " +
 			"The only live finding kind is `\"untrusted_without_guard\"` — " +
-			"a variable whose `origin` is untrusted or external but whose " +
+			"a variable declared `trusted: false` but whose " +
 			"prompt metadata declares no guard key. " +
 			"Hard construction invariants (agreement, parse, reserved names) " +
 			"are enforced at `new Prompt()` time and are never returned here.",

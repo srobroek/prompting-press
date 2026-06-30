@@ -5,7 +5,7 @@
   "variables": {
     "items": {
       "type": "array",
-      "origin": "trusted",
+      "trusted": true,
       "description": "List of items to render."
     }
   }

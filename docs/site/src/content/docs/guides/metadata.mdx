@@ -31,7 +31,7 @@ body: "Summarise {{ article }}."
 variables:
   article:
     type: string
-    origin: untrusted
+    trusted: false
 metadata:                 # prompt-level: anything to carry
   model_hint: claude-sonnet-4-6
   max_tokens: 512

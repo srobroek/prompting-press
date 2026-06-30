@@ -64,7 +64,7 @@ const EXCLUDED_FIXTURES: [&str; 6] = [
 fn no_guard() -> GuardConfig {
     GuardConfig {
         enabled: false,
-        template: None,
+        ..Default::default()
     }
 }
 
@@ -188,6 +188,7 @@ fn classification_table_diagnostic() {
                     KernelError::UnknownVariant { .. } => "UnknownVariant",
                     KernelError::UndefinedVariable { .. } => "UndefinedVariable",
                     KernelError::Render { .. } => "Render",
+                    KernelError::GuardAdvisoryInvalid { .. } => "GuardAdvisoryInvalid",
                 };
                 println!("{stem}: KernelError::{variant} -- {e}");
             }
