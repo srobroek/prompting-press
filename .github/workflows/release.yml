@@ -51,6 +51,59 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
+      # ---------------------------------------------------------------------
+      # Sync Cargo.lock on the release PR.
+      #
+      # release-please bumps each crate's Cargo.toml version but does NOT update
+      # the shared root Cargo.lock, so `cargo build --workspace --locked` (ci.yml)
+      # fails on the release PR ("cannot update the lock file because --locked was
+      # passed"). The cargo-workspace plugin — release-please's built-in lockfile
+      # updater — was removed earlier (googleapis/release-please#2111: it can't read
+      # the workspace setup), so we refresh the lock ourselves: when a release PR is
+      # open, check it out, run `cargo update --workspace` (member-version refresh
+      # only, no dependency bumps), and push the lock back so the PR is build-ready.
+      # ---------------------------------------------------------------------
+      # Checkout for the lock-sync step below (the release-please action itself
+      # needs no checkout). Gated on a release PR existing. No toolchain-install
+      # step is needed: ubuntu-latest ships rustup, and rust-toolchain.toml
+      # (channel = "1.95.0") makes a bare `cargo` auto-use the pinned version, so
+      # the lock is refreshed by the SAME cargo that owns it — no mise, no drift.
+      - name: Checkout (for lock sync)
+        if: ${{ steps.release.outputs.pr }}
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync Cargo.lock on the release PR
+        if: ${{ steps.release.outputs.pr }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RP_PR: ${{ steps.release.outputs.pr }}
+        run: |
+          set -euo pipefail
+          branch="$(printf '%s' "$RP_PR" | node -e 'process.stdin.on("data",d=>{try{console.log(JSON.parse(d).headBranchName)}catch{process.exit(0)}})')"
+          if [ -z "${branch:-}" ]; then
+            echo "No release-PR branch resolved; nothing to sync."
+            exit 0
+          fi
+          echo "Release PR branch: $branch"
+          git fetch origin "$branch"
+          git checkout "$branch"
+          # Refresh only the workspace member versions in the lock (no -p, no dep
+          # bumps). Bare `cargo` resolves to the rust-toolchain.toml-pinned 1.95.0
+          # via the runner's rustup.
+          cargo update --workspace
+          if git diff --quiet -- Cargo.lock; then
+            echo "Cargo.lock already in sync."
+            exit 0
+          fi
+          git config user.name "prompting-press-release[bot]"
+          git config user.email "release-bot@prompting-press.github.io"
+          git add Cargo.lock
+          git commit -m "chore: sync Cargo.lock to the released workspace versions"
+          git push origin "$branch"
+
   # ---------------------------------------------------------------------------
   # docs-snapshot — on a real release, freeze the docs for the released minor
   # into a versioned tree and commit it back to main (spec 012, T014).
