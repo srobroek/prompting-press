@@ -13,6 +13,8 @@ This is the Python distribution: a [Pydantic](https://docs.pydantic.dev)-friendl
 
 ```bash
 pip install prompting-press
+uv add prompting-press          # in a uv project
+uv pip install prompting-press  # uv's pip interface
 ```
 
 ## Quick start

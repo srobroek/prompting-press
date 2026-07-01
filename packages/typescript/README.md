@@ -11,7 +11,9 @@ This is the TypeScript distribution: a [Zod](https://zod.dev) facade over a
 ## Install
 
 ```bash
-npm i prompting-press zod   # or: pnpm add prompting-press zod
+npm install prompting-press zod
+pnpm add prompting-press zod
+bun add prompting-press zod
 ```
 
 `zod` is a peer dependency (bring your own).
