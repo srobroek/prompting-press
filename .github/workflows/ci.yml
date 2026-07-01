@@ -29,7 +29,91 @@ permissions:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # gates — OS-independent structural-invariant checks (single runner)
+  # pr-gate — FAST, no-compile checks (single runner). Everything here reads
+  # manifests / lockfiles / dependency metadata and NEVER invokes `cargo build`,
+  # a maturin wheel build, or a napi addon build. Split out from `gates` so a PR
+  # fails early (usually under a minute) on a license, advisory, FFI-isolation,
+  # or version-pinning regression without waiting on the toolchain-heavy freshness
+  # checks or the build/test/conformance jobs.
+  #
+  # Gate logic lives in moon tasks (locally runnable via `mise exec -- moon run`).
+  # Cheap checks that moved here from `gates`: floating-versions, ffi, and the
+  # three advisory scans. New here: the license trio + third-party attribution.
+  #
+  # NOT here (kept in `gates`, they need compilation/codegen toolchains): the
+  # schema + codegen freshness checks (rustfmt + the three codegen toolchains) and
+  # the API-ref freshness gate (builds the node addon + runs nightly rustdoc).
+  # ---------------------------------------------------------------------------
+  pr-gate:
+    name: 'PR gate — cheap checks (ubuntu)'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          fetch-depth: 0  # let moon resolve the base branch on pull_request events
+
+      - name: Install mise toolchain
+        uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac  # v2
+        with:
+          experimental: true
+
+      # cargo-about (third-party attribution) and `cargo tree` (FFI gate) harvest
+      # each crate's extracted source from the registry cache; `cargo fetch
+      # --locked` populates it WITHOUT compiling. cargo-deny's license check reads
+      # only Cargo.lock, so it needs nothing extra.
+      - name: 'Fetch crate sources (no build)'
+        run: mise exec -- cargo fetch --locked
+
+      # The Node advisory + Node license gates + the biome lint read the installed
+      # node_modules / pnpm-lock. Frozen + hermetic; no addon build.
+      - name: 'Install TS deps (pnpm)'
+        run: mise exec -- pnpm -C packages/typescript install --frozen-lockfile
+
+      # rustfmt is needed by the `cargo fmt --check` gate below. mise-action caches
+      # ~/.local/share/mise but NOT ~/.rustup, so on a cache hit the component can
+      # be absent even though rust is "installed". `rustup component add` is
+      # idempotent and targets the mise-active toolchain (mirrors the gates job).
+      - name: 'Ensure rustfmt component'
+        run: mise exec -- rustup component add rustfmt
+
+      # --- structural invariants (no compile) ---
+      - name: 'Floating-version lint (SEC-003)'
+        run: mise exec -- moon run ci:check-floating-versions
+      - name: 'FFI isolation (Principle II / C-02)'
+        run: mise exec -- moon run ci:check-ffi
+
+      # --- lint / format (static analysis, no compile) ---
+      - name: 'Lint: Rust (cargo fmt --check)'
+        run: mise exec -- moon run ci:check-fmt
+      - name: 'Lint: Python (ruff)'
+        run: mise exec -- moon run ci:check-lint-py
+      - name: 'Lint: Node/TS (biome)'
+        run: mise exec -- moon run prompting-press-typescript:lint
+
+      # --- license policy: Apache-2.0 compatibility (one gate per ecosystem) ---
+      - name: 'License gate: Rust (cargo-deny)'
+        run: mise exec -- moon run ci:check-licenses
+      - name: 'License gate: Python (pip-licenses)'
+        run: mise exec -- moon run ci:check-licenses-py
+      - name: 'License gate: Node (package.json scan)'
+        run: mise exec -- moon run ci:check-licenses-node
+      - name: 'Third-party attribution freshness (cargo-about)'
+        run: mise exec -- moon run ci:check-third-party-licenses
+
+      # --- supply-chain advisories (known CVEs; lockfile scans) ---
+      - name: 'Advisory scan: Rust (cargo-deny)'
+        run: mise exec -- moon run ci:check-advisories
+      - name: 'Advisory scan: Python (pip-audit)'
+        run: mise exec -- moon run ci:check-advisories-py
+      - name: 'Advisory scan: Node (pnpm audit)'
+        run: mise exec -- moon run ci:check-advisories-node
+
+  # ---------------------------------------------------------------------------
+  # gates — OS-independent freshness/determinism checks that DO need a toolchain
+  # (rustfmt + the three codegen chains; nightly rustdoc + the built node addon
+  # for API refs). The cheap no-compile checks live in `pr-gate` above.
   # ---------------------------------------------------------------------------
   gates:
     name: 'Gates (ubuntu)'
@@ -74,13 +158,10 @@ jobs:
       - name: 'Install Python codegen deps (uv)'
         run: mise exec -- uv sync --project packages/python --group codegen --no-install-project --frozen
 
-      # T030a — Floating-version lint (SEC-003)
-      - name: 'T030a: Floating-version lint'
-        run: mise exec -- moon run ci:check-floating-versions
-
-      # T028 — FFI-isolation gate (FR-018/020; Principle II / C-02)
-      - name: 'T028: FFI isolation'
-        run: mise exec -- moon run ci:check-ffi
+      # NOTE: the floating-version lint, FFI-isolation gate, and the three
+      # advisory scans MOVED to the `pr-gate` job (they need no compilation, so
+      # they belong in the fast early-fail gate). This job keeps only the
+      # freshness/determinism checks that require a toolchain.
 
       # T030 — Schema meta-validation (FR-008)
       - name: 'T030: Schema check'
@@ -116,22 +197,6 @@ jobs:
 
       - name: 'T015: API-ref freshness (spec 011)'
         run: mise exec -- bash docs/site/scripts/check-api-refs-fresh.sh
-
-      # T036 — Advisory scan: known CVEs in workspace deps (SEC-001)
-      # cargo-deny reads Cargo.lock + deny.toml; does NOT require cargo build.
-      # Gate owner also re-confirms minijinja undeclared_variables API on each bump (roadmap Q3).
-      - name: 'T036: Advisory scan'
-        run: mise exec -- moon run ci:check-advisories
-
-      # T028 — Python advisory scan: known CVEs in Python deps (FR-025, SC-011, SEC-101)
-      # pip-audit reads packages/python/uv.lock via uv export; does NOT require building the extension.
-      - name: 'T028: Python advisory scan'
-        run: mise exec -- moon run ci:check-advisories-py
-
-      # T029 — Node advisory scan: known CVEs in npm deps (FR-025, SC-011, SEC-201)
-      # pnpm audit reads packages/typescript/pnpm-lock.yaml; does NOT require building the addon.
-      - name: 'T029: Node advisory scan'
-        run: mise exec -- moon run ci:check-advisories-node
 
   # ---------------------------------------------------------------------------
   # test-python — spec 004 (review I1): build the prompting-press-py extension

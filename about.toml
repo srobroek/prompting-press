@@ -1,0 +1,29 @@
+# cargo-about configuration — third-party license attribution for the BUNDLED
+# native artifacts (the Python wheel and the npm .node addon statically link the
+# Rust dependency graph, so their licenses must travel with the shipped binary).
+#
+# Generated files (guarded by ci:check-third-party-licenses):
+#   packages/python/THIRD-PARTY-LICENSES.md      (-> prompting-press-py graph)
+#   packages/typescript/THIRD-PARTY-LICENSES.md  (-> prompting-press-node graph)
+#
+# `accepted` MUST stay in sync with deny.toml's [licenses].allow — same policy,
+# two tools: deny.toml FAILS the build on a disallowed license; cargo-about
+# renders the notices for the allowed ones. Order matters: for a multi-license
+# (`OR`) crate cargo-about elects the FIRST accepted license listed here, so
+# Apache-2.0 is first to standardise the elected arm.
+accepted = [
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "MIT",
+  "ISC",
+  "Unicode-3.0",
+]
+
+# Dev-only crates (proptest, arbitrary, …) are not linked into the shipped
+# wheel/addon, so keep them out of the attribution set.
+ignore-dev-dependencies = true
+
+# cargo-about ships curated per-crate license-text workarounds for crates whose
+# license files are non-standard or absent from the published tarball. Enable the
+# ones relevant to our graph; harmless if a listed crate is not present.
+workarounds = ["ring"]

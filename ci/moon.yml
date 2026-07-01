@@ -72,3 +72,55 @@ tasks:
     options:
       runFromWorkspaceRoot: true
       cache: false
+
+  # -------------------------------------------------------------------------
+  # License-policy gates (Apache-2.0 release compatibility). One per ecosystem,
+  # mirroring the check-advisories trio. All are CHEAP (no build) → PR gate.
+  # -------------------------------------------------------------------------
+  check-licenses:
+    description: 'License gate (Rust) — cargo deny check licenses asserts every shipped crate + transitive dep is Apache-2.0-compatible (deny.toml [licenses] allow-list). No build, no network.'
+    command: 'bash scripts/ci/check-licenses.sh'
+    options:
+      runFromWorkspaceRoot: true
+      cache: false
+
+  check-licenses-py:
+    description: 'License gate (Python) — pip-licenses asserts the wheel runtime deps (pydantic chain, uv.lock, --no-dev) are Apache-2.0-compatible. Mirrors ci:check-licenses.'
+    command: 'bash scripts/ci/check-licenses-py.sh'
+    options:
+      runFromWorkspaceRoot: true
+      cache: false
+
+  check-licenses-node:
+    description: 'License gate (Node) — offline package.json scan asserts every installed npm package is Apache-2.0-compatible. Mirrors ci:check-licenses.'
+    command: 'bash scripts/ci/check-licenses-node.sh'
+    options:
+      runFromWorkspaceRoot: true
+      cache: false
+
+  check-third-party-licenses:
+    description: 'Third-party attribution freshness gate — regenerates the bundled packages/*/THIRD-PARTY-LICENSES.md via cargo-about and fails if git diff is dirty (the wheel + .node addon statically link the Rust graph, so their notices must be shipped and current).'
+    command: 'bash scripts/ci/check-third-party-licenses.sh'
+    options:
+      runFromWorkspaceRoot: true
+      cache: false
+
+  # -------------------------------------------------------------------------
+  # Lint / format gates. All CHEAP (static analysis, no compile) → PR gate.
+  # One per ecosystem: Rust (rustfmt), Python (ruff). The Node/TS biome gate is
+  # the pre-existing `prompting-press-typescript:lint` moon task (pnpm biome
+  # check), which the pr-gate job also runs.
+  # -------------------------------------------------------------------------
+  check-fmt:
+    description: 'Rust formatting gate — `cargo fmt --all --check`. Pure static check, no compilation. Requires the rustfmt component (mise.toml pins it).'
+    command: 'cargo fmt --all --check'
+    options:
+      runFromWorkspaceRoot: true
+      cache: false
+
+  check-lint-py:
+    description: 'Python lint + format gate — ruff check + ruff format --check on packages/python/python (pinned ruff==0.15.12, matching the codegen dep-group). No compile.'
+    command: 'bash scripts/ci/check-lint-py.sh'
+    options:
+      runFromWorkspaceRoot: true
+      cache: false

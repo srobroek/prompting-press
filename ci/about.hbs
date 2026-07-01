@@ -1,0 +1,32 @@
+<!--
+  cargo-about handlebars template for THIRD-PARTY-LICENSES.md.
+  GENERATED FILE CONTRACT: the output of `cargo about generate` with this template
+  is committed and guarded by ci:check-third-party-licenses (regenerate + git diff).
+  Do NOT hand-edit the generated THIRD-PARTY-LICENSES.md files — edit this template
+  or about.toml and regenerate via scripts/ci/gen-third-party-licenses.sh.
+-->
+# Third-Party Licenses
+
+This artifact statically links the following third-party Rust crates. Their
+copyright and license notices are reproduced below to satisfy the attribution
+requirements of the MIT, BSD, ISC, Unicode, and Apache-2.0 licenses.
+
+This file is **generated** by [`cargo-about`](https://github.com/EmbarkStudios/cargo-about)
+from the committed `Cargo.lock`; do not edit it by hand. See the repository
+`NOTICE` and root `LICENSE` (Apache-2.0) for the project's own terms.
+
+Licenses in this artifact: {{#each overview}}{{name}} ({{count}}){{#unless @last}}, {{/unless}}{{/each}}.
+
+{{#each licenses}}
+## {{name}}
+
+Used by:
+{{#each used_by}}
+- **{{crate.name}} {{crate.version}}**{{#if crate.repository}} — <{{crate.repository}}>{{/if}}
+{{/each}}
+
+```
+{{{text}}}
+```
+
+{{/each}}

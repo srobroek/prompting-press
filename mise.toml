@@ -26,7 +26,17 @@ jq = "1.8.1"
 "cargo:cargo-typify" = { version = "0.7.0", locked = true }  # Rust JSON-Schema -> serde structs (T022/T025); --locked pins transitive deps to cargo-typify's shipped Cargo.lock
 
 # --- Security toolchain (T036 / SEC-001) ---
-"cargo:cargo-deny" = { version = "0.19.9", locked = true }   # Advisory/license/bans scan; drives ci:check-advisories gate
+"cargo:cargo-deny" = { version = "0.19.9", locked = true }   # Advisory scan (ci:check-advisories) + license gate (ci:check-licenses); reads deny.toml
+# License-attribution generator: renders the bundled THIRD-PARTY-LICENSES.md files
+# for the Python wheel + npm addon (Rust graph is statically linked). Drives
+# ci:check-third-party-licenses. --locked pins its own transitive deps.
+# `features = ["cli"]` is REQUIRED: cargo-about >=0.8 gates its binary behind the
+# `cli` feature, so a bare install builds no `cargo-about` binary.
+"cargo:cargo-about" = { version = "0.9.1", locked = true, features = ["cli"] }
+# NOTE (pip-audit / pip-licenses): the Python advisory + license gates pin their
+# tools inline via `uv run --with pip-audit==2.9.0` / `--with pip-licenses==5.5.5`
+# (exact versions, invisible to the SEC-003 floating-version gate). They are NOT
+# declared here because uv resolves them per-invocation into an ephemeral env.
 # datamodel-code-generator is managed via uv (packages/python/uv.lock, dependency-group codegen) — not pipx.
 # maturin is declared as a build-system requires in packages/python/pyproject.toml (>=1.14,<2.0);
 # the wheel build (spec 004/007) will resolve it via uv/build-system at that time.
