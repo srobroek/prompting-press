@@ -107,18 +107,34 @@ jobs:
           echo "Release PR branch: $branch"
           git fetch origin "$branch"
           git checkout "$branch"
-          # Refresh only the workspace member versions in the lock (no -p, no dep
-          # bumps). Bare `cargo` resolves to the rust-toolchain.toml-pinned 1.95.0
-          # via the runner's rustup.
+
+          # Bump the intra-workspace dependency REQUIREMENT to the released version
+          # before touching the lock. release-please bumps each crate's [package]
+          # version (core -> 0.2.0) but does NOT rewrite the `version` field inside a
+          # `{ path, version }` dependency table, so the consumer keeps requiring
+          # `prompting-press-core = "0.1.0"` (^0.1.0). `cargo update --workspace` then
+          # fails to resolve ("failed to select a version for the requirement
+          # prompting-press-core = ^0.1.0"). Derive the release version from the
+          # manifest (linked-versions => every package shares it) and rewrite the
+          # requirement to match, so the lock can refresh and `cargo publish` sees a
+          # valid intra-workspace version later.
+          VER="$(node -e "const m=require('./.release-please-manifest.json');console.log(Object.values(m)[0])")"
+          echo "Release version: $VER — aligning intra-workspace dep requirements"
+          # Only the consumer crate declares a path+version dep on the kernel.
+          perl -0777 -i -pe "s/(prompting-press-core = \{ path = \"\.\.\/prompting-press-core\", version = \")[0-9]+\.[0-9]+\.[0-9]+(\" \})/\${1}${VER}\${2}/" \
+            crates/prompting-press/Cargo.toml
+
+          # Refresh the workspace member versions in the lock. Bare `cargo` resolves
+          # to the rust-toolchain.toml-pinned 1.95.0 via the runner's rustup.
           cargo update --workspace
-          if git diff --quiet -- Cargo.lock; then
-            echo "Cargo.lock already in sync."
+          if git diff --quiet -- Cargo.lock crates/prompting-press/Cargo.toml; then
+            echo "Already in sync."
             exit 0
           fi
           git config user.name "prompting-press-release[bot]"
           git config user.email "release-bot@prompting-press.github.io"
-          git add Cargo.lock
-          git commit -m "chore: sync Cargo.lock to the released workspace versions"
+          git add Cargo.lock crates/prompting-press/Cargo.toml
+          git commit -m "chore: sync Cargo.lock + intra-workspace dep requirement to $VER"
           git push origin "$branch"
 
   # ---------------------------------------------------------------------------
