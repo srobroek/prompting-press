@@ -20,10 +20,13 @@ on:
     # Weekly full scan (Mondays 07:00 UTC) so advisories surface even without a push.
     - cron: "0 7 * * 1"
 
-# Cancel superseded runs on the same ref.
+# Cancel superseded runs on the same ref — EXCEPT in the merge queue, where the
+# same ephemeral queue branch can be re-triggered and a cancelled run would fail
+# the required Analyze (*) checks and eject the PR (same hazard fixed in ci.yml).
+# For merge_group: unique group per run + no cancellation; otherwise ref-keyed.
 concurrency:
-  group: codeql-${{ github.ref }}
-  cancel-in-progress: true
+  group: codeql-${{ github.ref }}-${{ github.event_name == 'merge_group' && github.run_id || '' }}
+  cancel-in-progress: ${{ github.event_name != 'merge_group' }}
 
 jobs:
   analyze:

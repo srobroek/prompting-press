@@ -37,11 +37,16 @@ permissions:
   contents: read
 
 # Cancel superseded in-progress runs on the same ref (e.g. rapid PR re-pushes).
-# Each merge-queue entry gets a unique ref (refs/gh-readonly-queue/…), so queued
-# entries never cancel one another — only redundant PR/branch runs are culled.
+# EXCEPTION: merge_group. The queue re-triggers CI on the SAME ephemeral queue
+# branch (refs/heads/gh-readonly-queue/main/pr-N-…), so a ref-keyed group with
+# cancel-in-progress cancelled the queue's own CI run — a `cancelled` run is not
+# `success`, so the required checks never all reported green at once and the queue
+# ejected the PR (observed on #231). For merge_group we therefore make the group
+# UNIQUE per run (append run_id) so nothing cancels it; for push/pull_request the
+# ref-keyed group + cancellation still culls redundant re-pushes.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'merge_group' && github.run_id || '' }}
+  cancel-in-progress: ${{ github.event_name != 'merge_group' }}
 
 jobs:
   # ---------------------------------------------------------------------------
