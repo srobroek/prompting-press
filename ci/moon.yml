@@ -124,3 +124,10 @@ tasks:
     options:
       runFromWorkspaceRoot: true
       cache: false
+
+  check-clippy:
+    description: 'Rust lint gate — cargo clippy --workspace --all-targets -- -D warnings. COMPILES (not a pr-gate cheap check); needs Python 3.12 on the runner for the pyo3 abi3-py312 crate. Default features only (NOT --all-features: that enables pyo3/extension-module, which breaks the non-extension link that cargo build/test uses).'
+    command: 'cargo clippy --workspace --all-targets --locked -- -D warnings'
+    options:
+      runFromWorkspaceRoot: true
+      cache: false

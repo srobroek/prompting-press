@@ -21,11 +21,27 @@
 on:
   push:
   pull_request:
+  # merge_group: run the SAME required checks inside GitHub's merge queue, so a
+  # PR is tested against the prospective post-merge state of `main` (with any
+  # other queued PRs) BEFORE it lands. This is the pre-merge gate that catches
+  # "each PR was green but the combination is red" — lockfile drift, dep
+  # interactions, stale generated files. Requires enabling the merge queue +
+  # marking these jobs as required checks in `main`'s branch protection (a repo
+  # Settings change; see docs/ci.md). Job names are identical across pull_request
+  # and merge_group, so the queue's check-name matching is satisfied.
+  merge_group:
 
 # Least-privilege token: read-only repository access is sufficient for all gates
 # and build steps. No deployment or package publish occurs in this workflow.
 permissions:
   contents: read
+
+# Cancel superseded in-progress runs on the same ref (e.g. rapid PR re-pushes).
+# Each merge-queue entry gets a unique ref (refs/gh-readonly-queue/…), so queued
+# entries never cancel one another — only redundant PR/branch runs are culled.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -47,6 +63,7 @@ jobs:
   pr-gate:
     name: 'PR gate — cheap checks (ubuntu)'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -58,6 +75,19 @@ jobs:
         uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac  # v2
         with:
           experimental: true
+
+      # Cache the pnpm store + uv cache across runs (keyed on the lockfiles). A
+      # missing path or key-miss is a harmless no-op restore, so it can never
+      # break a job — it only speeds up the pnpm/uv installs below.
+      - name: 'Cache pnpm + uv stores'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.local/share/pnpm/store
+            ~/.cache/uv
+          key: pnpm-uv-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml', '**/uv.lock') }}
+          restore-keys: |
+            pnpm-uv-${{ runner.os }}-
 
       # cargo-about (third-party attribution) and `cargo tree` (FFI gate) harvest
       # each crate's extracted source from the registry cache; `cargo fetch
@@ -118,6 +148,7 @@ jobs:
   gates:
     name: 'Gates (ubuntu)'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -135,6 +166,16 @@ jobs:
         with:
           experimental: true
 
+      - name: 'Cache pnpm + uv stores'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.local/share/pnpm/store
+            ~/.cache/uv
+          key: pnpm-uv-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml', '**/uv.lock') }}
+          restore-keys: |
+            pnpm-uv-${{ runner.os }}-
+
       # Ensure the rust toolchain's components (rustfmt/clippy) are present.
       # mise-action caches ~/.local/share/mise but NOT ~/.rustup, where rustup
       # stores the toolchain + components. On a cache hit, `mise install`
@@ -146,6 +187,17 @@ jobs:
       # the mise.toml `components` pin covers the cache-miss / fresh-install path.
       - name: 'Ensure rust components (rustfmt/clippy)'
         run: mise exec -- rustup component add rustfmt clippy
+
+      # Expose the mise-managed cargo/rustc on PATH so Swatinem/rust-cache (a JS
+      # action that shells out to `rustc -vV` for its cache key) can find them
+      # without a `mise exec` prefix. `mise which cargo` resolves the active shim.
+      - name: 'Expose Rust on PATH (for rust-cache)'
+        shell: bash
+        run: dirname "$(mise which cargo)" >> "$GITHUB_PATH"
+      - name: 'Rust build cache'
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        with:
+          shared-key: gates
 
       # Install TypeScript workspace deps so json-schema-to-typescript is present
       # when schemas:codegen-check regenerates the TS shape. On a cold checkout
@@ -208,9 +260,53 @@ jobs:
   # covered per-OS by the `build` matrix); a venv build on every OS would be
   # costly for no extra coverage of the test logic.
   # ---------------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # clippy — Rust lint gate (`cargo clippy … -D warnings`). It COMPILES, so it is
+  # its own job rather than a step in the no-compile pr-gate. Needs Python 3.12 on
+  # the runner because prompting-press-py is pyo3 `abi3-py312` (pyo3's build script
+  # refuses an interpreter older than the abi3 floor) — mirrors the `build` job.
+  # ---------------------------------------------------------------------------
+  clippy:
+    name: 'Clippy (ubuntu)'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          fetch-depth: 0  # let moon resolve the base branch on pull_request events
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: '3.12'
+
+      - name: Install mise toolchain
+        uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac  # v2
+        with:
+          experimental: true
+
+      - name: 'Ensure clippy component'
+        run: mise exec -- rustup component add clippy
+
+      - name: 'Expose Rust on PATH (for rust-cache)'
+        shell: bash
+        run: dirname "$(mise which cargo)" >> "$GITHUB_PATH"
+      - name: 'Rust build cache'
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        with:
+          shared-key: clippy
+
+      - name: 'Clippy (-D warnings)'
+        run: mise exec -- moon run ci:check-clippy
+        env:
+          CARGO_TERM_COLOR: always
+
   test-python:
     name: 'Python binding tests (ubuntu)'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -222,6 +318,23 @@ jobs:
         uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac  # v2
         with:
           experimental: true
+
+      - name: 'Expose Rust on PATH (for rust-cache)'
+        shell: bash
+        run: dirname "$(mise which cargo)" >> "$GITHUB_PATH"
+      - name: 'Rust build cache'
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        with:
+          shared-key: test-python
+      - name: 'Cache pnpm + uv stores'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.local/share/pnpm/store
+            ~/.cache/uv
+          key: pnpm-uv-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml', '**/uv.lock') }}
+          restore-keys: |
+            pnpm-uv-${{ runner.os }}-
 
       # rustfmt/clippy not needed here; the test gate compiles + runs the crate
       # and builds the extension via uvx maturin into a hermetic uv venv.
@@ -243,6 +356,7 @@ jobs:
   test-node:
     name: 'Node binding tests (ubuntu)'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -255,10 +369,28 @@ jobs:
         with:
           experimental: true
 
+      - name: 'Cache pnpm + uv stores'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.local/share/pnpm/store
+            ~/.cache/uv
+          key: pnpm-uv-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml', '**/uv.lock') }}
+          restore-keys: |
+            pnpm-uv-${{ runner.os }}-
+
       # Install the TS workspace deps (zod runtime + napi-cli/tsc) so the addon build
       # + node:test run hermetically against a pinned, frozen lockfile.
       - name: 'Install TS deps (pnpm)'
         run: mise exec -- pnpm -C packages/typescript install --frozen-lockfile
+
+      - name: 'Expose Rust on PATH (for rust-cache)'
+        shell: bash
+        run: dirname "$(mise which cargo)" >> "$GITHUB_PATH"
+      - name: 'Rust build cache'
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        with:
+          shared-key: test-node
 
       - name: 'Spec 005 / I1: build addon + run node:test & cargo test'
         run: mise exec -- moon run ci:test-node
@@ -278,6 +410,7 @@ jobs:
   conformance:
     name: 'Conformance corpus gate (ubuntu)'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -300,11 +433,29 @@ jobs:
         with:
           experimental: true
 
+      - name: 'Cache pnpm + uv stores'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.local/share/pnpm/store
+            ~/.cache/uv
+          key: pnpm-uv-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml', '**/uv.lock') }}
+          restore-keys: |
+            pnpm-uv-${{ runner.os }}-
+
       # Install the TS workspace deps (zod runtime + napi-cli/tsc) so the addon
       # build in step 3 of conformance.sh runs hermetically against the pinned
       # frozen lockfile.
       - name: 'Install TS deps (pnpm)'
         run: mise exec -- pnpm -C packages/typescript install --frozen-lockfile
+
+      - name: 'Expose Rust on PATH (for rust-cache)'
+        shell: bash
+        run: dirname "$(mise which cargo)" >> "$GITHUB_PATH"
+      - name: 'Rust build cache'
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        with:
+          shared-key: conformance
 
       - name: 'Spec 006: conformance corpus gate (all three legs)'
         run: mise exec -- moon run ci:conformance
@@ -317,6 +468,7 @@ jobs:
   build:
     name: 'Build (${{ matrix.os }})'
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -347,6 +499,15 @@ jobs:
         with:
           experimental: true
 
+      - name: 'Expose Rust on PATH (for rust-cache)'
+        shell: bash
+        run: dirname "$(mise which cargo)" >> "$GITHUB_PATH"
+      - name: 'Rust build cache'
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        with:
+          # Per-OS cache (rust-cache already keys on the runner OS + rustc + lock).
+          shared-key: build
+
       - name: Build workspace
         run: mise exec -- cargo build --workspace --locked
         env:
@@ -363,6 +524,7 @@ jobs:
   samples-test:
     name: 'Consumer sample apps (ubuntu)'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -375,6 +537,16 @@ jobs:
         with:
           experimental: true
 
+      - name: 'Cache pnpm + uv stores'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.local/share/pnpm/store
+            ~/.cache/uv
+          key: pnpm-uv-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml', '**/uv.lock') }}
+          restore-keys: |
+            pnpm-uv-${{ runner.os }}-
+
       # The Python + TypeScript sample apps consume the in-repo packages. The TS
       # sample depends on packages/typescript via a `file:` dep, so that package
       # must be FULLY built — the napi addon AND the TS facade (dist/index.js +
@@ -385,6 +557,14 @@ jobs:
         run: |
           mise exec -- pnpm -C packages/typescript install --frozen-lockfile
           mise exec -- pnpm -C packages/typescript run build
+
+      - name: 'Expose Rust on PATH (for rust-cache)'
+        shell: bash
+        run: dirname "$(mise which cargo)" >> "$GITHUB_PATH"
+      - name: 'Rust build cache'
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+        with:
+          shared-key: samples-test
 
       - name: 'T021: samples:test (all three consumer apps)'
         run: mise exec -- moon run samples:test

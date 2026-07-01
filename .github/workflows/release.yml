@@ -22,6 +22,12 @@ permissions:
   contents: write
   pull-requests: write
 
+# Serialize release runs on main and NEVER cancel one in flight — a half-finished
+# publish is far worse than a queued run, so cancel-in-progress is false (queue).
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
 name: release-please
 
 jobs:
@@ -257,6 +263,7 @@ jobs:
     permissions:
       contents: read
       id-token: write # REQUIRED for OIDC trusted publishing on all three registries
+      attestations: write # REQUIRED for actions/attest-build-provenance (wheel + sdist)
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # actions/checkout v7.0.0
@@ -266,13 +273,25 @@ jobs:
         with:
           experimental: true
 
+      # SBOM (CycloneDX) covering the whole workspace — Rust + Python + npm deps.
+      # Generated BEFORE any publish so a failure blocks the release cleanly rather
+      # than leaving a published-but-unattested artifact. Uploaded as a workflow
+      # artifact (promoting it to a durable GitHub Release asset is a follow-up —
+      # that needs contents: write + the release tag).
+      - name: Generate SBOM (Syft / CycloneDX)
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610  # v0
+        with:
+          path: .
+          format: cyclonedx-json
+          artifact-name: prompting-press-sbom.cdx.json
+
       # --- Rust → crates.io (OIDC via rust-lang/crates-io-auth-action) ---
       # Publish order matters: the kernel first, then the consumer crate that
       # depends on it (`prompting-press-core = { version = "0.1", path = ... }`;
       # cargo strips the path and uses the crates.io version on publish).
       - name: Authenticate to crates.io (OIDC)
         id: crates-auth
-        uses: rust-lang/crates-io-auth-action@v1
+        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18  # v1.0.5
       - name: Publish Rust crates
         run: |
           mise exec -- cargo publish -p prompting-press-core --token "$CARGO_TOKEN"
@@ -288,14 +307,22 @@ jobs:
         run: |
           mise exec -- uvx maturin build --release --manifest-path crates/prompting-press-py/Cargo.toml --out dist
           mise exec -- uvx maturin sdist --manifest-path crates/prompting-press-py/Cargo.toml --out dist
+      # Build-provenance attestation for the wheel + sdist. Runs BEFORE the PyPI
+      # upload so an attestation failure blocks the release rather than leaving an
+      # unattested published artifact. (npm is covered by `npm publish
+      # --provenance` below; crates.io has no OIDC provenance path yet.)
+      - name: Attest build provenance (wheel + sdist)
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be  # v2
+        with:
+          subject-path: 'dist/*'
       - name: Publish to PyPI (Trusted Publisher)
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b  # release/v1
         with:
           packages-dir: dist
 
       # --- TypeScript → npm (OIDC trusted publisher; npm CLI >= 11.5.1) ---
       - name: Set up Node for npm OIDC
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6
         with:
           node-version: '22.14.0'
           registry-url: 'https://registry.npmjs.org'

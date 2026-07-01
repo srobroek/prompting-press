@@ -255,7 +255,7 @@ fn robustness_empty_values_strict_undefined_does_not_panic() {
         "strict-undefined on empty values must error"
     );
     assert!(
-        !result.is_ok(),
+        result.is_err(),
         "empty values must not produce a successful render"
     );
 }
@@ -302,9 +302,9 @@ fn robustness_whitespace_only_body_does_not_panic() {
     .expect("definition must deserialise");
     let result = required_roots(&def, None);
     // A whitespace-only template parses fine and references no variables.
-    match result {
-        Ok(agreement) => assert!(agreement.required_roots.is_empty()),
-        Err(_) => {} // also acceptable
+    // (An Err is also acceptable here — the point is it must not panic.)
+    if let Ok(agreement) = result {
+        assert!(agreement.required_roots.is_empty());
     }
 }
 
