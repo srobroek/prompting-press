@@ -310,13 +310,16 @@ jobs:
         with:
           experimental: true
 
-      # The Python + TypeScript sample apps consume the built FFI extensions.
-      # Build the node addon (the TS app's workspace dep); the Python app's
-      # editable install builds the extension via maturin during `uv sync`.
-      - name: 'Install TS deps + build node addon'
+      # The Python + TypeScript sample apps consume the in-repo packages. The TS
+      # sample depends on packages/typescript via a `file:` dep, so that package
+      # must be FULLY built — the napi addon AND the TS facade (dist/index.js +
+      # dist/index.d.ts, which the sample's tsc resolves via `main`/`types`).
+      # `build` runs both build:addon + build:facade. The Python app's editable
+      # install builds its extension via maturin during `uv sync`.
+      - name: 'Install + build the TS package (addon + facade)'
         run: |
           mise exec -- pnpm -C packages/typescript install --frozen-lockfile
-          mise exec -- pnpm -C packages/typescript run build:addon
+          mise exec -- pnpm -C packages/typescript run build
 
       - name: 'T021: samples:test (all three consumer apps)'
         run: mise exec -- moon run samples:test
