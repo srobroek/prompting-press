@@ -1,7 +1,7 @@
 //! # prompting-press-core
 //!
 //! The FFI-free engine kernel for Prompting Press — the single, shared source of
-//! rendering behavior that every language binding (the Rust consumer, Python via PyO3,
+//! rendering behavior that every language binding (the Rust consumer, Python via `PyO3`,
 //! Node via napi) sits on top of. Because rendering, agreement analysis, variant
 //! resolution, and hashing all happen **once, here, in Rust**, cross-language output
 //! equality is a *structural* property, not something each binding re-verifies
@@ -16,7 +16,7 @@
 //! Four capabilities, all pure and I/O-free:
 //!
 //! 1. **Render** ([`render`]) — turns a [`PromptDefinition`] + already-validated values
-//!    into rendered text, using a MiniJinja environment restricted to **interpolation,
+//!    into rendered text, using a `MiniJinja` environment restricted to **interpolation,
 //!    conditionals, and loops** with **strict-undefined** handling (a missing variable is
 //!    a loud [`KernelError::UndefinedVariable`], never a silent empty string). The six
 //!    excluded features (`{% include %}`, `{% extends %}`, `{% import %}`,
@@ -24,7 +24,7 @@
 //!    [`KernelError::ExcludedFeature`] / [`KernelError::Parse`] (FR-002).
 //! 2. **Agreement analysis** ([`required_roots`]) — the headline differentiator
 //!    (Principle IV): reports, per resolved variant, the set of **root** variable names a
-//!    template references (via MiniJinja's stable `undeclared_variables(false)` minus the
+//!    template references (via `MiniJinja`'s stable `undeclared_variables(false)` minus the
 //!    engine's own globals). The kernel only *returns* the set; the `referenced ⊆ declared`
 //!    comparison is the consumer's lint (FR-019).
 //! 3. **Variant resolution + provenance / hashing** ([`get_source`], [`RenderResult`]) —

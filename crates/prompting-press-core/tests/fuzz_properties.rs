@@ -44,7 +44,7 @@ fn guard_on() -> GuardConfig {
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-/// A minimal, always-valid PromptDefinition for hash-determinism tests.
+/// A minimal, always-valid `PromptDefinition` for hash-determinism tests.
 /// Body is a static string with no variable references so the render always succeeds
 /// regardless of what values are supplied.
 fn static_def() -> PromptDefinition {
@@ -57,7 +57,7 @@ fn static_def() -> PromptDefinition {
     .expect("static def must deserialise")
 }
 
-/// A PromptDefinition whose body references one trusted variable `x`.
+/// A `PromptDefinition` whose body references one trusted variable `x`.
 fn one_var_def() -> PromptDefinition {
     serde_json::from_value(serde_json::json!({
         "name": "one-var",
@@ -70,7 +70,7 @@ fn one_var_def() -> PromptDefinition {
     .expect("one-var def must deserialise")
 }
 
-/// A PromptDefinition with an untrusted field `payload` — used for guard-passthrough tests.
+/// A `PromptDefinition` with an untrusted field `payload` — used for guard-passthrough tests.
 fn untrusted_def() -> PromptDefinition {
     serde_json::from_value(serde_json::json!({
         "name": "untrusted-passthrough",
@@ -182,37 +182,33 @@ proptest! {
         let no_g = render(&def, None, values.clone(), &no_guard());
         let with_g = render(&def, None, values.clone(), &guard_on());
 
-        match (no_g, with_g) {
-            (Ok(r_off), Ok(r_on)) => {
-                // Guard OFF: no advisory, no wrapping tags.
-                prop_assert!(r_off.guard.is_none(), "guard=off → None");
-                prop_assert!(
-                    !r_off.text.contains("<untrusted>"),
-                    "guard-off body must not contain wrapping tags; payload={:?}", payload
-                );
+        // We only assert body properties on the success path. Any other combination
+        // (both error, or one errors and the other doesn't) is fine — the guard can
+        // change rendering when the pre-pass modifies the template.
+        if let (Ok(r_off), Ok(r_on)) = (no_g, with_g) {
+            // Guard OFF: no advisory, no wrapping tags.
+            prop_assert!(r_off.guard.is_none(), "guard=off → None");
+            prop_assert!(
+                !r_off.text.contains("<untrusted>"),
+                "guard-off body must not contain wrapping tags; payload={:?}", payload
+            );
 
-                // Guard ON: advisory present, body contains the wrapper.
-                prop_assert!(r_on.guard.is_some(), "guard=on → Some advisory");
-                prop_assert!(
-                    r_on.text.contains("<untrusted>"),
-                    "guard-on body must contain <untrusted> wrapper; payload={:?}", payload
-                );
-                prop_assert!(
-                    r_on.text.contains("</untrusted>"),
-                    "guard-on body must contain </untrusted> wrapper; payload={:?}", payload
-                );
+            // Guard ON: advisory present, body contains the wrapper.
+            prop_assert!(r_on.guard.is_some(), "guard=on → Some advisory");
+            prop_assert!(
+                r_on.text.contains("<untrusted>"),
+                "guard-on body must contain <untrusted> wrapper; payload={:?}", payload
+            );
+            prop_assert!(
+                r_on.text.contains("</untrusted>"),
+                "guard-on body must contain </untrusted> wrapper; payload={:?}", payload
+            );
 
-                // Injection resistance: the closing tag from the payload cannot appear
-                // as a raw closing tag (it would be entity-escaped).
-                let close_count = r_on.text.matches("</untrusted>").count();
-                prop_assert_eq!(close_count, 1,
-                    "must have exactly one </untrusted> close tag; payload={:?}", payload);
-            }
-            // Both error → fine; we only assert body properties on the success path.
-            (Err(_), Err(_)) => {}
-            // One errors and the other doesn't → also fine; the guard can change
-            // rendering when the pre-pass modifies the template.
-            _ => {}
+            // Injection resistance: the closing tag from the payload cannot appear
+            // as a raw closing tag (it would be entity-escaped).
+            let close_count = r_on.text.matches("</untrusted>").count();
+            prop_assert_eq!(close_count, 1,
+                "must have exactly one </untrusted> close tag; payload={:?}", payload);
         }
     }
 
@@ -256,7 +252,7 @@ proptest! {
 // ── injection-shaped string strategy ─────────────────────────────────────────
 
 /// A proptest strategy that generates strings that "look like" prompt-injection attempts:
-/// MiniJinja template syntax, override instructions, control characters, empty string,
+/// `MiniJinja` template syntax, override instructions, control characters, empty string,
 /// long strings, and printable ASCII. This pool exercises the guard-passthrough invariant
 /// (C-09) across a realistic hostile input space.
 fn prop_injection_shaped_string() -> impl Strategy<Value = String> {

@@ -77,10 +77,10 @@ pub fn untrusted_fields(def: &PromptDefinition) -> BTreeSet<String> {
     def.variables
         .iter()
         .filter_map(|(field, decl)| {
-            if !decl.trusted {
-                Some(field.clone())
-            } else {
+            if decl.trusted {
                 None
+            } else {
+                Some(field.clone())
             }
         })
         .collect()
@@ -112,7 +112,7 @@ pub fn untrusted_fields(def: &PromptDefinition) -> BTreeSet<String> {
 /// ## Invariants
 ///
 /// - **No engine re-render.** The advisory is plain text (default const or caller
-///   override), never a MiniJinja template — it cannot create a recursive-injection path.
+///   override), never a `MiniJinja` template — it cannot create a recursive-injection path.
 /// - **No value access.** This function reads only field names from `def`; it
 ///   never sees, inspects, or escapes any bound value (FR-025).
 pub(crate) fn build_guard_text(
@@ -200,7 +200,7 @@ pub const DEFAULT_GUARD_ADVISORY: &str =
 ///
 /// ## No `unstable_machinery`
 ///
-/// This is a simple string-level pre-pass; it does NOT use MiniJinja's AST
+/// This is a simple string-level pre-pass; it does NOT use `MiniJinja`'s AST
 /// (which would require `unstable_machinery`). It looks for `{{` / `}}` token
 /// pairs and applies a small identifier-extraction heuristic inside them.
 ///
@@ -252,7 +252,7 @@ pub(crate) fn apply_guard_prepass(source: &str, untrusted_roots: &BTreeSet<Strin
     result
 }
 
-/// Find the closing `}}` of a MiniJinja expression block.
+/// Find the closing `}}` of a `MiniJinja` expression block.
 ///
 /// `search_from` is the index just past the opening `{{`. Returns the index
 /// of the first `}` of the `}}` pair, or `None` if not found before EOF.
@@ -307,7 +307,7 @@ fn block_touches_untrusted(expr: &str, untrusted_roots: &BTreeSet<String>) -> bo
     false
 }
 
-/// Extract all root identifiers from a MiniJinja expression string.
+/// Extract all root identifiers from a `MiniJinja` expression string.
 ///
 /// Strategy: split on token separators (`|`, `+`, `-`, `*`, `/`, `%`, `(`,
 /// `)`, `[`, `]`, `,`, `~`, `!`, `=`, `<`, `>`, whitespace), then for each
@@ -372,7 +372,7 @@ fn is_jinja_identifier(s: &str) -> bool {
 
 // ── pp_guard_wrap filter ─────────────────────────────────────────────────────
 
-/// MiniJinja filter `pp_guard_wrap`.
+/// `MiniJinja` filter `pp_guard_wrap`.
 ///
 /// Converts the input to its string representation, entity-escapes `&`, `<`,
 /// and `>` (in that order, so `&` is escaped before any `<`/`>` that might
@@ -529,7 +529,7 @@ mod tests {
     // ── apply_guard_prepass ──
 
     fn untrusted(names: &[&str]) -> BTreeSet<String> {
-        names.iter().map(|s| s.to_string()).collect()
+        names.iter().map(std::string::ToString::to_string).collect()
     }
 
     #[test]

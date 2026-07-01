@@ -70,6 +70,7 @@
 ///
 /// See the [module docs](self) for the two-hop rationale, the `undefined`/`null` rule, and the
 /// parity guarantee.
+#[must_use]
 pub fn to_kernel_value(json: serde_json::Value) -> minijinja::Value {
     // Hop 2: serde_json::Value -> minijinja::Value via the SAME primitive the consumer uses.
     // (Hop 1, JS -> serde_json::Value, is done by napi at the FFI boundary.)

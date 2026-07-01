@@ -12,7 +12,7 @@
 //!
 //! The consumer's `From<KernelError>` impl (spec 003 / error.rs) explicitly scrubs the
 //! `detail` field from `KernelError::Parse` and `KernelError::Render` (SEC-004 / FR-015)
-//! because MiniJinja may embed bound-value content in those detail strings. This test pass
+//! because `MiniJinja` may embed bound-value content in those detail strings. This test pass
 //! adversarially verifies that scrub holds for secret-shaped values.
 //!
 //! ## Bounds + seed (FR-004)
@@ -51,7 +51,7 @@ fn no_guard() -> GuardConfig {
 struct LeakyVars {
     /// garde requires length >= 1 but we always supply the secret here.
     /// If garde were to leak the VALUE (not just the field name) into the error message,
-    /// the secret would appear in the ConsumerError — that's what this test catches.
+    /// the secret would appear in the `ConsumerError` — that's what this test catches.
     #[garde(length(min = 1))]
     name: String,
 }
@@ -328,6 +328,12 @@ fn default_render_false_scrubs_render_path() {
     use prompting_press::{ConsumerError, Prompt};
     use prompting_press_core::GuardConfig;
 
+    #[derive(serde::Serialize, garde::Validate)]
+    struct V {
+        #[garde(length(min = 1))]
+        name: String,
+    }
+
     // Build a prompt with an unknown Jinja filter in the body — triggers a KernelError::Render
     // at render time (past the agreement check, which only checks variable references).
     // The filter name is template source, not bound-value content, but the important thing
@@ -349,11 +355,6 @@ fn default_render_false_scrubs_render_path() {
     .expect("valid prompt shape must construct");
 
     // Render with reveal=false (the ONLY production-safe default).
-    #[derive(serde::Serialize, garde::Validate)]
-    struct V {
-        #[garde(length(min = 1))]
-        name: String,
-    }
 
     let err = prompt
         .render(

@@ -185,6 +185,17 @@ fn invalid_entry_vars_error_no_partial_success() {
 /// `.text` as a declared variable's value into a parent prompt. No template include.
 #[test]
 fn fragment_by_value_into_parent() {
+    #[derive(Debug, Serialize, Validate)]
+    struct FragVars {
+        #[garde(length(min = 1))]
+        adjective: String,
+    }
+    #[derive(Debug, Serialize, Validate)]
+    struct ParentVars {
+        #[garde(length(min = 1))]
+        fragment: String,
+    }
+
     let fragment_prompt = Prompt::from_json(
         r#"{
         "name": "fragment",
@@ -204,17 +215,6 @@ fn fragment_by_value_into_parent() {
     }"#,
     )
     .expect("valid parent prompt");
-
-    #[derive(Debug, Serialize, Validate)]
-    struct FragVars {
-        #[garde(length(min = 1))]
-        adjective: String,
-    }
-    #[derive(Debug, Serialize, Validate)]
-    struct ParentVars {
-        #[garde(length(min = 1))]
-        fragment: String,
-    }
 
     // 1. Render the fragment with its OWN vars.
     let frag = fragment_prompt

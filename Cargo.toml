@@ -32,3 +32,32 @@ minijinja = { version = "2.21", default-features = false, features = ["builtins"
 sha2 = "0.11"
 # TOML support for the `Prompt::from_toml` factories (R3 — serde-native, crates.io max_stable).
 toml = "1.1.2"
+
+# Workspace-wide lint policy. Each member opts in with `[lints] workspace = true`.
+# CI runs `cargo clippy --workspace --all-targets --locked -- -D warnings`, so every
+# warn below is a hard gate. `pedantic` + `cargo` are enabled deliberately; `nursery`
+# stays off (unstable / false-positive-prone, not appropriate for a shipping library).
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+# --- Framework-forced allows (NOT code-quality debt; each is mandated by an
+# --- external API contract we do not control). Reviewed 2026-07-01.
+# napi/pyo3 marshal OWNED values across the FFI boundary, and minijinja's Filter
+# trait + `Result::map_err` take their argument BY VALUE — so the binding entry
+# points and the two core fn-pointers (map_minijinja_error, guard_wrap_filter)
+# cannot take `&T` without breaking the contract.
+needless_pass_by_value = "allow"
+# garde validator fns have a fixed signature `fn(&T, &Context) -> Result` — the
+# `&` on a Copy type is required by garde, not a missed optimization.
+trivially_copy_pass_by_ref = "allow"
+# FFI binding methods return `napi::Result` / `PyResult`; their error contract is
+# normalized + documented once at the boundary, not re-stated per method.
+missing_errors_doc = "allow"
+# Over-annotating a young public API with #[must_use] is churn; revisit post-1.0.
+must_use_candidate = "allow"
+
+# multiple_crate_versions (from clippy::cargo) fires on transitive dep-tree
+# duplicates we don't control; not actionable at our level.
+[workspace.lints.clippy.multiple_crate_versions]
+level = "allow"
+priority = 1

@@ -10,7 +10,7 @@
 //!
 //! ## The `kind` discriminant string (FR-020)
 //!
-//! Python matches on a [`Finding`]'s **`kind`**, exposed as a stable snake_case **discriminant
+//! Python matches on a [`Finding`]'s **`kind`**, exposed as a stable `snake_case` **discriminant
 //! string** (not an opaque enum): `"untrusted_without_guard"`. The kind's inner datum (the
 //! uncovered `field`) is already echoed in [`Finding::detail`], so `kind` stays a single stable
 //! matchable value. The mapping is an **exhaustive** match over the consumer's [`FindingKind`]
@@ -24,7 +24,7 @@ use prompting_press::FindingKind;
 /// The output of [`Prompt::check`](crate::prompt::Prompt::check): an ordered, read-only list of
 /// [`Finding`]s. Empty ⇒ the lint passed.
 ///
-/// The Python mirror of the consumer's [`prompting_press::CheckReport`] (data-model §CheckReport;
+/// The Python mirror of the consumer's [`prompting_press::CheckReport`] (data-model §`CheckReport`;
 /// FR-020). Surfaced **1:1** — the binding adds nothing and interprets nothing. Read-only
 /// (`frozen`): a report is produced by `prompt.check()`, never constructed from Python.
 // `skip_from_py_object`: output-only — Python reads `findings` / `passed()`, never passes a
@@ -80,7 +80,7 @@ impl From<prompting_press::CheckReport> for CheckReport {
 /// One actionable lint finding, read-only from Python.
 ///
 /// Names the `prompt`, the `variant` where applicable (`None` for a prompt-level finding), the
-/// failure `kind` (a stable snake_case discriminant string — see the module docs), and a
+/// failure `kind` (a stable `snake_case` discriminant string — see the module docs), and a
 /// human-readable `detail`. The `detail` carries no bound-value content (it is built from prompt
 /// and field names only). Read-only (`frozen`): a finding is produced by `prompt.check()`, never
 /// constructed from Python.
@@ -99,7 +99,7 @@ pub struct Finding {
     /// The variant the finding pertains to; `None` for a prompt-level provenance finding.
     #[pyo3(get)]
     pub variant: Option<String>,
-    /// The failure kind as a stable snake_case **discriminant string** — the value Python matches
+    /// The failure kind as a stable `snake_case` **discriminant string** — the value Python matches
     /// on. Currently always `"untrusted_without_guard"`. The kind's inner datum is echoed in
     /// [`detail`](Self::detail).
     #[pyo3(get)]
@@ -132,7 +132,7 @@ impl From<prompting_press::Finding> for Finding {
     }
 }
 
-/// Map a consumer [`FindingKind`] to its stable snake_case **discriminant string**.
+/// Map a consumer [`FindingKind`] to its stable `snake_case` **discriminant string**.
 ///
 /// **Exhaustive on purpose** (no `_` wildcard): if the consumer adds a `FindingKind` variant, this
 /// match fails to compile, forcing the Python-visible string set to be updated deliberately rather

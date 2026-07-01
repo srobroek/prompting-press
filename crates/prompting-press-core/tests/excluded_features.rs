@@ -24,12 +24,12 @@
 //! ## Error-kind nuance (research D4, asserted below)
 //!
 //! [`KernelError`] distinguishes [`KernelError::ExcludedFeature`] from
-//! [`KernelError::Parse`] via a best-effort heuristic over MiniJinja's message
+//! [`KernelError::Parse`] via a best-effort heuristic over `MiniJinja`'s message
 //! (`engine::looks_like_excluded_feature`). Research D4 documents that the engine's
 //! error kind may not always let the kernel label precisely; SC-008 requires only that
 //! the construct is rejected as **one of those two** variants (never a successful render,
 //! never an empty `Agreement`). The two hard-gate tests below therefore accept either
-//! variant. Empirically (MiniJinja 2.21.0) all six emit `SyntaxError` with detail
+//! variant. Empirically (`MiniJinja` 2.21.0) all six emit `SyntaxError` with detail
 //! `unknown statement <kw>`, which the refined heuristic maps to the precise
 //! `ExcludedFeature` variant — locked by `excluded_features_classify_precisely_as_…`
 //! below, and surfaced for the record by the `classification_table_diagnostic` test
@@ -125,12 +125,12 @@ fn agreement_rejects_every_excluded_feature() {
     }
 }
 
-/// Precision early-warning (NOT the SC-008 gate). Asserts that under MiniJinja 2.21.0
+/// Precision early-warning (NOT the SC-008 gate). Asserts that under `MiniJinja` 2.21.0
 /// each of the six excluded constructs currently classifies *precisely* as
 /// [`KernelError::ExcludedFeature`] (the `engine::looks_like_excluded_feature` heuristic
 /// matches the `unknown statement <kw>` detail). SC-008 itself only requires
 /// `ExcludedFeature | Parse` (covered by the two tests above) — this test exists so a
-/// future MiniJinja bump that changes the parse-error wording, and thereby silently
+/// future `MiniJinja` bump that changes the parse-error wording, and thereby silently
 /// downgrades these to the `Parse` fallback, fails LOUDLY here, prompting a re-audit of
 /// the heuristic — rather than degrading classification precision unnoticed. [research D4]
 #[test]
@@ -162,15 +162,15 @@ fn ordinary_syntax_error_is_parse_not_excluded_feature() {
     match render(&def, None, empty, &no_guard()) {
         Err(KernelError::Parse { .. }) => {}
         other => {
-            panic!("an ordinary syntax error must be Parse, never ExcludedFeature; got {other:?}",)
+            panic!("an ordinary syntax error must be Parse, never ExcludedFeature; got {other:?}")
         }
     }
 }
 
 /// Diagnostic (run `cargo test -- --nocapture`): records, per construct, the actual
-/// MiniJinja `ErrorKind` and the resulting `KernelError` variant — the research-D4
+/// `MiniJinja` `ErrorKind` and the resulting `KernelError` variant — the research-D4
 /// classification table. NOT an assertion of the precise variant (SC-008 only requires
-/// one of the two); it documents reality so the heuristic can be audited on a MiniJinja
+/// one of the two); it documents reality so the heuristic can be audited on a `MiniJinja`
 /// bump. The two tests above are the hard SC-008 gate.
 #[test]
 fn classification_table_diagnostic() {

@@ -26,7 +26,8 @@ fn sha256_hex(s: &str) -> String {
     // sha2 0.11: digest is a `hybrid_array::Array` (no `LowerHex`); hex-encode bytes.
     let mut hex = String::new();
     for byte in hasher.finalize() {
-        hex.push_str(&format!("{byte:02x}"));
+        use std::fmt::Write as _;
+        write!(hex, "{byte:02x}").expect("writing to a String is infallible");
     }
     hex
 }

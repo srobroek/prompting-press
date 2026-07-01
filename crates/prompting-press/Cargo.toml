@@ -16,6 +16,9 @@ categories.workspace = true
 documentation = "https://prompting-press.github.io/"
 description = "Public Rust consumer surface for Prompting Press, layered on the FFI-free kernel."
 
+[lints]
+workspace = true
+
 [lib]
 
 [dependencies]

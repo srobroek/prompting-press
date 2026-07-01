@@ -124,13 +124,13 @@ pub fn required_roots(
 
 /// Build the globals allowlist **dynamically from the environment's own registered globals**
 /// (FR-020), via the stable [`minijinja::Environment::globals`] accessor (verified in
-/// MiniJinja 2.21.0 `environment.rs:786`: `pub fn globals(&self) -> impl Iterator<Item =
+/// `MiniJinja` 2.21.0 `environment.rs:786`: `pub fn globals(&self) -> impl Iterator<Item =
 /// (&str, Value)>`). Deriving it from the live env — rather than hardcoding `["range",
 /// "dict", "namespace", …]` — means the allowlist can **never drift** from the actual engine
 /// configuration: re-enabling a feature that registers a new global, or registering one via
 /// `add_global`, is reflected automatically.
 ///
-/// Under the kernel's feature set (`builtins` on) this yields exactly the names MiniJinja's
+/// Under the kernel's feature set (`builtins` on) this yields exactly the names `MiniJinja`'s
 /// `builtins` registers — `range`, `dict`, `debug`, `namespace` (verified in
 /// `defaults.rs::build_globals`, all four inside the `#[cfg(feature = "builtins")]` block).
 fn env_globals(env: &minijinja::Environment<'_>) -> BTreeSet<String> {

@@ -11,6 +11,8 @@
 //! entirely. `sha2` is pure-Rust and deterministic, so these hashes are byte-identical
 //! across languages by construction (constitution Principle I).
 
+use std::fmt::Write as _;
+
 use sha2::{Digest, Sha256};
 
 /// Compute the lowercase-hex SHA-256 of a string's UTF-8 bytes.
@@ -27,7 +29,7 @@ pub(crate) fn sha256_hex(s: &str) -> String {
     let digest = hasher.finalize();
     let mut hex = String::with_capacity(digest.len() * 2);
     for byte in digest {
-        hex.push_str(&format!("{byte:02x}"));
+        write!(hex, "{byte:02x}").expect("writing to a String is infallible");
     }
     hex
 }

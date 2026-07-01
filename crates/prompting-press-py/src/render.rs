@@ -181,13 +181,12 @@ pub(crate) fn validate_in_python<'py>(
     // Pick the model class + the value to validate:
     //   data given  → `vars` is the class, validate `data`.
     //   data is None → `vars` is an instance, validate `type(vars).model_validate(vars.dump())`.
-    let (model_cls, to_validate): (Bound<'py, PyAny>, Bound<'py, PyAny>) = match data {
-        Some(d) => (vars.clone(), d.clone()),
-        None => {
-            let cls = vars.get_type().into_any();
-            let dumped = dump_json(vars)?;
-            (cls, dumped)
-        }
+    let (model_cls, to_validate): (Bound<'py, PyAny>, Bound<'py, PyAny>) = if let Some(d) = data {
+        (vars.clone(), d.clone())
+    } else {
+        let cls = vars.get_type().into_any();
+        let dumped = dump_json(vars)?;
+        (cls, dumped)
     };
 
     // model_cls.model_validate(to_validate) — the one validation pass (FR-002). A

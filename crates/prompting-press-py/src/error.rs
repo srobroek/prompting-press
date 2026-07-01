@@ -16,7 +16,7 @@
 //! or `create_exception!`. The **first is incompatible with this crate's abi3 floor**: subclassing a
 //! native exception type from a Rust `#[pyclass]` requires Python ≥ 3.12 under the `abi3` feature,
 //! but the crate targets `abi3-py310` (floor 3.10) — the compiler rejects it outright. So the whole
-//! hierarchy is built with [`create_exception!`], which mints the exception types through CPython's
+//! hierarchy is built with [`create_exception!`], which mints the exception types through `CPython`'s
 //! C API and works on the 3.10 floor. The base subclasses `Exception`; each of the four subtypes
 //! subclasses the base, giving Python `except PromptingPressError` (catch-all) and
 //! `except PromptRenderError` (one class).
@@ -170,6 +170,7 @@ where
 /// compile error here until it is mapped to a subtype (research D4: a new Rust variant must not
 /// silently fall through). The `summary` is derived from the (already scrubbed) rows / name, never
 /// from raw kernel detail.
+#[must_use]
 pub fn consumer_error_to_pyerr(py: Python<'_>, err: ConsumerError) -> PyErr {
     let result = match err {
         ConsumerError::Validation(rows) => {
@@ -205,6 +206,7 @@ pub fn consumer_error_to_pyerr(py: Python<'_>, err: ConsumerError) -> PyErr {
 /// (`Parse` detail is preserved — it is pre-binding template-syntax context, never a bound value).
 /// The resulting `ConsumerError` is then mapped by [`consumer_error_to_pyerr`]. Raw
 /// `KernelError::detail` is never read directly here.
+#[must_use]
 pub fn kernel_error_to_pyerr(py: Python<'_>, err: KernelError) -> PyErr {
     let scrubbed = ConsumerError::from(err);
     consumer_error_to_pyerr(py, scrubbed)
@@ -215,9 +217,11 @@ pub fn kernel_error_to_pyerr(py: Python<'_>, err: KernelError) -> PyErr {
 /// Only the rows' own `field`/`code`/`message` are used — those are the normalized, scrubbed
 /// contract values, so this introduces no leak surface beyond what `.errors` already carries.
 fn summarize(header: &str, rows: &[ConsumerFieldError]) -> String {
+    use std::fmt::Write as _;
     let mut s = format!("{header} ({} error(s))", rows.len());
     for row in rows {
-        s.push_str(&format!("; {}: {} [{}]", row.field, row.message, row.code));
+        write!(s, "; {}: {} [{}]", row.field, row.message, row.code)
+            .expect("writing to a String is infallible");
     }
     s
 }
@@ -225,6 +229,11 @@ fn summarize(header: &str, rows: &[ConsumerFieldError]) -> String {
 /// Register the exception hierarchy + the [`FieldError`] row class on the module.
 ///
 /// Python imports them as `prompting_press.PromptingPressError` etc.
+///
+/// # Errors
+///
+/// Returns a `PyErr` if any class or exception type cannot be added to the module
+/// (e.g., a name collision or module lock failure inside `PyO3`).
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<FieldError>()?;
     m.add(

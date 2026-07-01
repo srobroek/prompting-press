@@ -80,18 +80,21 @@ impl NapiPrompt {
 
     /// `prompt.name` — the prompt's `name` field.
     #[napi(getter)]
+    #[must_use]
     pub fn name(&self) -> String {
         self.inner.name().to_owned()
     }
 
     /// `prompt.role` — the conversational role (`"system"` / `"user"` / `"assistant"`).
     #[napi(getter)]
+    #[must_use]
     pub fn role(&self) -> String {
         self.inner.role().to_string()
     }
 
     /// `prompt.body` — the root body template source (unrendered).
     #[napi(getter)]
+    #[must_use]
     pub fn body(&self) -> String {
         self.inner.body().to_owned()
     }
@@ -442,8 +445,7 @@ mod tests {
         let errors = payload["errors"].as_array().expect("errors array");
         assert!(
             errors.iter().any(|r| r["field"] == "variant"),
-            "field must be 'variant', got {:?}",
-            errors
+            "field must be 'variant', got {errors:?}"
         );
     }
 

@@ -9,7 +9,7 @@
 //! Soundness property (constitution Principle IV / C-04, SC-002): the reported set is the
 //! externally-supplied ROOT names only — it excludes loop locals, `{% set %}` targets, and
 //! engine-provided globals, and reports a root, never a nested field. The KERNEL (via
-//! MiniJinja's stable `undeclared_variables(false)` + the env-derived globals allowlist)
+//! `MiniJinja`'s stable `undeclared_variables(false)` + the env-derived globals allowlist)
 //! guarantees these exclusions; these tests verify that guarantee, they do not re-implement
 //! the filtering.
 

@@ -30,7 +30,7 @@ fn no_guard() -> GuardConfig {
 
 /// Build a minimal default-arm `PromptDefinition` whose root `body` is the fixture's
 /// template, mirroring how `tests/fixtures/defs/*.json` deserialize. Constructed via
-/// serde_json so the kernel shape is exercised exactly as a real definition would be.
+/// `serde_json` so the kernel shape is exercised exactly as a real definition would be.
 fn def_from_case(case: &RegressionCase) -> PromptDefinition {
     serde_json::from_value(serde_json::json!({
         "name": "render-regression",

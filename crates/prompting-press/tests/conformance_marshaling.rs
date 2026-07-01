@@ -6,7 +6,7 @@
 //! parity is transitive (FR-005). NOTE (critique E2): the goldens are generated FROM this Rust reference
 //! binding, so this Rust marshaling assertion is effectively a DETERMINISM guard (render twice → same
 //! golden); the independent marshaling-parity votes are the Python and TS runners. The Rust leg's
-//! genuinely-independent parity check is the schema round-trip (conformance_schema.rs).
+//! genuinely-independent parity check is the schema round-trip (`conformance_schema.rs`).
 
 mod common;
 

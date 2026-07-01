@@ -336,11 +336,12 @@ impl Prompt {
 
     /// Borrow the underlying [`PromptDefinition`] for use by binding crates
     /// (e.g. `prompting-press-node`, `prompting-press-py`) that need to call the kernel
-    /// directly for render/get_source (their validation is owned in the binding layer, not
+    /// directly for `render/get_source` (their validation is owned in the binding layer, not
     /// in Rust garde, so the consumer's generic `render<V>` is not usable there). Bindings
     /// call `prompting_press_core::render(prompt.definition(), ...)` directly after doing
     /// their own validation — the same zero-engine-logic pattern as the `Prompt::render`
     /// path. Also used by `Composition::resolve` within this crate.
+    #[must_use]
     pub fn definition(&self) -> &PromptDefinition {
         &self.def
     }
@@ -797,7 +798,7 @@ trusted = true
     }
 
     /// T003: validation errors are unchanged by the reveal flag (validation uses
-    /// ConsumerError::from, not from_kernel_revealing — the kernel is never reached).
+    /// `ConsumerError::from`, not `from_kernel_revealing` — the kernel is never reached).
     #[test]
     fn reveal_flag_does_not_affect_validation_errors() {
         #[derive(serde::Serialize, garde::Validate)]

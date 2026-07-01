@@ -10,8 +10,14 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "Node.js binding (napi/Node-API) for Prompting Press."
+
+[lints]
+workspace = true
 
 # cdylib: the .node native addon loaded by the Node.js runtime. `rlib` is added so
 # `cargo test` can build a test-harness binary that links the crate and runs the

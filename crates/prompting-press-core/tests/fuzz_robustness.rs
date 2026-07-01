@@ -16,7 +16,7 @@ use prompting_press_core::{
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-/// Construct a minimal PromptDefinition inline from JSON. Panics on malformed JSON
+/// Construct a minimal `PromptDefinition` inline from JSON. Panics on malformed JSON
 /// (test-only contract); this is for building *valid* definitions to use as hosts for
 /// hostile VALUES, not for testing the definition parser.
 fn def_from_json(json: &str) -> PromptDefinition {
@@ -28,7 +28,7 @@ fn no_guard() -> GuardConfig {
 }
 
 /// Assert that calling `render` on a def+values pair never panics; the call must return
-/// Ok or a KernelError. The return value is ignored — we are proving robustness.
+/// Ok or a `KernelError`. The return value is ignored — we are proving robustness.
 fn assert_render_does_not_panic(def: &PromptDefinition, values: serde_json::Value) {
     let mj_values = minijinja::Value::from_serialize(&values);
     let _ = render(def, None, mj_values, &no_guard());
@@ -36,7 +36,7 @@ fn assert_render_does_not_panic(def: &PromptDefinition, values: serde_json::Valu
 
 // ── malformed / oversized bodies ─────────────────────────────────────────────
 
-/// A body that is truncated mid-expression must fail with KernelError, never panic.
+/// A body that is truncated mid-expression must fail with `KernelError`, never panic.
 #[test]
 fn robustness_truncated_body_does_not_panic() {
     // Build a definition with a well-formed shell but an intentionally broken body.
@@ -215,7 +215,7 @@ fn robustness_huge_string_value_does_not_panic() {
 }
 
 /// A value that is a deeply-nested JSON object (100 levels deep). The kernel receives it
-/// as a flat minijinja::Value; must not panic regardless.
+/// as a flat `minijinja::Value`; must not panic regardless.
 #[test]
 fn robustness_deeply_nested_value_does_not_panic() {
     // Build a 100-deep nested object { "a": { "a": { ... } } }.
@@ -230,7 +230,7 @@ fn robustness_deeply_nested_value_does_not_panic() {
 }
 
 /// A value that is a JSON array (unexpected type for a string variable). Must not panic;
-/// MiniJinja may render it or error — never panic.
+/// `MiniJinja` may render it or error — never panic.
 #[test]
 fn robustness_wrong_type_value_does_not_panic() {
     let def = load_def_fixture("hello");
@@ -260,7 +260,7 @@ fn robustness_empty_values_strict_undefined_does_not_panic() {
     );
 }
 
-/// Unknown variant request. Must return KernelError::UnknownVariant, never panic.
+/// Unknown variant request. Must return `KernelError::UnknownVariant`, never panic.
 #[test]
 fn robustness_unknown_variant_does_not_panic() {
     let def = load_def_fixture("hello");

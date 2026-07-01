@@ -47,7 +47,7 @@ variants:
     body: "Good day, {{ name }}. You have {{ count }} messages awaiting your attention."
 "#;
 
-/// A prompt with an UNTRUSTED variable, used to demonstrate the guard + check().
+/// A prompt with an UNTRUSTED variable, used to demonstrate the guard + `check()`.
 pub const ASK_YAML: &str = r#"
 name: ask
 role: user
@@ -60,7 +60,19 @@ variables:
 
 /// Run the full feature walk, returning an error only on an *unexpected* failure
 /// (the demonstrated error path is caught and reported inline, not propagated).
+///
+/// # Errors
+///
+/// Returns an error if any of the prompt construction, render, or composition
+/// steps fail unexpectedly. The deliberately-demonstrated error path (unknown
+/// variant) is caught inline and does not propagate.
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+    #[derive(Serialize, Validate)]
+    struct SysVars {
+        #[garde(length(min = 1))]
+        instruction: String,
+    }
+
     println!("=== Prompting Press — Rust consumer sample ===\n");
 
     // 1. CONSTRUCT (validates the template↔variables agreement immediately).
@@ -95,11 +107,6 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let sys = Prompt::from_yaml(
         "name: sys\nrole: system\nbody: \"{{ instruction }}\"\nvariables:\n  instruction:\n    type: string\n    trusted: true\n",
     )?;
-    #[derive(Serialize, Validate)]
-    struct SysVars {
-        #[garde(length(min = 1))]
-        instruction: String,
-    }
     let mut comp = Composition::new();
     comp.append(
         &sys,

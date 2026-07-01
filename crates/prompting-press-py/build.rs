@@ -51,9 +51,9 @@ fn main() {
     }
 }
 
-/// Ask the interpreter PyO3 will use for its library directory.
+/// Ask the interpreter `PyO3` will use for its library directory.
 ///
-/// Mirrors PyO3's own interpreter selection: honor `PYO3_PYTHON`, else fall back to `python3`
+/// Mirrors `PyO3`'s own interpreter selection: honor `PYO3_PYTHON`, else fall back to `python3`
 /// / `python` on `PATH`. Returns `None` if no interpreter can be queried (in which case the
 /// dev build simply omits the rpath — the wheel build does not need it).
 fn python_libdir() -> Option<String> {

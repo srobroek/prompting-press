@@ -91,11 +91,24 @@ mise exec -- cargo typify \
 # the freshness gate).
 mise exec -- rustfmt --edition 2021 "${OUT}"
 
-# Prepend the static header. typify's output begins with the `#![allow(...)]`
-# inner attributes; `//` line comments are legal before them, so the header goes
-# at the very top of the file.
+# Prepend the static header + our crate-level clippy allows. typify's output
+# begins with its OWN `#![allow(...)]` inner attributes; `//` line comments are
+# legal before them, and multiple `#![...]` inner-attribute lines may stack, so
+# the header goes at the very top followed by our allow, then typify's output.
+#
+# clippy::doc_markdown: the schema descriptions become doc comments verbatim and
+# reference bare identifiers (PyO3, NodeOutput, is_default) that clippy::pedantic
+# wants back-ticked. We CANNOT hand-edit this generated file (the freshness gate
+# would fail and codegen would overwrite it), and rewriting every schema
+# description to satisfy a doc-lint is not worth it — allow it for the generated
+# module only. The rest of the workspace still enforces doc_markdown.
+# Our allow line abuts typify's own `#![allow(...)]` block with NO blank between
+# (rustfmt groups contiguous inner attributes; a blank line here would be
+# reformatted away and fail `cargo fmt --check`). The blank line belongs only
+# after the `//` header-comment block.
 {
   printf '%s\n\n' "${HEADER}"
+  printf '#![allow(clippy::doc_markdown)]\n'
   cat "${OUT}"
 } > "${TMP_OUT}"
 mv "${TMP_OUT}" "${OUT}"

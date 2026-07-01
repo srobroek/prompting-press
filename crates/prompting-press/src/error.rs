@@ -33,7 +33,7 @@ use prompting_press_core::KernelError;
 /// ## Why `code` is a `String`, not a Rust enum (TY-1, deliberate)
 ///
 /// [`FieldError::code`] is a `String` drawn from this closed const vocabulary **on purpose**,
-/// not a Rust enum. The `code` value crosses the PyO3 / napi FFI boundary as a **string** in
+/// not a Rust enum. The `code` value crosses the `PyO3` / napi FFI boundary as a **string** in
 /// the Python / TypeScript bindings: the `[{field, code, message}]` row is the cross-language
 /// error contract (constitution Principle VII / roadmap decision C-06), and a string `code` is
 /// what survives marshaling identically across all three bindings. A Rust-only enum would
@@ -243,6 +243,7 @@ impl ConsumerError {
     /// render where you control the log destination and accept the bound-value exposure risk.
     /// The canonical production call site is always `ConsumerError::from(err)` (or this
     /// function with `false`), which keeps SEC-004 intact.
+    #[must_use]
     pub fn from_kernel_revealing(err: KernelError, reveal_render_detail: bool) -> Self {
         // Only the Render arm with reveal=true differs from the scrubbing default.
         if reveal_render_detail {
@@ -294,8 +295,7 @@ mod tests {
         // The Display string (what a log line derives from) must not contain the secret.
         assert!(
             !normalized.to_string().contains(SECRET),
-            "Display leaked the secret: {}",
-            normalized
+            "Display leaked the secret: {normalized}"
         );
     }
 
@@ -396,7 +396,7 @@ mod tests {
 
     // ── from_kernel_revealing (spec 013 T001) ─────────────────────────────────
 
-    /// Helper: build a fresh Render KernelError with the given detail string.
+    /// Helper: build a fresh Render `KernelError` with the given detail string.
     fn make_render(detail: &str) -> KernelError {
         KernelError::Render {
             detail: detail.to_string(),
@@ -502,7 +502,7 @@ mod tests {
         );
     }
 
-    /// reveal=true for ExcludedFeature is identical to the scrubbing default.
+    /// reveal=true for `ExcludedFeature` is identical to the scrubbing default.
     #[test]
     fn from_kernel_revealing_true_does_not_change_excluded_feature() {
         let k = || KernelError::ExcludedFeature {
@@ -515,7 +515,7 @@ mod tests {
         );
     }
 
-    /// reveal=true for UnknownVariant is identical to the scrubbing default.
+    /// reveal=true for `UnknownVariant` is identical to the scrubbing default.
     #[test]
     fn from_kernel_revealing_true_does_not_change_unknown_variant() {
         let k = || KernelError::UnknownVariant {
@@ -528,7 +528,7 @@ mod tests {
         );
     }
 
-    /// reveal=true for UndefinedVariable is identical to the scrubbing default.
+    /// reveal=true for `UndefinedVariable` is identical to the scrubbing default.
     #[test]
     fn from_kernel_revealing_true_does_not_change_undefined_variable() {
         let k = || KernelError::UndefinedVariable {

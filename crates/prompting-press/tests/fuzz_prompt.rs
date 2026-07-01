@@ -6,7 +6,7 @@
 //! - **Never-panic**: every entry point returns Ok(…) or Err(ConsumerError), never panics.
 //! - **Validate-before-render** (SC-005): an invalid garde V is caught as
 //!   `ConsumerError::Validation` — the kernel is NEVER reached.
-//! - **Construction rejects hostile/un-analyzable docs** with a structured ConsumerError
+//! - **Construction rejects hostile/un-analyzable docs** with a structured `ConsumerError`
 //!   (not a panic; SC-002).
 //!
 //! ## Bounds + seed (FR-004)
@@ -119,7 +119,7 @@ proptest! {
 // ── T005: construction rejects hostile / un-analyzable docs with ConsumerError ─
 
 /// Corpus of hostile/un-analyzable document strings that must all fail construction
-/// with a structured ConsumerError, never with a panic.
+/// with a structured `ConsumerError`, never with a panic.
 static HOSTILE_DOCS: &[&str] = &[
     // Empty string
     "",
@@ -162,7 +162,7 @@ fn corpus_hostile_docs_return_consumer_error_never_panic() {
 }
 
 /// Construction from JSON specifically rejects un-analyzable template bodies with a
-/// structured ConsumerError::Kernel carrying a parse/excluded-feature code.
+/// structured `ConsumerError::Kernel` carrying a parse/excluded-feature code.
 #[test]
 fn construction_rejects_bad_template_with_kernel_error() {
     let bad_bodies: &[&str] = &[
@@ -187,7 +187,9 @@ fn construction_rejects_bad_template_with_kernel_error() {
                 );
             }
             ConsumerError::Load(_) => {} // a deserialize failure is also acceptable
-            other => panic!("expected ConsumerError::Kernel or Load, got {other:?}"),
+            ConsumerError::Validation(_) => {
+                panic!("expected ConsumerError::Kernel or Load, got a Validation error")
+            }
         }
     }
 }

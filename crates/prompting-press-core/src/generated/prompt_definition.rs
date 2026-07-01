@@ -12,6 +12,7 @@
 // stripped before typify (which cannot parse its `not`/`const` form) and is
 // enforced by the US2 validation gate, not by the types below. See codegen.sh.
 
+#![allow(clippy::doc_markdown)]
 #![allow(clippy::redundant_closure_call)]
 #![allow(clippy::needless_lifetimes)]
 #![allow(clippy::match_single_binding)]

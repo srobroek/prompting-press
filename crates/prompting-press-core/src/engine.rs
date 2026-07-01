@@ -38,7 +38,7 @@ use crate::origin::{
 /// enforces it here in its own resolution logic.
 const DEFAULT_VARIANT: &str = "default";
 
-/// Build the kernel's canonical MiniJinja environment.
+/// Build the kernel's canonical `MiniJinja` environment.
 ///
 /// Configured with [`minijinja::UndefinedBehavior::Strict`] (FR-001a). The excluded
 /// template features are enforced by the disabled `macros` / `multi_template` crate
@@ -54,7 +54,7 @@ pub(crate) fn build_environment() -> minijinja::Environment<'static> {
 }
 
 /// The variant selected for a render — the reserved `default` (root body) or an
-/// explicitly named arm (data-model §ResolvedVariant). It borrows the definition, so
+/// explicitly named arm (data-model §`ResolvedVariant`). It borrows the definition, so
 /// `source` is the exact unrendered bytes `template_hash` is computed over (FR-012).
 #[derive(Debug)]
 pub(crate) struct ResolvedVariant<'a> {
@@ -146,7 +146,7 @@ pub struct RenderResult {
 /// 1. A **source pre-pass** rewrites each `{{ EXPR }}` interpolation whose root
 ///    identifier(s) include an untrusted field name into
 ///    `{{ (EXPR) | pp_guard_wrap }}`. The `pp_guard_wrap` filter is a custom
-///    MiniJinja filter registered on the per-render environment; it entity-escapes
+///    `MiniJinja` filter registered on the per-render environment; it entity-escapes
 ///    `&`, `<`, `>` and wraps the value in `<untrusted>…</untrusted>`.
 /// 2. The guard advisory string (a fixed line referencing the markers) is placed in
 ///    [`RenderResult::guard`]. It is a **separate** field — never concatenated into
@@ -226,7 +226,7 @@ pub fn render(
     })
 }
 
-/// Map a MiniJinja [`minijinja::Error`] to the kernel's structured [`KernelError`]
+/// Map a `MiniJinja` [`minijinja::Error`] to the kernel's structured [`KernelError`]
 /// (FR-028). The discriminator is the error's [`minijinja::ErrorKind`]:
 ///
 /// - `SyntaxError` → [`KernelError::ExcludedFeature`] when the message names an excluded
@@ -234,7 +234,7 @@ pub fn render(
 ///   [`KernelError::Parse`] (research D4: the kernel labels precisely when it can, and
 ///   falls back to a loud, generic parse error otherwise).
 /// - `UndefinedError` → [`KernelError::UndefinedVariable`] (strict undefined, FR-001a).
-///   MiniJinja raises this with no variable-name payload, so `name` is best-effort: the
+///   `MiniJinja` raises this with no variable-name payload, so `name` is best-effort: the
 ///   error `detail` if present, else the error's `Display` (still informative).
 /// - anything else → [`KernelError::Render`].
 ///
@@ -254,10 +254,7 @@ pub(crate) fn map_minijinja_error(err: minijinja::Error) -> KernelError {
         minijinja::ErrorKind::UndefinedError => {
             // Strict undefined carries no variable name (verified in 2.21.0 source:
             // `Error::from(ErrorKind::UndefinedError)`), so this is best-effort.
-            let name = err
-                .detail()
-                .map(str::to_string)
-                .unwrap_or_else(|| err.to_string());
+            let name = err.detail().map_or_else(|| err.to_string(), str::to_string);
             KernelError::UndefinedVariable { name }
         }
         _ => KernelError::Render {
@@ -268,11 +265,11 @@ pub(crate) fn map_minijinja_error(err: minijinja::Error) -> KernelError {
 
 /// Best-effort heuristic distinguishing an excluded-feature parse failure from an
 /// ordinary syntax error (research D4). With `macros`/`multi_template` disabled, each
-/// excluded tag surfaces as an **unknown statement** and MiniJinja names the offending
+/// excluded tag surfaces as an **unknown statement** and `MiniJinja` names the offending
 /// keyword. This only refines the error *label* — both branches are loud parse-time
 /// errors, so a miss is benign (it falls back to [`KernelError::Parse`]).
 ///
-/// **Matching contract (verified against MiniJinja 2.21.0):** with `macros` /
+/// **Matching contract (verified against `MiniJinja` 2.21.0):** with `macros` /
 /// `multi_template` off, `add_template` fails with a `SyntaxError` whose detail is
 /// `"unknown statement <keyword>"` — the keyword is **bare**, not quoted/backticked
 /// (verified empirically: `unknown statement include`, `… from`, `… macro`, `… block`,
@@ -289,7 +286,7 @@ pub(crate) fn map_minijinja_error(err: minijinja::Error) -> KernelError {
 /// emits `unknown statement frobnicate`, but `frobnicate` is not in the keyword set, so
 /// it correctly falls through to [`KernelError::Parse`].
 fn looks_like_excluded_feature(detail: &str) -> bool {
-    /// The six v1-excluded tag keywords (FR-002), as MiniJinja names them in an
+    /// The six v1-excluded tag keywords (FR-002), as `MiniJinja` names them in an
     /// `unknown statement <kw>` detail when `macros`/`multi_template` are disabled.
     const EXCLUDED_KEYWORDS: [&str; 6] = ["include", "extends", "import", "from", "macro", "block"];
     let lowered = detail.to_ascii_lowercase();
@@ -312,7 +309,7 @@ mod tests {
         );
     }
 
-    /// The heuristic matches MiniJinja 2.21.0's actual `unknown statement <kw>` detail for
+    /// The heuristic matches `MiniJinja` 2.21.0's actual `unknown statement <kw>` detail for
     /// each of the six disabled-tag keywords (verified empirically against the engine).
     #[test]
     fn excluded_feature_detail_is_recognised() {

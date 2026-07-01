@@ -26,7 +26,7 @@
 //!
 //! napi-rs auto-registers every `#[napi]` item through its module-register machinery (the `ctor`
 //! constructor the macro emits) — there is **no** manual class/function registration step (unlike
-//! PyO3's `#[pymodule]`). Declaring the modules below and annotating the items with `#[napi]` is
+//! `PyO3`'s `#[pymodule]`). Declaring the modules below and annotating the items with `#[napi]` is
 //! sufficient for them to appear on the generated addon + its `index.d.ts`.
 //!
 //! [napi-rs]: https://napi.rs
@@ -41,7 +41,7 @@ pub mod prompt;
 pub mod render;
 
 /// Returns the version string of the underlying rendering kernel. Surfaces as
-/// `coreVersion` in JS (napi renames snake_case → camelCase).
+/// `coreVersion` in JS (napi renames `snake_case` → camelCase).
 #[napi]
 #[must_use]
 pub fn core_version() -> &'static str {

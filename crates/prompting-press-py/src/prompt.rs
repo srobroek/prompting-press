@@ -8,7 +8,7 @@
 //! **everything** — construction, render, check, source lookup, and mutation — to the
 //! Rust consumer via the [`prompting_press`] crate. The binding adds only:
 //!
-//! - PyO3 extraction of the `shape` argument (Pydantic model OR dict → JSON → consumer
+//! - `PyO3` extraction of the `shape` argument (Pydantic model OR dict → JSON → consumer
 //!   constructor, reusing the duck-typing path from `registry.rs`).
 //! - The `validators` coverage check: if any `PromptVariable` carries
 //!   `validation_required = true`, the supplied Pydantic model class must declare that
@@ -338,35 +338,34 @@ impl Prompt {
         //  - explicit model given: use it directly (same dual path as the module-level render).
         //  - model omitted: use the bound validator as the model class (requires data).
         let (effective_model, effective_data): (Bound<'_, PyAny>, Option<Bound<'_, PyAny>>) =
-            match model {
-                Some(m) => (m.clone(), data.cloned()),
-                None => {
-                    // No model passed — must have a bound validator + explicit data.
-                    let Some(bound) = &self.validators else {
-                        return Err(consumer_error_to_pyerr(
-                            py,
-                            ConsumerError::Validation(vec![ConsumerFieldError {
-                                field: String::new(),
-                                code: code::VALIDATION.to_string(),
-                                message:
-                                    "render() requires a model or validators bound at construction"
-                                        .to_string(),
-                            }]),
-                        ));
-                    };
-                    let bound_cls = bound.bind(py);
-                    let Some(d) = data else {
-                        return Err(consumer_error_to_pyerr(
-                            py,
-                            ConsumerError::Validation(vec![ConsumerFieldError {
-                                field: String::new(),
-                                code: code::VALIDATION.to_string(),
-                                message: "render() with no model arg requires explicit data= when using a bound validator class".to_string(),
-                            }]),
-                        ));
-                    };
-                    (bound_cls.clone(), Some(d.clone()))
-                }
+            if let Some(m) = model {
+                (m.clone(), data.cloned())
+            } else {
+                // No model passed — must have a bound validator + explicit data.
+                let Some(bound) = &self.validators else {
+                    return Err(consumer_error_to_pyerr(
+                        py,
+                        ConsumerError::Validation(vec![ConsumerFieldError {
+                            field: String::new(),
+                            code: code::VALIDATION.to_string(),
+                            message:
+                                "render() requires a model or validators bound at construction"
+                                    .to_string(),
+                        }]),
+                    ));
+                };
+                let bound_cls = bound.bind(py);
+                let Some(d) = data else {
+                    return Err(consumer_error_to_pyerr(
+                        py,
+                        ConsumerError::Validation(vec![ConsumerFieldError {
+                            field: String::new(),
+                            code: code::VALIDATION.to_string(),
+                            message: "render() with no model arg requires explicit data= when using a bound validator class".to_string(),
+                        }]),
+                    ));
+                };
+                (bound_cls.clone(), Some(d.clone()))
             };
 
         // Validate in Python, BEFORE any templating (FR-002 / Q1).
@@ -579,24 +578,21 @@ fn build_overlay(
     py: Python<'_>,
     overlay: &Bound<'_, PyAny>,
 ) -> PyResult<prompting_press::PromptOverlay> {
-    // Depythonize the dict to a serde_json::Value map.
-    let overlay_value: serde_json::Value = pythonize::depythonize(overlay)
-        .map_err(|e| consumer_error_to_pyerr(py, ConsumerError::Load(e.to_string())))?;
-
-    let obj = match &overlay_value {
-        serde_json::Value::Object(m) => m,
-        _ => {
-            return Err(consumer_error_to_pyerr(
-                py,
-                ConsumerError::Load("overlay must be a dict".to_string()),
-            ));
-        }
-    };
-
     use prompting_press_core::generated::prompt_definition::{
         PromptDefinitionName, PromptDefinitionRole, PromptVariable, PromptVariant,
     };
     use std::collections::HashMap;
+
+    // Depythonize the dict to a serde_json::Value map.
+    let overlay_value: serde_json::Value = pythonize::depythonize(overlay)
+        .map_err(|e| consumer_error_to_pyerr(py, ConsumerError::Load(e.to_string())))?;
+
+    let serde_json::Value::Object(ref obj) = overlay_value else {
+        return Err(consumer_error_to_pyerr(
+            py,
+            ConsumerError::Load("overlay must be a dict".to_string()),
+        ));
+    };
 
     // Each field is deserialized only if present in the overlay dict.
     macro_rules! overlay_field {
@@ -762,7 +758,7 @@ mod tests {
         });
     }
 
-    /// `from_json` rejects undeclared variables — construction fails with a ConsumerError.
+    /// `from_json` rejects undeclared variables — construction fails with a `ConsumerError`.
     #[test]
     fn from_json_undeclared_variable_raises() {
         let json = r#"{"name":"bad","role":"user","body":"{{ ghost }}","variables":{"name":{"type":"string","trusted":true}}}"#;
@@ -822,7 +818,7 @@ trusted = true
 
     // ── validation_required coverage (T036) ───────────────────────────────────
 
-    /// A prompt with no `validation_required` variables — from_json_for_test works without validators.
+    /// A prompt with no `validation_required` variables — `from_json_for_test` works without validators.
     #[test]
     fn no_validation_required_no_validators_ok() {
         Python::attach(|_py| {

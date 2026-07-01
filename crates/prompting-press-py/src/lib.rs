@@ -44,8 +44,8 @@ fn core_version() -> &'static str {
     prompting_press::core_version()
 }
 
-/// The native extension module. CPython binds an extension by the `PyInit_<name>` symbol, and
-/// PyO3 derives that symbol from this `#[pymodule]` function's name — so it MUST match maturin's
+/// The native extension module. `CPython` binds an extension by the `PyInit_<name>` symbol, and
+/// `PyO3` derives that symbol from this `#[pymodule]` function's name — so it MUST match maturin's
 /// `module-name = "prompting_press"` (pyproject.toml), or `import prompting_press` fails with a
 /// missing `PyInit_prompting_press`. The `#[pyo3(name = "prompting_press")]` attribute sets the
 /// module name WITHOUT renaming the Rust `fn` — keeping the `fn prompting_press_py` identifier

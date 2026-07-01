@@ -20,7 +20,7 @@
 //!
 //! ## The `kind` discriminant string (FR-020)
 //!
-//! JS matches on a [`Finding`]'s **`kind`**, exposed as a stable snake_case **discriminant string**
+//! JS matches on a [`Finding`]'s **`kind`**, exposed as a stable `snake_case` **discriminant string**
 //! (not an opaque enum): `"untrusted_without_guard"`. The kind's inner datum (the uncovered
 //! `field`) is already echoed in [`Finding::detail`], so `kind` stays a single stable matchable
 //! value. The mapping is an **exhaustive** match over the consumer's [`FindingKind`] (no wildcard
@@ -86,7 +86,7 @@ impl CheckReport {
 /// One actionable lint finding, read-only from JS.
 ///
 /// Names the `prompt`, the `variant` where applicable (`null` for a prompt-level finding), the
-/// failure `kind` (a stable snake_case discriminant string — see the module docs), and a
+/// failure `kind` (a stable `snake_case` discriminant string — see the module docs), and a
 /// human-readable `detail`. The `detail` carries no bound-value content (it is built by the
 /// consumer from prompt/field names only). Surfaced as a plain JS object with all four fields
 /// (the natural shape for the `findings` array the TS facade iterates / matches on).
@@ -98,7 +98,7 @@ pub struct Finding {
     /// The variant the finding pertains to; `None` (`undefined` in JS) for a prompt-level
     /// provenance finding.
     pub variant: Option<String>,
-    /// The failure kind as a stable snake_case **discriminant string** — the value JS matches on.
+    /// The failure kind as a stable `snake_case` **discriminant string** — the value JS matches on.
     /// Currently always `"untrusted_without_guard"`. The kind's inner datum is echoed in
     /// [`detail`](Self::detail).
     pub kind: String,
@@ -117,7 +117,7 @@ impl From<prompting_press::Finding> for Finding {
     }
 }
 
-/// Map a consumer [`FindingKind`] to its stable snake_case **discriminant string**.
+/// Map a consumer [`FindingKind`] to its stable `snake_case` **discriminant string**.
 ///
 /// **Exhaustive on purpose** (no `_` wildcard): if the consumer adds a `FindingKind` variant, this
 /// match fails to compile, forcing the JS-visible string set to be updated deliberately rather than

@@ -6,7 +6,7 @@
 //! with that prompt definition's `role` (FR-012). It is the few-shot / system+user sequence
 //! builder. Construction is `Composition()` + [`append`](Composition::append), or the
 //! [`from_messages`](Composition::from_messages) bulk constructor — there is deliberately **no**
-//! fluent `.chain()` API (FR-013; it cannot cross the PyO3 boundary and collides with
+//! fluent `.chain()` API (FR-013; it cannot cross the `PyO3` boundary and collides with
 //! `Iterator::chain`).
 //!
 //! ## Phase 4 reshape (T039)

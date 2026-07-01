@@ -144,6 +144,7 @@ pub fn consumer_error_to_napi_err(err: ConsumerError) -> NapiError {
 /// replaces `Parse`/`Render`/`ExcludedFeature` detail with a fixed message and discards the raw
 /// `detail`. The resulting (scrubbed) `ConsumerError` is then mapped by
 /// [`consumer_error_to_napi_err`]. Raw `KernelError::detail` is never read here.
+#[must_use]
 pub fn kernel_error_to_napi_err(err: KernelError) -> NapiError {
     let scrubbed = ConsumerError::from(err);
     consumer_error_to_napi_err(scrubbed)

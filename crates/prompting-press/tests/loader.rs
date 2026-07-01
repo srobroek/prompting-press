@@ -14,7 +14,7 @@
 //! - **V2.3** `Prompt::new(constructed_def)` is on equal footing with the text loaders.
 //! - **V2.4** malformed input → `Err(ConsumerError::Load(..))`, nothing partially loaded.
 //! - **V2.5 (Norway-safe)** a YAML metadata value of `no` / `off` / `yes` parses as the
-//!   STRING `"no"` etc., not a boolean — serde_yaml_ng YAML 1.2 backing (research D2).
+//!   STRING `"no"` etc., not a boolean — `serde_yaml_ng` YAML 1.2 backing (research D2).
 
 use prompting_press::{ConsumerError, Prompt, PromptDefinition};
 
@@ -113,7 +113,7 @@ metadata:
 }
 
 /// V2.2 (SC-003) — same parity over the richer multi-variant fixture: both the JSON fixture
-/// and a hand-crafted serde_json equivalent (field-for-field) parse to structurally equal
+/// and a hand-crafted `serde_json` equivalent (field-for-field) parse to structurally equal
 /// `PromptDefinition`s.
 #[test]
 fn yaml_and_json_parse_to_equal_definitions_multi_variant() {
