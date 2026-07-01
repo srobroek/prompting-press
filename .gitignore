@@ -335,6 +335,11 @@ dist/
 # Astro docs site: generated types + content cache (regenerable; never committed).
 docs/site/.astro/
 
+# Transient backup of src/content/docs/ that build-versions.mjs creates while
+# staging each per-version build; normally removed in its finally, but ignore it
+# so an interrupted build never commits the backup.
+docs/site/src/content/docs.build-versions-backup/
+
 # Node / TypeScript
 node_modules/
 packages/*/node_modules/

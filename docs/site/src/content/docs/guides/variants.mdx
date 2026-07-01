@@ -112,7 +112,7 @@ The same three-arm prompt can be built directly from a typed shape object — no
 `variants` map mirrors the document form one-to-one, and construction runs the **same** validation
 (agreement over every arm, reserved-name check).
 
-<Tabs syncKey="construct">
+<Tabs syncKey="lang">
 <TabItem label="Rust">
 <Code code={constructInlineRust} lang="rust" title="guides_variants_construct_inline.rs" />
 </TabItem>
@@ -130,7 +130,7 @@ Pass the variant name at render; omit it (or pass `None` / no `variant`) for the
 resolved name comes back on `RenderResult.variant`, and `RenderResult.text` is that arm's rendered
 body — selecting a different variant produces a different `text`.
 
-<Tabs syncKey="construct">
+<Tabs syncKey="lang">
 <TabItem label="Rust">
 <Code code={selectRust} lang="rust" title="guides_variants_select.rs" />
 An unknown variant name returns `Err(ConsumerError::Kernel(..))` with code `"unknown_variant"`.
