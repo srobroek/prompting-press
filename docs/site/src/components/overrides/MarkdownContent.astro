@@ -24,8 +24,15 @@ import DefaultMarkdownContent from "@astrojs/starlight/components/MarkdownConten
 import versionsData from "../../data/versions.json";
 
 // process.env is available in Astro component frontmatter at SSG build time.
+// Three build states (set by build-versions.mjs):
+//   latest release  → PP_DOCS_IS_LATEST=true               → no banner (canonical).
+//   next / main     → PP_DOCS_IS_LATEST=false, VERSION=next → "unreleased" note
+//                       (next is NEWER than latest, so it is NOT an "older version").
+//   older pinned    → PP_DOCS_IS_LATEST=false, VERSION=vX.Y → "older version" warning.
 const isLatestEnv = process.env.PP_DOCS_IS_LATEST; // "true" | "false" | undefined
-const isNonLatest = isLatestEnv === "false";        // only render banner when explicitly non-latest
+const docsVersion = process.env.PP_DOCS_VERSION;   // "next" | "vX.Y" | undefined
+const isNext      = isLatestEnv === "false" && docsVersion === "next";
+const isOlder     = isLatestEnv === "false" && docsVersion !== "next";
 
 // Latest released version metadata (from the manifest — no hardcoded version).
 const latestEntry  = versionsData.versions.find((v) => v.isLatest);
@@ -35,7 +42,7 @@ const latestLabel  = `v${latestMinor}`;
 ---
 
 <DefaultMarkdownContent {...Astro.props}>
-  {isNonLatest && (
+  {isOlder && (
     <aside
       aria-label="Old version notice"
       class="starlight-aside starlight-aside--caution old-version-banner"
@@ -47,6 +54,21 @@ const latestLabel  = `v${latestMinor}`;
       <div class="starlight-aside__content">
         <a href={latestHref}>{latestLabel} is the latest version.</a>
         {" "}Switch to it for up-to-date documentation.
+      </div>
+    </aside>
+  )}
+  {isNext && (
+    <aside
+      aria-label="Unreleased version notice"
+      class="starlight-aside starlight-aside--note old-version-banner"
+      data-pagefind-ignore
+    >
+      <p class="starlight-aside__title">
+        You are viewing the in-development (next) docs
+      </p>
+      <div class="starlight-aside__content">
+        This documents unreleased changes on <code>main</code>.
+        {" "}For the current release, see <a href={latestHref}>{latestLabel}</a>.
       </div>
     </aside>
   )}

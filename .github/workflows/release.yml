@@ -227,45 +227,81 @@ jobs:
           gh pr merge "$branch" --squash --auto --delete-branch
 
   # ---------------------------------------------------------------------------
-  # publish — INTENTIONALLY DISABLED (pre-publish; everything except publish).
+  # publish — via TRUSTED PUBLISHERS (OIDC). No long-lived registry tokens.
   #
-  # Wiring is visible here so the steps are ready to enable when the project
-  # is ready to publish. To enable: remove `if: false` and implement the
-  # actual build + publish commands for each ecosystem.
+  # Runs only on an actual release-please release (releases_created == true),
+  # from the tagged commit on main. Each ecosystem authenticates via short-lived
+  # OIDC identity (id-token: write) against a Trusted Publisher registered on the
+  # registry for THIS repo + THIS workflow file (+ the `release` environment).
   #
-  # When enabled this job should:
-  #   1. Build the Rust crates        → cargo publish (crates.io)
-  #   2. Build the Python wheel       → maturin publish (PyPI)
-  #   3. Build the Node.js addon+facade → pnpm publish (npm)
+  # One-time prerequisites (done out-of-band, see samples/README + PR notes):
+  #   - crates.io: `prompting-press-core` + `prompting-press` names claimed (a
+  #     new crate name cannot be first-published via OIDC), then Trusted
+  #     Publishing registered per crate.
+  #   - PyPI: a Pending Publisher registered for `prompting-press` (supports
+  #     first publish via OIDC).
+  #   - npm: Trusted Publisher registered for `prompting-press`.
   #
-  # See roadmap spec 010 / the native-docs-versioning spec for the docs
-  # snapshot step that should also be triggered on each MINOR release.
+  # KNOWN SCOPE: this single Linux runner publishes the Rust crates (pure source)
+  # correctly, and produces Linux artifacts for the Python wheel + Node addon.
+  # FULL multi-platform native artifacts (manylinux/macOS/Windows wheels +
+  # prebuilt napi binaries) need a per-OS build matrix — tracked as a follow-up;
+  # 0.1.0 ships Linux + source distributions.
   # ---------------------------------------------------------------------------
   publish:
-    name: Publish (DISABLED — enable when ready)
+    name: Publish (crates.io / PyPI / npm via OIDC)
     needs: release-please
+    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
     runs-on: ubuntu-latest
-    # ENABLE WHEN READY TO PUBLISH — remove `if: false` and wire real publish steps.
-    # Tracking: see spec 010 / roadmap "pre-publish" gates.
-    if: false
+    environment: release
+    permissions:
+      contents: read
+      id-token: write # REQUIRED for OIDC trusted publishing on all three registries
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # actions/checkout v7.0.0
 
-      # --- Rust (crates.io) ---
-      # - name: Publish Rust crates
-      #   run: cargo publish -p prompting-press-core && cargo publish -p prompting-press
-      #   env:
-      #     CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Install mise toolchain
+        uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac  # v2
+        with:
+          experimental: true
 
-      # --- Python (PyPI via maturin) ---
-      # - name: Publish Python wheel
-      #   run: maturin publish --manifest-path crates/prompting-press-py/Cargo.toml
-      #   env:
-      #     MATURIN_PYPI_TOKEN: ${{ secrets.MATURIN_PYPI_TOKEN }}
+      # --- Rust → crates.io (OIDC via rust-lang/crates-io-auth-action) ---
+      # Publish order matters: the kernel first, then the consumer crate that
+      # depends on it (`prompting-press-core = { version = "0.1", path = ... }`;
+      # cargo strips the path and uses the crates.io version on publish).
+      - name: Authenticate to crates.io (OIDC)
+        id: crates-auth
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: Publish Rust crates
+        run: |
+          mise exec -- cargo publish -p prompting-press-core --token "$CARGO_TOKEN"
+          mise exec -- cargo publish -p prompting-press --token "$CARGO_TOKEN"
+        env:
+          CARGO_TOKEN: ${{ steps.crates-auth.outputs.token }}
+          CARGO_TERM_COLOR: always
 
-      # --- TypeScript (npm via pnpm) ---
-      # - name: Publish TypeScript package
-      #   run: pnpm -C packages/typescript publish --no-git-checks
-      #   env:
-      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # --- Python → PyPI (OIDC via pypa/gh-action-pypi-publish) ---
+      # Build the abi3 wheel + sdist with maturin, then upload with the PyPI
+      # trusted-publisher action (consumes the OIDC id-token; no PYPI token).
+      - name: Build Python wheel + sdist (maturin)
+        run: |
+          mise exec -- uvx maturin build --release --manifest-path crates/prompting-press-py/Cargo.toml --out dist
+          mise exec -- uvx maturin sdist --manifest-path crates/prompting-press-py/Cargo.toml --out dist
+      - name: Publish to PyPI (Trusted Publisher)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+
+      # --- TypeScript → npm (OIDC trusted publisher; npm CLI >= 11.5.1) ---
+      - name: Set up Node for npm OIDC
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.14.0'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Build + publish the TS package
+        run: |
+          npm install -g npm@latest        # OIDC trusted publishing needs npm >= 11.5.1
+          mise exec -- pnpm -C packages/typescript install --frozen-lockfile
+          mise exec -- pnpm -C packages/typescript run build
+          npm publish --provenance --access public -w packages/typescript || (cd packages/typescript && npm publish --provenance --access public)

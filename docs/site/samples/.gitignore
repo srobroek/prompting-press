@@ -2,8 +2,14 @@
 # Lockfiles (uv.lock / pnpm-lock.yaml) ARE committed for reproducibility, matching
 # the consumer sample apps under /samples.
 rust/target/
+rust/Cargo.lock
 python/.venv/
 python/**/__pycache__/
 python/**/*.pyc
+python/.pytest_cache/
+python/.ruff_cache/
 typescript/node_modules/
 typescript/dist/
+# We use pnpm (pnpm-lock.yaml is committed); reject stray npm/yarn locks.
+typescript/package-lock.json
+typescript/yarn.lock
