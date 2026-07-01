@@ -34,18 +34,25 @@ cd "${REPO_ROOT}"
 CONFIG="${REPO_ROOT}/about.toml"
 TEMPLATE="${REPO_ROOT}/ci/about.hbs"
 
-# Resolve cargo-about's ABSOLUTE path via mise. The `cargo about` SUBCOMMAND form
-# only works when cargo-about is on PATH (as cargo-deny is, in ~/.cargo/bin), but
-# mise installs cargo-about into its own tool dir which is NOT on the base PATH —
-# and moon does not propagate mise's shim PATH into task subprocesses, so a bare
-# `cargo about` inside this script fails with "no such command: about" under
-# `moon run` (that broke the ci:check-third-party-licenses gate on every runner).
-# `mise which` gives the concrete binary path, which we invoke directly; this works
-# under moon, under `mise exec`, and standalone. Falls back to `cargo-about` on PATH
-# if mise can't resolve it (e.g. a non-mise environment).
+# Resolve cargo-about's ABSOLUTE path via mise. Why not just `cargo about`
+# (subcommand form)? It needs cargo-about on PATH, but mise installs it into its
+# own tool dir (NOT ~/.cargo/bin like cargo-deny) and moon does not propagate
+# mise's shim PATH into task subprocesses — so a bare `cargo about` fails with
+# "no such command: about" under `moon run`. We invoke the concrete binary path
+# instead, which works under moon, `mise exec`, and standalone.
+#
+# CRUCIAL: `mise which` only QUERIES — it does NOT install a missing tool. On a
+# fresh CI runner cargo-about isn't built yet (the pr-gate job installs tools
+# lazily via `mise exec -- moon run`, and moon's earlier gates never invoked
+# cargo-about), so `mise which` returns empty there. `mise install` first (it is
+# idempotent / a fast no-op once present) so the path always resolves. Fall back
+# to a PATH lookup for non-mise environments.
+if command -v mise >/dev/null 2>&1; then
+  mise install "cargo:cargo-about" >/dev/null 2>&1 || true
+fi
 CARGO_ABOUT="$(mise which cargo-about 2>/dev/null || command -v cargo-about || true)"
 if [ -z "${CARGO_ABOUT}" ]; then
-  echo "ERROR: cargo-about not found (mise which cargo-about / PATH both empty)." >&2
+  echo "ERROR: cargo-about not found (mise install + which failed, not on PATH)." >&2
   echo "Install it: mise install 'cargo:cargo-about'" >&2
   exit 1
 fi
