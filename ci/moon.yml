@@ -31,6 +31,13 @@ tasks:
       runFromWorkspaceRoot: true
       cache: false
 
+  check-package:
+    description: 'Publishability dry-run — `cargo package` the two crates that actually ship to crates.io (prompting-press-core + prompting-press), asserting each produces a valid .crate with a crates.io-valid manifest (all deps versioned, required metadata present). Scoped to the published crates only: the FFI binding crates and samples/rust/* are NOT published and have path-only deps that cargo package rejects. `--no-verify` skips the compile (the consumer would false-fail resolving the not-yet-published core from the index); this checks packaging/manifest validity, which is what a publish-time surprise looks like.'
+    command: 'cargo package -p prompting-press-core -p prompting-press --no-verify --locked'
+    options:
+      runFromWorkspaceRoot: true
+      cache: false
+
   check-floating-versions:
     description: 'T030a — Lint manifests for floating version specifiers (^, ~, latest, *) per SEC-003.'
     command: 'bash scripts/ci/check-floating-versions.sh'

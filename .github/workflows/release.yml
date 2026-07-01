@@ -18,6 +18,12 @@ on:
   push:
     branches:
       - main
+  # Manual build-only smoke test. Dispatching this runs the full cross-platform
+  # BUILD matrix (wheels + sdist + node addon across every target) WITHOUT
+  # publishing anything — a way to exercise the musl/zig/aarch64 targets on demand
+  # before betting a real release on them. Only the build-* jobs honor this event;
+  # every publish/gate/finalize job stays gated on an actual release-please release.
+  workflow_dispatch:
 
 # release-please needs write access to open/update the release PR and to
 # create GitHub Releases + version tags on merge.
@@ -301,6 +307,10 @@ jobs:
             task: ci:conformance
           - name: consumer-samples
             task: samples:test
+          # Publishability dry-run for the two crates.io crates — catches a
+          # bad/invalid manifest before the release tries to `cargo publish`.
+          - name: crate-package
+            task: ci:check-package
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # actions/checkout v7.0.0
@@ -415,7 +425,8 @@ jobs:
   build-wheels:
     name: Build wheel (${{ matrix.platform.target }})
     needs: release-please
-    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
+    # Runs on a real release OR a manual build-only smoke test (workflow_dispatch).
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.releases_created == 'true') }}
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       fail-fast: false
@@ -484,7 +495,8 @@ jobs:
   build-sdist:
     name: Build Python sdist
     needs: release-please
-    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
+    # Runs on a real release OR a manual build-only smoke test (workflow_dispatch).
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.releases_created == 'true') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -504,8 +516,12 @@ jobs:
 
   publish-python:
     name: Publish to PyPI (Trusted Publisher)
-    # Needs the wheel/sdist artifacts AND the single gate (all builds + tests).
-    needs: [release-gate, build-wheels, build-sdist]
+    # Needs release-please (for the release-created output referenced in `if`),
+    # the wheel/sdist artifacts, AND the single gate (all builds + tests).
+    needs: [release-please, release-gate, build-wheels, build-sdist]
+    # Explicit release-only guard: a workflow_dispatch smoke test builds wheels
+    # but must NEVER publish, even though build-wheels succeeds on dispatch.
+    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -543,7 +559,8 @@ jobs:
   build-node:
     name: Build node addon (${{ matrix.settings.target }})
     needs: release-please
-    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
+    # Runs on a real release OR a manual build-only smoke test (workflow_dispatch).
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.releases_created == 'true') }}
     runs-on: ${{ matrix.settings.runner }}
     strategy:
       fail-fast: false
@@ -628,8 +645,12 @@ jobs:
 
   publish-npm:
     name: Publish to npm (Trusted Publisher)
-    # Needs the prebuilt .node artifacts AND the single gate (all builds + tests).
-    needs: [release-gate, build-node]
+    # Needs release-please (for the release-created output referenced in `if`),
+    # the prebuilt .node artifacts, AND the single gate (all builds + tests).
+    needs: [release-please, release-gate, build-node]
+    # Explicit release-only guard: a workflow_dispatch smoke test builds the addon
+    # but must NEVER publish, even though build-node succeeds on dispatch.
+    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
     runs-on: ubuntu-latest
     environment: release
     permissions:
