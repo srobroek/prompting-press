@@ -24,6 +24,13 @@ tasks:
       runFromWorkspaceRoot: true
       cache: false
 
+  check-workflows:
+    description: 'Static-lint .github/workflows/*.yml with actionlint (syntax, ${{ }} expression errors, shellcheck on run: blocks, action-input typos). Catches a release.yml/ci.yml mistake pre-merge instead of on release day. actionlint is mise-pinned (aqua:rhysd/actionlint).'
+    command: 'actionlint'
+    options:
+      runFromWorkspaceRoot: true
+      cache: false
+
   check-floating-versions:
     description: 'T030a — Lint manifests for floating version specifiers (^, ~, latest, *) per SEC-003.'
     command: 'bash scripts/ci/check-floating-versions.sh'

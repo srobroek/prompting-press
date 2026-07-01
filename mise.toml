@@ -25,6 +25,13 @@ jq = "1.8.1"
 # --- Codegen toolchain (research D1) ---
 "cargo:cargo-typify" = { version = "0.7.0", locked = true }  # Rust JSON-Schema -> serde structs (T022/T025); --locked pins transitive deps to cargo-typify's shipped Cargo.lock
 
+# --- CI workflow lint ---
+# actionlint statically checks .github/workflows/*.yml (syntax, expression errors,
+# shellcheck on run: blocks, action-input typos). Runs in pr-gate via
+# ci:check-workflows so a release.yml/ci.yml mistake is caught pre-merge instead
+# of on release day. Pinned exact (aqua backend) per SEC-003.
+"aqua:rhysd/actionlint" = "1.7.12"
+
 # --- Security toolchain (T036 / SEC-001) ---
 "cargo:cargo-deny" = { version = "0.19.9", locked = true }   # Advisory scan (ci:check-advisories) + license gate (ci:check-licenses); reads deny.toml
 # License-attribution generator: renders the bundled THIRD-PARTY-LICENSES.md files
