@@ -1,0 +1,20 @@
+# rustfmt configuration — pinned STABLE options only.
+#
+# The repo's rustfmt is the stable 1.95.0 toolchain (mise.toml / rust-toolchain.toml).
+# Stable rustfmt silently ignores nightly-only options (it prints "unstable features
+# are only available in nightly channel" and no-ops), so listing e.g.
+# `group_imports` / `imports_granularity` here would be dead, misleading config.
+# Only stable-honored keys live below; they make the current formatting explicit
+# rather than implicit-default, so `cargo fmt` and a bare `rustfmt` invocation agree.
+#
+# This codifies EXISTING behavior — the tree is already clean under these settings
+# (`cargo fmt --all --check` passes). It is not a re-format.
+
+# Make the edition explicit so formatting is stable regardless of how rustfmt is
+# invoked (bare `rustfmt <file>` does not read Cargo.toml's edition; `cargo fmt`
+# does). Lockstep with [workspace.package].edition = "2021".
+edition = "2021"
+
+# 100-column line width — rustfmt's default, stated explicitly so it matches the
+# TypeScript side (biome.json lineWidth = 100) for cross-language consistency.
+max_width = 100

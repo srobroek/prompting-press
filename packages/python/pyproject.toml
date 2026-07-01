@@ -95,3 +95,31 @@ include = [
   { path = "LICENSE", format = ["sdist", "wheel"] },
   { path = "NOTICE", format = ["sdist", "wheel"] },
 ]
+
+# Ruff config — makes the lint/format policy explicit (was pure defaults before).
+# Drives ci:check-lint-py (ruff check + ruff format --check) and the codegen
+# ruff-format pass. The tree is already clean under these settings — this codifies
+# current behavior + a modest extended rule set, not a re-format.
+[tool.ruff]
+# 100 cols, matching biome.json (TS) + rustfmt.toml (Rust) for cross-language
+# consistency. (Ruff's own default is 88.) datamodel-code-generator's ruff-format
+# pass reads this too, so the generated shape is now formatted at 100 as well —
+# one width across the whole repo, codegen included.
+line-length = 100
+# Honor `exclude` even when a path is passed explicitly on the command line (how
+# editor/commit hooks invoke ruff, e.g. `ruff check <changed-file>`). Without this,
+# ruff's `exclude` only filters directory-walk discovery, so a hook passing the
+# generated file's path would lint it anyway and flag codegen's long docstrings.
+force-exclude = true
+
+[tool.ruff.lint]
+# Default (E4/E7/E9, F) plus: import sorting (I), pyflakes-warns (W), bugbear (B),
+# flake8-simplify (SIM), pyupgrade (UP), pep8-naming (N), comprehensions (C4), and
+# Ruff's own rules (RUF, incl. RUF022 sorted __all__). Verified clean on the
+# hand-written facade.
+select = ["E", "F", "W", "I", "B", "SIM", "UP", "N", "C4", "RUF"]
+# The generated Pydantic shape is owned by the codegen pipeline (its structure —
+# import order, __all__, naming — is datamodel-code-generator's, not ours, and the
+# codegen freshness gate guards it byte-for-byte). Exclude it from LINT rules only;
+# it is still FORMAT-checked (and now formatted at 100, consistent with the rest).
+exclude = ["python/prompting_press/generated/**"]

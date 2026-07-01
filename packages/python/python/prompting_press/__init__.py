@@ -19,6 +19,8 @@ from __future__ import annotations
 
 from importlib.metadata import PackageNotFoundError, version
 
+# The generated Pydantic prompt-definition shapes (codegen'd from the JSON Schema — C-07).
+from .generated import PromptDefinition, PromptVariable, PromptVariant
 from .prompting_press import (  # the compiled extension submodule
     CheckReport,
     Composition,
@@ -35,9 +37,6 @@ from .prompting_press import (  # the compiled extension submodule
     core_version,
 )
 
-# The generated Pydantic prompt-definition shapes (codegen'd from the JSON Schema — C-07).
-from .generated import PromptDefinition, PromptVariable, PromptVariant
-
 try:
     # The PyPI distribution name is ``prompting-press`` (the import name is ``prompting_press``).
     __version__ = version("prompting-press")
@@ -45,28 +44,28 @@ except PackageNotFoundError:  # pragma: no cover — editable / unbuilt source t
     __version__ = "0.0.0"
 
 __all__ = [
-    # Primary public type (spec 008 Phase 4).
-    "Prompt",
-    # Result + config types.
-    "RenderResult",
-    "GuardConfig",
-    # Structured error row.
-    "FieldError",
     # Lint report types.
     "CheckReport",
-    "Finding",
     # Multi-message composition.
     "Composition",
+    # Structured error row.
+    "FieldError",
+    "Finding",
+    "GuardConfig",
+    "LoadError",
     "Message",
-    # Kernel version accessor.
-    "core_version",
+    # Primary public type (spec 008 Phase 4).
+    "Prompt",
     # Generated prompt-definition shapes.
     "PromptDefinition",
+    "PromptRenderError",
+    "PromptValidationError",
     "PromptVariable",
     "PromptVariant",
     # Exception hierarchy.
     "PromptingPressError",
-    "PromptValidationError",
-    "PromptRenderError",
-    "LoadError",
+    # Result + config types.
+    "RenderResult",
+    # Kernel version accessor.
+    "core_version",
 ]

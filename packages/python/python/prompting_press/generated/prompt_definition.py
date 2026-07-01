@@ -42,8 +42,7 @@ class PromptVariable(BaseModel):
         extra="forbid",
     )
     type: Annotated[
-        Type | list[TypeEnum],
-        Field(description="JSON-Schema type keyword(s) for the variable."),
+        Type | list[TypeEnum], Field(description="JSON-Schema type keyword(s) for the variable.")
     ]
     trusted: Annotated[
         bool,
@@ -58,8 +57,7 @@ class PromptVariable(BaseModel):
         ),
     ] = False
     description: Annotated[
-        str | None,
-        Field(description="Optional human-readable description of the variable."),
+        str | None, Field(description="Optional human-readable description of the variable.")
     ] = None
 
 
@@ -86,10 +84,7 @@ class PromptDefinition(BaseModel):
         extra="forbid",
     )
     name: Annotated[
-        str,
-        Field(
-            description="Logical prompt name; the caller's reference key.", min_length=1
-        ),
+        str, Field(description="Logical prompt name; the caller's reference key.", min_length=1)
     ]
     role: Annotated[
         Role,
