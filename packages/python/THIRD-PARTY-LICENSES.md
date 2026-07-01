@@ -1527,9 +1527,9 @@ limitations under the License.
 ## Apache License 2.0
 
 Used by:
-- **prompting-press 0.1.0** — <https://github.com/prompting-press/prompting-press>
-- **prompting-press-core 0.1.0** — <https://github.com/prompting-press/prompting-press>
-- **prompting-press-py 0.1.0** — <https://github.com/prompting-press/prompting-press>
+- **prompting-press 0.2.0** — <https://github.com/prompting-press/prompting-press>
+- **prompting-press-core 0.2.0** — <https://github.com/prompting-press/prompting-press>
+- **prompting-press-py 0.2.0** — <https://github.com/prompting-press/prompting-press>
 - **garde 0.23.0** — <https://github.com/jprochazk/garde>
 - **garde_derive 0.23.0** — <https://github.com/jprochazk/garde>
 - **itoa 1.0.18** — <https://github.com/dtolnay/itoa>

@@ -4,7 +4,7 @@
 
 [package]
 name = "prompting-press"
-version = "0.1.0"
+version = "0.2.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -29,7 +29,7 @@ workspace = true
 # failed ("failed to select a version for the requirement prompting-press-core =
 # ^0.1"). The full "0.1.0" lets release-please bump it to "0.2.0" in lockstep.
 # (cargo strips the `path` on publish and uses this version from crates.io.)
-prompting-press-core = { path = "../prompting-press-core", version = "0.1.0" }
+prompting-press-core = { path = "../prompting-press-core", version = "0.2.0" }
 # serde/serde_json: dual-input loader (JSON arm) + the serialize bridge
 # (Value::from_serialize at the validated-struct → kernel-value boundary).
 # PromptDefinition shape is re-exported from prompting-press-core (relocated in spec 002).
