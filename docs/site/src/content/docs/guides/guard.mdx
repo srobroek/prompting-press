@@ -45,7 +45,7 @@ never wrapped.
 Every example below renders the same one-variable prompt — an `ask` prompt whose `topic` is
 **untrusted** — constructed once here:
 
-<Tabs syncKey="construct">
+<Tabs syncKey="lang">
 <TabItem label="Rust">
 <Code code={constructRs} lang="rust" title="guides_guard_construct.rs" />
 </TabItem>
@@ -89,7 +89,7 @@ otherwise the kernel rejects it and raises a structured error
 construction; a custom advisory must explain the same markers.
 </Aside>
 
-<Tabs syncKey="construct">
+<Tabs syncKey="lang">
 <TabItem label="Rust">
 <Code code={overrideAdvisoryRs} lang="rust" title="guides_guard_override_advisory.rs" />
 
@@ -114,7 +114,7 @@ A non-conforming override throws `PromptRenderError`:
 
 Pass a `GuardConfig` with `enabled: true` to `render`:
 
-<Tabs syncKey="construct">
+<Tabs syncKey="lang">
 <TabItem label="Rust">
 <Code code={enableRs} lang="rust" title="guides_guard_enable.rs" />
 
@@ -220,7 +220,7 @@ provides no composed field — assembling the provider request body is the calle
 
 **Single render — system+user pattern:**
 
-<Tabs syncKey="construct">
+<Tabs syncKey="lang">
 <TabItem label="Rust">
 <Code code={routeSingleRs} lang="rust" title="guides_guard_route_single.rs" />
 </TabItem>
@@ -234,7 +234,7 @@ provides no composed field — assembling the provider request body is the calle
 
 **Multi-message — prepend as a system message:**
 
-<Tabs syncKey="construct">
+<Tabs syncKey="lang">
 <TabItem label="Rust">
 <Code code={routeMultiRs} lang="rust" title="guides_guard_route_multi.rs" />
 </TabItem>
