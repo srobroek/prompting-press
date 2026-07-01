@@ -36,9 +36,23 @@ authors = [{ name = "Sjors Robroek" }]
 # Pydantic v2 is the typed-Vars facade and the generated shape (US3). The bounded
 # range `>=2,<3` is explicit and acceptable under the no-floating-versions rule.
 dependencies = ["pydantic>=2,<3"]
+keywords = ["prompt", "prompting", "prompt-template", "prompt-engineering", "llm", "genai", "ai", "template", "pydantic", "typed"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Rust",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Text Processing :: General",
+  "Typing :: Typed",
+]
 
 [project.urls]
+Homepage = "https://prompting-press.github.io/"
+Documentation = "https://prompting-press.github.io/"
 Repository = "https://github.com/prompting-press/prompting-press"
+Issues = "https://github.com/prompting-press/prompting-press/issues"
 
 [dependency-groups]
 # Build-time-only codegen toolchain (NOT a wheel runtime dep — runtime

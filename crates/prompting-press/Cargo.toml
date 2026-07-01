@@ -9,7 +9,11 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+documentation = "https://prompting-press.github.io/"
 description = "Public Rust consumer surface for Prompting Press, layered on the FFI-free kernel."
 
 [lib]

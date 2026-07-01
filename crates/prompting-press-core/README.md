@@ -1,14 +1,17 @@
 # prompting-press-core
 
-The **FFI-free engine kernel** of Prompting Press — the shared Rust core that
-all language bindings sit on top of (constitution Principle I / C-01).
+The FFI-free engine kernel of **Prompting Press** — a typed, variant-aware prompt-template
+library. This crate does the parsing, validation, rendering, variant resolution, hashing, and
+agreement analysis that every language binding sits on top of.
 
-**Isolation invariant (Principle II / C-02):** this crate must never depend on
-`pyo3` or `napi`, directly or transitively. CI enforces it
-(`moon run ci:check-ffi`).
+Most users want the [`prompting-press`](https://crates.io/crates/prompting-press) consumer crate
+instead, which layers an idiomatic typed API over this kernel.
 
-Spec 002 moves the code-generated `PromptDefinition` input-contract shape (FR-027)
-into this crate (`src/generated/`, schema-derived — regenerate via
-`bash crates/prompting-press-core/scripts/codegen.sh` or
-`moon run prompting-press-core:codegen`; do not hand-edit). The render path,
-agreement check, variant resolution, and hashing also arrive in spec 002.
+## Documentation
+
+Full docs — getting started, API reference, template features, guides, and the CI agreement
+lint — are at **<https://prompting-press.github.io/>**.
+
+## License
+
+Apache-2.0.

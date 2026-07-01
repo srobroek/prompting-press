@@ -16,7 +16,11 @@ edition = "2021"
 rust-version = "1.95" # MUST match rust-toolchain.toml + mise.toml (lockstep)
 license = "Apache-2.0"
 repository = "https://github.com/prompting-press/prompting-press"
+homepage = "https://prompting-press.github.io/"
 authors = ["Sjors Robroek"]
+# crates.io caps keywords at 5 (≤20 chars each); categories must be canonical slugs.
+keywords = ["prompt", "prompting", "llm", "genai", "ai"]
+categories = ["template-engine", "text-processing"]
 
 # Shared dependency versions, referenced by member crates via `{ workspace = true }`.
 # FFI deps (pyo3, napi) are intentionally absent: they are binding-crate-only and

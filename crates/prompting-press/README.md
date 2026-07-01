@@ -1,15 +1,51 @@
 # prompting-press
 
-The **public Rust consumer surface** for Prompting Press — the crate Rust
-applications depend on (not the kernel directly). It layers an idiomatic API over
-[`prompting-press-core`] and re-exports the code-generated prompt-definition types
-(generated in `prompting-press-core/src/generated/`, schema-derived — do not hand-edit).
+A typed, variant-aware **prompt-template library**. It turns typed inputs and a template into
+rendered text plus content-addressed provenance — nothing else (no I/O, no LLM calls, no request
+assembly). Rust, Python, and TypeScript all bind one compiled Rust engine, so rendered output is
+byte-identical across every language.
 
-Like the kernel, this crate is **FFI-free**: no `pyo3`, no `napi` (Principle II /
-C-02; CI-enforced).
+This is the public Rust consumer crate: an idiomatic API over the
+[`prompting-press-core`](https://crates.io/crates/prompting-press-core) engine kernel, using
+[`garde`](https://docs.rs/garde) for typed-input validation.
 
-Spec 001 ships this as a **stub**: the generated shape and the kernel dependency
-edge are real; the typed-Vars facade, loader, and `render()`/`check()` API land in
-spec 003.
+## Install
 
-[`prompting-press-core`]: ../prompting-press-core
+```bash
+cargo add prompting-press
+cargo add garde --features derive
+cargo add serde --features derive
+```
+
+## Quick start
+
+```rust
+use prompting_press::Prompt;
+use prompting_press_core::GuardConfig;
+use garde::Validate;
+use serde::Serialize;
+
+#[derive(Serialize, Validate)]
+struct Vars { #[garde(length(min = 1))] name: String }
+
+let greet = Prompt::from_yaml(r#"
+name: greet
+role: user
+body: "Hi {{ name }}"
+variables:
+  name: { type: string, trusted: true }
+"#)?;
+
+let r = greet.render(&Vars { name: "Ada".into() }, None, &GuardConfig::default())?;
+r.text;           // "Hi Ada"
+r.template_hash;  // 64-char SHA-256 of the template source
+```
+
+## Documentation
+
+Full docs — getting started, API reference, template features, guides, and the CI agreement
+lint — are at **<https://prompting-press.github.io/>**.
+
+## License
+
+Apache-2.0.
