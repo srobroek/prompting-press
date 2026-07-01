@@ -128,7 +128,13 @@ tasks:
 
   check-third-party-licenses:
     description: 'Third-party attribution freshness gate — regenerates the bundled packages/*/THIRD-PARTY-LICENSES.md via cargo-about and fails if git diff is dirty (the wheel + .node addon statically link the Rust graph, so their notices must be shipped and current).'
-    command: 'bash scripts/ci/check-third-party-licenses.sh'
+    # Wrapped in `mise exec` so the script bash runs with mise FULLY ACTIVATED:
+    # cargo-about lives ONLY in mise''s install dir (not ~/.cargo/bin like cargo-deny),
+    # and moon does not propagate mise''s tool PATH into a plain task subprocess — so a
+    # bare `bash ...` here leaves `cargo about` / `cargo-about` / even `mise` itself off
+    # PATH on CI. `mise exec --` prepends the mise tool dirs, so the script resolves
+    # cargo-about like any other pinned tool.
+    command: 'mise exec -- bash scripts/ci/check-third-party-licenses.sh'
     options:
       runFromWorkspaceRoot: true
       cache: false
