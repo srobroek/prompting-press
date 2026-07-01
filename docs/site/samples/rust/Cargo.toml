@@ -1,0 +1,22 @@
+# Doc-sample crate (spec 014, standalone-program model).
+#
+# Every file under examples/ is a COMPLETE, standalone program that a docs page
+# displays verbatim (via Astro `?raw` import) and that CI compiles + runs. There
+# is no marker injection and no fragment stitching: the file the reader sees IS
+# the tested artifact. `cargo build --examples` is the compile-against-live-code
+# gate (goal #7); `cargo run --example <name>` runs the in-program assertions.
+# Standalone (not a member of the root Cargo workspace): docs samples are built
+# by the docs pipeline / their own gate, not by `cargo build --workspace`.
+[workspace]
+
+[package]
+name = "prompting-press-doc-samples"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+prompting-press = { path = "../../../../crates/prompting-press" }
+garde = { version = "0.23", features = ["derive", "serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

@@ -3,7 +3,13 @@ title: "Getting started — Rust"
 description: "Install prompting-press and render a first prompt in Rust."
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Tabs, TabItem, Code } from '@astrojs/starlight/components';
+import constructFromText from '../../../../samples/rust/examples/getting-started_rust_construct_from_text.rs?raw';
+import constructFromDefinition from '../../../../samples/rust/examples/getting-started_rust_construct_from_definition.rs?raw';
+import declareVars from '../../../../samples/rust/examples/getting-started_rust_declare_vars.rs?raw';
+import renderAndRead from '../../../../samples/rust/examples/getting-started_rust_render_and_read.rs?raw';
+import completeExample from '../../../../samples/rust/examples/getting-started_rust_complete_example.rs?raw';
+import errorTypes from '../../../../samples/rust/examples/getting-started_rust_error_types.rs?raw';
 
 ## Install
 
@@ -79,35 +85,10 @@ Construct from text with a `from_*` factory, or from an already-built `PromptDef
 
 <Tabs syncKey="construct">
 <TabItem label="From text">
-```rust
-use prompting_press::Prompt;
-
-let yaml = std::fs::read_to_string("greet.yaml")?;
-let greet = Prompt::from_yaml(&yaml)?;          // validates here, or returns Err
-// from_json / from_toml parse the JSON / TOML forms into the same Prompt.
-
-greet.name();          // => "greet"
-greet.body();          // => "Hi {{ name }}, you have {{ count }} messages."
-```
+<Code code={constructFromText} lang="rust" title="getting-started_rust_construct_from_text.rs" />
 </TabItem>
 <TabItem label="From a definition value">
-```rust
-use prompting_press::{Prompt, PromptDefinition};
-
-// PromptDefinition is the codegen'd shape. Building it inline is verbose (its
-// fields are newtypes), so it's usually deserialized — here, from a JSON literal:
-let def: PromptDefinition = serde_json::from_value(serde_json::json!({
-    "name": "greet",
-    "role": "user",
-    "body": "Hi {{ name }}, you have {{ count }} messages.",
-    "variables": {
-        "name":  { "type": "string",  "trusted": true },
-        "count": { "type": "integer", "trusted": true }
-    }
-}))?;
-
-let greet = Prompt::new(def)?;   // same validation as the from_* factories
-```
+<Code code={constructFromDefinition} lang="rust" title="getting-started_rust_construct_from_definition.rs" />
 The `from_*` text factories cover the common case; `Prompt::new` is the path for an
 already-constructed `PromptDefinition` (e.g. one built programmatically).
 </TabItem>
@@ -124,35 +105,13 @@ The render values are a caller-owned struct, validated by [`garde`](https://docs
 field names must match the prompt's `variables` (`name`, `count`); the `#[garde(..)]` rules run at
 render time, before the kernel is touched:
 
-```rust
-use garde::Validate;
-use serde::Serialize;
-
-#[derive(Serialize, Validate)]
-struct GreetVars {
-    #[garde(length(min = 1))]
-    name: String,
-    #[garde(range(min = 0))]
-    count: i64,
-}
-```
+<Code code={declareVars} lang="rust" title="getting-started_rust_declare_vars.rs" />
 
 ### Step 3 — render, and read the result
 
 Hand the `Prompt` from Step 1 the `GreetVars` from Step 2:
 
-```rust
-use prompting_press::GuardConfig;
-
-let vars = GreetVars { name: "Ada".into(), count: 3 };
-
-let result = greet.render(&vars, None, &GuardConfig::default(), false)?;
-
-result.text;          // => "Hi Ada, you have 3 messages."
-result.variant;       // => "default"
-result.template_hash; // => e.g. "9f2c…" (64-char lowercase-hex SHA-256 of the template)
-result.render_hash;   // => e.g. "1ab4…" (64-char lowercase-hex SHA-256 of result.text)
-```
+<Code code={renderAndRead} lang="rust" title="getting-started_rust_render_and_read.rs" />
 
 `render::<V>(&self, vars: &V, variant: Option<&str>, guard: &GuardConfig, reveal_render_detail: bool)`:
 - `variant = None` selects the default (root body) arm — the same arm `greet.body()` showed in Step 1.
@@ -166,34 +125,7 @@ of the per-language validator model.
 
 ### Complete example
 
-```rust
-use garde::Validate;
-use prompting_press::GuardConfig;
-use prompting_press::Prompt;
-use serde::Serialize;
-
-#[derive(Serialize, Validate)]
-struct GreetVars {
-    #[garde(length(min = 1))]
-    name: String,
-    #[garde(range(min = 0))]
-    count: i64,
-}
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Construct (validates here).
-    let yaml = std::fs::read_to_string("greet.yaml")?;
-    let greet = Prompt::from_yaml(&yaml)?;
-
-    // 2 + 3. Render with typed, garde-validated vars.
-    let vars = GreetVars { name: "Ada".into(), count: 3 };
-    let result = greet.render(&vars, None, &GuardConfig::default(), false)?;
-
-    println!("{}", result.text);          // Hi Ada, you have 3 messages.
-    println!("{}", result.template_hash); // 64-char hex
-    Ok(())
-}
-```
+<Code code={completeExample} lang="rust" title="getting-started_rust_complete_example.rs" />
 
 ## What `RenderResult` carries
 
@@ -208,21 +140,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Error types
 
-```rust
-use prompting_press::{ConsumerError, error::code};
-
-// ConsumerError is a closed three-variant enum — the match is exhaustive.
-match greet.render(&vars, None, &GuardConfig::default(), false) {
-    Ok(result) => { /* ... */ }
-    Err(ConsumerError::Validation(rows)) => {
-        for row in &rows {
-            eprintln!("{}: {} [{}]", row.field, row.message, row.code);
-        }
-    }
-    Err(ConsumerError::Kernel(rows)) => { /* parse/render/agreement failure */ }
-    Err(ConsumerError::Load(msg))    => { /* malformed YAML/JSON/TOML */ }
-}
-```
+<Code code={errorTypes} lang="rust" title="getting-started_rust_error_types.rs" />
 
 Every `FieldError` row carries `field`, `code` (a stable string from `error::code::*`), and
 `message`. The closed code vocabulary: `"validation"`, `"unknown_variant"`,

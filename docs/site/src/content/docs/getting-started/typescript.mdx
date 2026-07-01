@@ -3,7 +3,13 @@ title: "Getting started — TypeScript"
 description: "Install prompting-press and render a first prompt in TypeScript."
 ---
 
-import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem, Code } from '@astrojs/starlight/components';
+import constructFromText from '../../../../samples/typescript/examples/getting-started_typescript_construct_from_text.ts?raw';
+import constructFromObject from '../../../../samples/typescript/examples/getting-started_typescript_construct_from_object.ts?raw';
+import declareVars from '../../../../samples/typescript/examples/getting-started_typescript_declare_vars.ts?raw';
+import renderAndRead from '../../../../samples/typescript/examples/getting-started_typescript_render_and_read.ts?raw';
+import completeExample from '../../../../samples/typescript/examples/getting-started_typescript_complete_example.ts?raw';
+import errorTypes from '../../../../samples/typescript/examples/getting-started_typescript_error_types.ts?raw';
 
 ## Install
 
@@ -96,39 +102,10 @@ Construct from text with a `from*` factory, or from a typed `PromptDefinition` o
 
 <Tabs syncKey="construct">
 <TabItem label="From text">
-```ts
-import { Prompt } from "prompting-press";
-import { readFileSync } from "node:fs";
-
-// The caller reads the text; the library does no file I/O itself.
-const greet = Prompt.fromYaml(readFileSync("greet.yaml", "utf-8")); // validates here, or throws
-// fromJson / fromToml parse the JSON / TOML forms into the same Prompt.
-// (TOML is parsed by Rust — no JS TOML dependency.)
-
-greet.name; // => "greet"
-greet.body; // => "Hi {{ name }}, you have {{ count }} messages."
-```
+<Code code={constructFromText} lang="ts" title="getting-started_typescript_construct_from_text.ts" />
 </TabItem>
 <TabItem label="From an object">
-```ts
-import { Prompt, type PromptDefinition } from "prompting-press";
-
-// The constructor takes a typed PromptDefinition — an editor type-checks the
-// shape (field names, the role enum, each variable's `trusted` flag) at author time.
-const definition: PromptDefinition = {
-  name: "greet",
-  role: "user",
-  body: "Hi {{ name }}, you have {{ count }} messages.",
-  variables: {
-    name: { type: "string", trusted: true },
-    count: { type: "integer", trusted: true },
-  },
-};
-
-const greet = new Prompt(definition); // same validation as the from* factories
-
-greet.name; // => "greet"
-```
+<Code code={constructFromObject} lang="ts" title="getting-started_typescript_construct_from_object.ts" />
 </TabItem>
 </Tabs>
 
@@ -142,29 +119,14 @@ construction, never as a silent empty render.
 The render values are a caller-owned Zod schema. Its keys match the prompt's `variables`
 (`name`, `count`), and `safeParse` runs before the kernel is touched:
 
-```ts
-import { z } from "zod";
-
-const GreetVars = z.object({
-  name: z.string().min(1),
-  count: z.number().int().nonnegative(),
-});
-```
+<Code code={declareVars} lang="ts" title="getting-started_typescript_declare_vars.ts" />
 
 ### Step 3 — render, and read the result
 
 Hand the `Prompt` from Step 1 the `GreetVars` schema from Step 2 plus the data — Zod validates, then
 the kernel renders:
 
-```ts
-const result = greet.render(GreetVars, { name: "Ada", count: 3 });
-
-result.text;         // => "Hi Ada, you have 3 messages."
-result.variant;      // => "default"  (same arm greet.body showed in Step 1)
-result.templateHash; // => e.g. "9f2c…"  (64-char lowercase-hex SHA-256 of the template)
-result.renderHash;   // => e.g. "1ab4…"  (64-char lowercase-hex SHA-256 of result.text)
-result.guard;        // => null  (no guard requested)
-```
+<Code code={renderAndRead} lang="ts" title="getting-started_typescript_render_and_read.ts" />
 
 `render` has two forms — `variant`/`guard` ride in an optional `opts` object:
 
@@ -184,24 +146,7 @@ maps Rust `snake_case` to JavaScript conventions. The Rust and Python bindings u
 
 ### Complete example
 
-```ts
-import { Prompt } from "prompting-press";
-import { z } from "zod";
-import { readFileSync } from "node:fs";
-
-const GreetVars = z.object({
-  name: z.string().min(1),
-  count: z.number().int().nonnegative(),
-});
-
-// 1. Construct (validates here).
-const greet = Prompt.fromYaml(readFileSync("greet.yaml", "utf-8"));
-
-// 2 + 3. Render with the typed, Zod-validated vars.
-const result = greet.render(GreetVars, { name: "Ada", count: 3 });
-console.log(result.text);         // Hi Ada, you have 3 messages.
-console.log(result.templateHash); // 64-char hex
-```
+<Code code={completeExample} lang="ts" title="getting-started_typescript_complete_example.ts" />
 
 ## What `RenderResult` carries
 
@@ -216,27 +161,7 @@ console.log(result.templateHash); // 64-char hex
 
 ## Error types
 
-```ts
-import {
-  Prompt,
-  PromptingPressError,
-  PromptValidationError,
-  PromptRenderError,
-  LoadError,
-} from "prompting-press";
-import { z } from "zod";
-
-try {
-  greet.render(GreetVars, { name: "Ada", count: -1 });
-} catch (err) {
-  if (err instanceof PromptValidationError) {
-    for (const row of err.errors) {
-      console.error(row.field, row.code, row.message);
-      // "count"  "validation"  "Number must be greater than or equal to 0"
-    }
-  }
-}
-```
+<Code code={errorTypes} lang="ts" title="getting-started_typescript_error_types.ts" />
 
 The error hierarchy (all extend `Error`):
 

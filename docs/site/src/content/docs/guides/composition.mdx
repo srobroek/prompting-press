@@ -3,7 +3,12 @@ title: "Compose multi-message prompts"
 description: "Use Composition to build an ordered sequence of (Prompt, vars, variant?) entries that resolves to a list of role-tagged messages."
 ---
 
-import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem, Code } from '@astrojs/starlight/components';
+import rustBuild from '../../../../samples/rust/examples/guides_composition_build.rs?raw';
+import pyBuild from '../../../../samples/python/examples/guides_composition_build.py?raw';
+import pyAppendValidation from '../../../../samples/python/examples/guides_composition_append_validation.py?raw';
+import pyFromMessages from '../../../../samples/python/examples/guides_composition_from_messages.py?raw';
+import tsFromMessages from '../../../../samples/typescript/examples/guides_composition_from-messages.ts?raw';
 
 `Composition` is an **explicit, ordered** sequence of `(Prompt, vars, variant?)` entries that
 resolves to a `Vec<Message>` / `list[Message]` / `Message[]` in append order. It is the
@@ -29,59 +34,7 @@ strict-undefined reference), the whole call fails and no partial result is retur
 
 <Tabs syncKey="construct">
 <TabItem label="Rust">
-```rust
-use prompting_press::{Composition, Prompt, PromptDefinition};
-use garde::Validate;
-use serde::Serialize;
-
-#[derive(Serialize, Validate)]
-struct SysVars {
-    #[garde(length(min = 1))]
-    instructions: String,
-}
-
-#[derive(Serialize, Validate)]
-struct UserVars {
-    #[garde(length(min = 1))]
-    query: String,
-}
-
-// Build the two prompts inline from their shape, so the content is explicit.
-let sys_def: PromptDefinition = serde_json::from_value(serde_json::json!({
-    "name": "system-preamble",
-    "role": "system",
-    "body": "{{ instructions }}",
-    "variables": { "instructions": { "type": "string", "trusted": true } }
-}))?;
-let user_def: PromptDefinition = serde_json::from_value(serde_json::json!({
-    "name": "user-turn",
-    "role": "user",
-    "body": "{{ query }}",
-    "variables": { "query": { "type": "string", "trusted": false } }
-}))?;
-
-let sys = Prompt::new(sys_def)?;
-let user = Prompt::new(user_def)?;
-
-let mut comp = Composition::new();
-comp.append(
-    &sys,
-    &SysVars { instructions: "Be concise.".into() },
-    None,   // variant = None → default arm
-)?;
-comp.append(
-    &user,
-    &UserVars { query: "What is Rust?".into() },
-    None,
-)?;
-
-let messages = comp.resolve()?;
-for m in &messages {
-    println!("{}: {}", m.role, m.text);
-    // "system: Be concise."
-    // "user: What is Rust?"
-}
-```
+<Code code={rustBuild} lang="rust" title="guides_composition_build.rs" />
 
 `Composition::append<V>(&mut self, prompt: &Prompt, vars: &V, variant: Option<&str>)` returns
 `Result<(), ConsumerError>`. On a garde failure the entry is NOT stored.
@@ -94,113 +47,20 @@ Rust builds a composition with `new()` + `append()` only — there is no bulk `f
 constructor (that is the Python/TypeScript idiom); push each entry explicitly, as above.
 </TabItem>
 <TabItem label="Python">
-```python
-from prompting_press import Composition, Prompt
-from pydantic import BaseModel, Field
-
-class SysVars(BaseModel):
-    instructions: str
-
-class UserVars(BaseModel):
-    query: str
-
-# Build the two prompts inline from their shape, so the content is explicit.
-sys_prompt = Prompt({
-    "name": "system-preamble",
-    "role": "system",
-    "body": "{{ instructions }}",
-    "variables": {"instructions": {"type": "string", "trusted": True}},
-})
-user_prompt = Prompt({
-    "name": "user-turn",
-    "role": "user",
-    "body": "{{ query }}",
-    "variables": {"query": {"type": "string", "trusted": False}},
-})
-
-comp = Composition()
-comp.append(sys_prompt, SysVars(instructions="Be concise."))
-comp.append(user_prompt, UserVars(query="What is Rust?"))
-
-messages = comp.resolve()
-for m in messages:
-    print(m.role, m.text)
-    # "system" "Be concise."
-    # "user"   "What is Rust?"
-```
+<Code code={pyBuild} lang="python" title="guides_composition_build.py" />
 
 `append` accepts a Pydantic model **instance** (already-constructed). Validation happens eagerly;
 a `PromptValidationError` is raised and nothing is stored on failure.
 
-```python
-# Successful append — model instance passes Pydantic validation:
-comp = Composition()
-comp.append(sys_prompt, SysVars(instructions="Be concise."))
-
-# Failed append — Pydantic rejects the empty string; nothing is stored:
-from prompting_press import PromptValidationError
-
-class StrictVars(BaseModel):
-    query: str = Field(min_length=1)
-
-try:
-    comp.append(user_prompt, StrictVars(query=""))   # raises before storage
-except PromptValidationError as exc:
-    print(exc.errors[0].field)    # "query"
-    print(exc.errors[0].code)     # "string_too_short" (or similar)
-    # comp is unchanged — the failed entry was never stored
-```
+<Code code={pyAppendValidation} lang="python" title="guides_composition_append_validation.py" />
 
 Build a composition from a list of `(prompt, vars)` or `(prompt, vars, variant)` tuples. The
 optional third element selects a variant of that entry's prompt (omit it for the default arm):
 
-```python
-comp = Composition.from_messages([
-    (sys_prompt,  SysVars(instructions="Be concise.")),
-    (user_prompt, UserVars(query="What is Rust?")),
-])
-messages = comp.resolve()
-for m in messages:
-    print(m.role, m.text)
-    # "system" "Be concise."
-    # "user"   "What is Rust?"
-```
+<Code code={pyFromMessages} lang="python" title="guides_composition_from_messages.py" />
 </TabItem>
 <TabItem label="TypeScript">
-```ts
-import { z } from "zod";
-import { Composition, Prompt } from "prompting-press";
-
-const SysVars = z.object({ instructions: z.string().min(1) });
-const UserVars = z.object({ query: z.string().min(1) });
-
-// Build the two prompts inline from their shape, so the content is explicit.
-const sysPrompt = new Prompt({
-  name: "system-preamble",
-  role: "system",
-  body: "{{ instructions }}",
-  variables: { instructions: { type: "string", trusted: true } },
-});
-const userPrompt = new Prompt({
-  name: "user-turn",
-  role: "user",
-  body: "{{ query }}",
-  variables: { query: { type: "string", trusted: false } },
-});
-
-// fromMessages: all validation runs before any Composition state is created.
-const comp = Composition.fromMessages([
-  { prompt: sysPrompt,  schema: SysVars, data: { instructions: "Be concise." } },
-  { prompt: userPrompt, schema: UserVars, data: { query: "What is Rust?" } },
-]);
-
-const messages = comp.resolve();
-for (const m of messages) {
-  console.log(m.role, m.text);
-  // "system" "Be concise."
-  // "user"   "What is Rust?"
-}
-```
+<Code code={tsFromMessages} lang="ts" title="guides_composition_from-messages.ts" />
 
 In TypeScript an entry is a `CompositionEntry` object (the analogue of Rust/Python's positional
 args):

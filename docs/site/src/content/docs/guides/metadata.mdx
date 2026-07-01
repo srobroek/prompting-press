@@ -3,7 +3,10 @@ title: "Metadata"
 description: "Attach opaque metadata to a prompt and its variants, and read it back in application code."
 ---
 
-import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem, Code } from '@astrojs/starlight/components';
+import readRust from '../../../../samples/rust/examples/guides_metadata_reading_it_back.rs?raw';
+import readPython from '../../../../samples/python/examples/guides_metadata_reading_it_back.py?raw';
+import readTs from '../../../../samples/typescript/examples/guides_metadata_reading_it_back.ts?raw';
 
 Both the prompt and each individual variant carry one opaque `metadata` map. The library stores
 these maps, echoes them through accessors, and never interprets or acts on them. They exist so
@@ -50,42 +53,13 @@ The accessors return the maps as-is; application code interprets them.
 
 <Tabs syncKey="construct">
 <TabItem label="Rust">
-```rust
-let p = Prompt::from_yaml(yaml_text)?;
-
-// metadata() returns &serde_json::Map<String, serde_json::Value>.
-if let Some(hint) = p.metadata().get("model_hint") {
-    route_to_model(hint.as_str().unwrap_or("default"));
-}
-
-// Per-variant metadata is on each Variant in p.variants().
-// The caller reads it in selection logic — the library never does.
-if let Some(terse) = p.variants().get("terse") {
-    let _weight = terse.metadata.get("weight");
-}
-```
+<Code code={readRust} lang="rust" title="guides_metadata_reading_it_back.rs" />
 </TabItem>
 <TabItem label="Python">
-```python
-p = Prompt.from_yaml(yaml_text)
-
-p.metadata           # => {"model_hint": "claude-sonnet-4-6", "max_tokens": 512, "owner": "team-content"}
-p.metadata["model_hint"]   # application code decides what to do with it
-
-# per-variant metadata:
-p.variants["terse"].metadata   # => {"weight": 0.2, "group": "experiment-q4"}
-```
+<Code code={readPython} lang="python" title="guides_metadata_reading_it_back.py" />
 </TabItem>
 <TabItem label="TypeScript">
-```ts
-const p = Prompt.fromYaml(yamlText);
-
-p.metadata;          // => { model_hint: "claude-sonnet-4-6", max_tokens: 512, owner: "team-content" }
-p.metadata.model_hint;     // application code decides what to do with it
-
-// per-variant metadata:
-p.variants["terse"].metadata;  // => { weight: 0.2, group: "experiment-q4" }
-```
+<Code code={readTs} lang="ts" title="guides_metadata_reading_it_back.ts" />
 </TabItem>
 </Tabs>
 

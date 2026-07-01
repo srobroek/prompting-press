@@ -3,7 +3,10 @@ title: "Lint prompts in CI"
 description: "Wire prompt.check() as a CI gate to catch untrusted variables without a declared guard."
 ---
 
-import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem, Code } from '@astrojs/starlight/components';
+import lintTestRust from '../../../../samples/rust/examples/guides_lint-in-ci_prompts-lint-test.rs?raw';
+import lintTestPython from '../../../../samples/python/examples/guides_lint-in-ci_prompts-lint-test.py?raw';
+import lintTestTs from '../../../../samples/typescript/examples/guides_lint-in-ci_prompts-lint-test.ts?raw';
 
 `prompt.check()` is a **pure advisory lint** — it never renders, never mutates, and takes no
 vars. Wire it as a CI gate over every `Prompt` the application constructs.
@@ -39,85 +42,19 @@ naming the offending prompt + finding on failure so the CI log is actionable.
 
 <Tabs syncKey="construct">
 <TabItem label="Rust">
-```rust
-// tests/prompts_lint.rs  — runs under `cargo test`
-use prompting_press::Prompt;
-use std::fs;
-
-#[test]
-fn shipped_prompts_pass_check() {
-    let mut failures = Vec::new();
-
-    for entry in fs::read_dir("prompts").expect("prompts/ dir") {
-        let path = entry.unwrap().path();
-        if path.extension().and_then(|e| e.to_str()) != Some("yaml") {
-            continue;
-        }
-        let text = fs::read_to_string(&path).unwrap();
-        // Construction itself enforces the hard invariants — surface a load/agreement
-        // failure as a test failure too, not a panic.
-        let prompt = match Prompt::from_yaml(&text) {
-            Ok(p) => p,
-            Err(e) => {
-                failures.push(format!("{}: construction failed: {e:?}", path.display()));
-                continue;
-            }
-        };
-        for f in &prompt.check().findings {
-            failures.push(format!("{}: {} — {}", path.display(), f.prompt, f.detail));
-        }
-    }
-
-    assert!(failures.is_empty(), "prompt lint findings:\n{}", failures.join("\n"));
-}
-```
+<Code code={lintTestRust} lang="rust" title="tests/prompts_lint.rs" />
 
 `CheckReport::passed()` returns `true` iff `findings` is empty (`is_empty()` is an alias); here the
 `findings` are collected directly so the assertion message lists every offender.
 </TabItem>
 <TabItem label="Python">
-```python
-# tests/test_prompts_lint.py  — runs under pytest
-from pathlib import Path
-
-import pytest
-from prompting_press import Prompt, PromptingPressError
-
-PROMPT_FILES = sorted(Path("prompts").glob("*.yaml"))
-
-@pytest.mark.parametrize("path", PROMPT_FILES, ids=lambda p: p.name)
-def test_shipped_prompt_passes_check(path: Path) -> None:
-    try:
-        prompt = Prompt.from_yaml(path.read_text())   # construction enforces hard invariants
-    except PromptingPressError as e:
-        pytest.fail(f"{path.name}: construction failed: {e}")
-
-    report = prompt.check()
-    findings = [f"{f.kind}: {f.detail}" for f in report.findings]
-    assert report.passed(), f"{path.name} lint findings:\n" + "\n".join(findings)
-```
+<Code code={lintTestPython} lang="python" title="tests/test_prompts_lint.py" />
 
 Parametrizing over the files gives one pass/fail per prompt in the pytest report. `report.passed()`
 → `True` when there are no findings (`report.is_empty()` is an alias).
 </TabItem>
 <TabItem label="TypeScript">
-```ts
-// test/prompts-lint.test.mjs  — runs under `node --test`
-import { test } from "node:test";
-import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
-import { Prompt } from "prompting-press";
-
-for (const file of readdirSync("prompts").filter((f) => f.endsWith(".yaml"))) {
-  test(`shipped prompt ${file} passes check`, () => {
-    // Construction throws on the hard invariants; let that fail the test directly.
-    const prompt = Prompt.fromYaml(readFileSync(`prompts/${file}`, "utf-8"));
-    const report = prompt.check();
-    const findings = report.findings.map((f) => `${f.kind}: ${f.detail}`);
-    assert.ok(report.passed(), `${file} lint findings:\n${findings.join("\n")}`);
-  });
-}
-```
+<Code code={lintTestTs} lang="ts" title="test/prompts-lint.test.ts" />
 
 One `node:test` case per prompt file; the assertion message lists the findings. These tests need no
 network or model — `check()` is pure analysis — so they run in the same fast unit-test lane as the

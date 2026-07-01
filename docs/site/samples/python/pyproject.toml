@@ -1,0 +1,19 @@
+# Doc-sample project (spec 014, standalone-program model).
+#
+# Every file under examples/ is a COMPLETE, standalone Python program that a docs
+# page displays verbatim (via Astro `?raw` import) and that CI runs. There is no
+# marker injection: the file the reader sees IS the tested artifact. The test
+# runner executes each example (assertions are in-program); a failing example
+# fails the gate citing its file.
+[project]
+name = "prompting-press-doc-samples"
+version = "0.0.0"
+requires-python = ">=3.12"
+dependencies = ["prompting-press", "pytest>=8"]
+
+[tool.uv.sources]
+prompting-press = { path = "../../../../packages/python", editable = true }
+
+[tool.pytest.ini_options]
+# Each example under examples/ is collected + executed by tests/test_examples.py.
+testpaths = ["tests"]

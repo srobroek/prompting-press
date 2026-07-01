@@ -1,0 +1,9 @@
+# Build artifacts + installed deps for the doc-sample projects (never committed).
+# Lockfiles (uv.lock / pnpm-lock.yaml) ARE committed for reproducibility, matching
+# the consumer sample apps under /samples.
+rust/target/
+python/.venv/
+python/**/__pycache__/
+python/**/*.pyc
+typescript/node_modules/
+typescript/dist/

@@ -3,7 +3,14 @@ title: "Getting started — Python"
 description: "Install prompting-press and render a first prompt in Python."
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Tabs, TabItem, Code } from '@astrojs/starlight/components';
+import constructFromText from '../../../../samples/python/examples/getting-started_python_construct_from_text.py?raw';
+import constructFromDefinition from '../../../../samples/python/examples/getting-started_python_construct_from_definition.py?raw';
+import constructFromDict from '../../../../samples/python/examples/getting-started_python_construct_from_dict.py?raw';
+import varsModel from '../../../../samples/python/examples/getting-started_python_vars_model.py?raw';
+import renderExample from '../../../../samples/python/examples/getting-started_python_render.py?raw';
+import completeExample from '../../../../samples/python/examples/getting-started_python_complete_example.py?raw';
+import errorTypes from '../../../../samples/python/examples/getting-started_python_error_types.py?raw';
 
 ## Install
 
@@ -93,56 +100,13 @@ typed `PromptDefinition` or a plain `dict`. Every route runs the **same** valida
 
 <Tabs syncKey="construct">
 <TabItem label="From text">
-```python
-from prompting_press import Prompt
-
-# The caller reads the text; the library does no file I/O itself.
-with open("greet.yaml") as f:
-    greet = Prompt.from_yaml(f.read())     # validates here, or raises
-# from_json / from_toml parse the JSON / TOML forms into the same Prompt.
-
-greet.name   # => "greet"
-greet.body   # => "Hi {{ name }}, you have {{ count }} messages."
-```
+<Code code={constructFromText} lang="python" title="getting-started_python_construct_from_text.py" />
 </TabItem>
 <TabItem label="From a typed PromptDefinition">
-```python
-from prompting_press import Prompt, PromptDefinition
-
-# PromptDefinition is the generated Pydantic shape — an editor/type-checker
-# checks the fields, the role enum, and each variable's `trusted` flag at author time.
-definition = PromptDefinition(
-    name="greet",
-    role="user",
-    body="Hi {{ name }}, you have {{ count }} messages.",
-    variables={
-        "name":  {"type": "string",  "trusted": True},
-        "count": {"type": "integer", "trusted": True},
-    },
-)
-
-greet = Prompt(definition)   # same validation as the from_* factories
-greet.name   # => "greet"
-```
+<Code code={constructFromDefinition} lang="python" title="getting-started_python_construct_from_definition.py" />
 </TabItem>
 <TabItem label="From a plain dict">
-```python
-from prompting_press import Prompt
-
-# A plain dict works too — convenient when the shape comes from already-parsed
-# config. The Rust loader validates the shape on the way in, the same as the typed form.
-greet = Prompt({
-    "name": "greet",
-    "role": "user",
-    "body": "Hi {{ name }}, you have {{ count }} messages.",
-    "variables": {
-        "name":  {"type": "string",  "trusted": True},
-        "count": {"type": "integer", "trusted": True},
-    },
-})
-
-greet.name   # => "greet"
-```
+<Code code={constructFromDict} lang="python" title="getting-started_python_construct_from_dict.py" />
 </TabItem>
 </Tabs>
 
@@ -156,35 +120,14 @@ template/variable disagreement is caught at construction, never as a silent empt
 The render values are a caller-owned Pydantic model. Its fields match the prompt's `variables`
 (`name`, `count`), and its validators run before the kernel is touched:
 
-```python
-from pydantic import BaseModel, field_validator
-
-class GreetVars(BaseModel):
-    name: str
-    count: int
-
-    @field_validator("count")
-    @classmethod
-    def _non_negative(cls, v: int) -> int:
-        if v < 0:
-            raise ValueError("count must be non-negative")
-        return v
-```
+<Code code={varsModel} lang="python" title="getting-started_python_vars_model.py" />
 
 ### Step 3 — render, and read the result
 
 Hand the `Prompt` from Step 1 the `GreetVars` from Step 2 — pass the **class** plus a `data` dict and
 it validates + renders in one call:
 
-```python
-result = greet.render(GreetVars, data={"name": "Ada", "count": 3})
-
-result.text           # => "Hi Ada, you have 3 messages."
-result.variant        # => "default"  (same arm greet.body showed in Step 1)
-result.template_hash  # => e.g. "9f2c…"  (64-char lowercase-hex SHA-256 of the template)
-result.render_hash    # => e.g. "1ab4…"  (64-char lowercase-hex SHA-256 of result.text)
-result.guard          # => None  (no guard requested)
-```
+<Code code={renderExample} lang="python" title="getting-started_python_render.py" />
 
 `render(model=None, *, data=None, variant=None, guard=None)` — `data`/`variant`/`guard` are
 keyword-only:
@@ -194,30 +137,7 @@ keyword-only:
 
 ### Complete example
 
-```python
-from prompting_press import Prompt
-from pydantic import BaseModel, field_validator
-
-class GreetVars(BaseModel):
-    name: str
-    count: int
-
-    @field_validator("count")
-    @classmethod
-    def _non_negative(cls, v: int) -> int:
-        if v < 0:
-            raise ValueError("count must be non-negative")
-        return v
-
-# 1. Construct (validates here).
-with open("greet.yaml") as f:
-    greet = Prompt.from_yaml(f.read())
-
-# 2 + 3. Render with the typed, Pydantic-validated vars.
-result = greet.render(GreetVars, data={"name": "Ada", "count": 3})
-print(result.text)           # Hi Ada, you have 3 messages.
-print(result.template_hash)  # 64-char hex
-```
+<Code code={completeExample} lang="python" title="getting-started_python_complete_example.py" />
 
 ## What `RenderResult` carries
 
@@ -232,21 +152,7 @@ print(result.template_hash)  # 64-char hex
 
 ## Error types
 
-```python
-from prompting_press import (
-    PromptingPressError,
-    PromptValidationError,
-    PromptRenderError,
-    LoadError,
-)
-
-try:
-    result = greet.render(GreetVars, data={"name": "Ada", "count": -1})
-except PromptValidationError as exc:
-    for row in exc.errors:
-        print(row.field, row.code, row.message)
-        # "count"  "validation"  "count must be non-negative"
-```
+<Code code={errorTypes} lang="python" title="getting-started_python_error_types.py" />
 
 The exception hierarchy:
 

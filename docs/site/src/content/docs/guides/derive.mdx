@@ -3,7 +3,22 @@ title: "Deriving a prompt"
 description: "Use derive() to create a new Prompt with shallow-replaced fields — re-validated, original untouched."
 ---
 
-import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Code, Tabs, TabItem } from '@astrojs/starlight/components';
+import setupRust from '../../../../samples/rust/examples/guides_derive_setup.rs?raw';
+import setupPython from '../../../../samples/python/examples/guides_derive_setup.py?raw';
+import setupTs from '../../../../samples/typescript/examples/guides_derive_setup.ts?raw';
+import addVariantRust from '../../../../samples/rust/examples/guides_derive_add_variant.rs?raw';
+import addVariantPython from '../../../../samples/python/examples/guides_derive_add_variant.py?raw';
+import addVariantTs from '../../../../samples/typescript/examples/guides_derive_add_variant.ts?raw';
+import replaceBodyRust from '../../../../samples/rust/examples/guides_derive_replace_body.rs?raw';
+import replaceBodyPython from '../../../../samples/python/examples/guides_derive_replace_body.py?raw';
+import replaceBodyTs from '../../../../samples/typescript/examples/guides_derive_replace_body.ts?raw';
+import revalidationErrorRust from '../../../../samples/rust/examples/guides_derive_revalidation_error.rs?raw';
+import revalidationErrorPython from '../../../../samples/python/examples/guides_derive_revalidation_error.py?raw';
+import revalidationErrorTs from '../../../../samples/typescript/examples/guides_derive_revalidation_error.ts?raw';
+import renderVariantRust from '../../../../samples/rust/examples/guides_derive_render_variant.rs?raw';
+import renderVariantPython from '../../../../samples/python/examples/guides_derive_render_variant.py?raw';
+import renderVariantTs from '../../../../samples/typescript/examples/guides_derive_render_variant.ts?raw';
 
 `Prompt` is immutable — there are no setters. **`derive`** is the single, general-purpose way to
 produce a *changed* prompt: it shallow-replaces any subset of top-level fields, re-validates the
@@ -58,125 +73,29 @@ The examples on this page start from a `greet` prompt (a `name` + `count` body) 
 
 <Tabs syncKey="construct">
 <TabItem label="Rust">
-```rust
-use garde::Validate;
-use serde::Serialize;
-
-let greet_yaml = r#"
-name: greet
-role: user
-body: "Hi {{ name }}, you have {{ count }} messages."
-variables:
-  name: { type: string, trusted: true }
-  count: { type: integer, trusted: true }
-"#;
-
-#[derive(Serialize, Validate)]
-struct GreetVars {
-    #[garde(length(min = 1))]
-    name: String,
-    #[garde(range(min = 0))]
-    count: i64,
-}
-```
+<Code code={setupRust} lang="rust" title="guides_derive_setup.rs" />
 </TabItem>
 <TabItem label="Python">
-```python
-greet_yaml = """
-name: greet
-role: user
-body: "Hi {{ name }}, you have {{ count }} messages."
-variables:
-  name: { type: string, trusted: true }
-  count: { type: integer, trusted: true }
-"""
-
-from pydantic import BaseModel, Field
-
-class GreetVars(BaseModel):
-    name: str = Field(min_length=1)
-    count: int = Field(ge=0)
-```
+<Code code={setupPython} lang="python" title="guides_derive_setup.py" />
 </TabItem>
 <TabItem label="TypeScript">
-```ts
-import { z } from "zod";
-
-const greetYaml = `
-name: greet
-role: user
-body: "Hi {{ name }}, you have {{ count }} messages."
-variables:
-  name: { type: string, trusted: true }
-  count: { type: integer, trusted: true }
-`;
-
-const GreetVars = z.object({
-  name: z.string().min(1),
-  count: z.number().int().nonnegative(),
-});
-```
+<Code code={setupTs} lang="ts" title="guides_derive_setup.ts" />
 </TabItem>
 </Tabs>
 
 <Tabs syncKey="construct">
 <TabItem label="Rust">
-```rust
-use prompting_press::{Prompt, PromptOverlay};
-use serde_json::json;
-
-let greet = Prompt::from_yaml(greet_yaml)?;
-
-// READ the current variants, then add to a clone — so existing arms survive.
-let mut variants = greet.variants().clone();
-variants.insert(
-    "formal".to_string(),
-    serde_json::from_value(json!({
-        "body": "Good day, {{ name }}. You have {{ count }} messages."
-    }))?,
-);
-
-// WRITE the merged map back via the sole mutator.
-let formal_greet = greet.derive(PromptOverlay {
-    variants: Some(variants),
-    ..Default::default()
-})?;
-// greet is unchanged; formal_greet is a new, fully-validated Prompt.
-```
+<Code code={addVariantRust} lang="rust" title="guides_derive_add_variant.rs" />
 </TabItem>
 <TabItem label="Python">
-```python
-from prompting_press import Prompt
+<Code code={addVariantPython} lang="python" title="guides_derive_add_variant.py" />
 
-greet = Prompt.from_yaml(greet_yaml)
-
-# READ the current variants (spread), then add one — so existing arms survive.
-derived = greet.derive({
-    "variants": {
-        **greet.variants,   # keep what's already there
-        "formal": {"body": "Good day, {{ name }}. You have {{ count }} messages."},
-    }
-})
-# greet is unchanged; derived is a new, fully-validated Prompt.
-```
 `derive(overlay, *, validators=None)` — `overlay` is a plain dict. `greet.variants` is the read-only
 accessor for the current map.
 </TabItem>
 <TabItem label="TypeScript">
-```ts
-import { Prompt } from "prompting-press";
+<Code code={addVariantTs} lang="ts" title="guides_derive_add_variant.ts" />
 
-const greet = Prompt.fromYaml(greetYaml);
-
-// READ the current variants (spread), then add one — so existing arms survive.
-const derivedGreet = greet.derive({
-  variants: {
-    ...greet.variants,   // keep what's already there
-    formal: { body: "Good day, {{ name }}. You have {{ count }} messages." },
-  },
-});
-// greet is unchanged; derivedGreet is a new, fully-validated Prompt.
-```
 `derive(overlay, validators?)` — `overlay` is a partial `PromptDefinition` object. `greet.variants` is
 the read-only accessor for the current map.
 </TabItem>
@@ -194,22 +113,13 @@ Replacing only the root body (the default arm):
 
 <Tabs>
 <TabItem label="Rust">
-```rust
-let brief_greet = greet.derive(PromptOverlay {
-    body: Some("Hi {{ name }}!".to_string()),
-    ..Default::default()
-})?;
-```
+<Code code={replaceBodyRust} lang="rust" title="guides_derive_replace_body.rs" />
 </TabItem>
 <TabItem label="Python">
-```python
-brief_greet = greet.derive({"body": "Hi {{ name }}!"})
-```
+<Code code={replaceBodyPython} lang="python" title="guides_derive_replace_body.py" />
 </TabItem>
 <TabItem label="TypeScript">
-```ts
-const briefGreet = greet.derive({ body: "Hi {{ name }}!" });
-```
+<Code code={replaceBodyTs} lang="ts" title="guides_derive_replace_body.ts" />
 </TabItem>
 </Tabs>
 
@@ -221,42 +131,13 @@ variable:
 
 <Tabs syncKey="construct">
 <TabItem label="Rust">
-```rust
-use prompting_press::{ConsumerError, PromptOverlay};
-
-let bad = greet.derive(PromptOverlay {
-    body: Some("Hi {{ ghost }}".to_string()),
-    ..Default::default()
-});
-match bad {
-    Err(ConsumerError::Kernel(rows)) => {
-        assert_eq!(rows[0].code, "undefined_variable");
-        assert_eq!(rows[0].field, "ghost");
-    }
-    _ => unreachable!("the merged definition is agreement-unsound"),
-}
-```
+<Code code={revalidationErrorRust} lang="rust" title="guides_derive_revalidation_error.rs" />
 </TabItem>
 <TabItem label="Python">
-```python
-try:
-    bad = greet.derive({"body": "Hi {{ ghost }}"})
-except PromptRenderError as exc:
-    print(exc.errors[0].code)    # "undefined_variable"
-    print(exc.errors[0].field)   # "ghost"
-```
+<Code code={revalidationErrorPython} lang="python" title="guides_derive_revalidation_error.py" />
 </TabItem>
 <TabItem label="TypeScript">
-```ts
-try {
-  const bad = greet.derive({ body: "Hi {{ ghost }}" });
-} catch (err) {
-  if (err instanceof PromptRenderError) {
-    console.error(err.errors[0].code);   // "undefined_variable"
-    console.error(err.errors[0].field);  // "ghost"
-  }
-}
-```
+<Code code={revalidationErrorTs} lang="ts" title="guides_derive_revalidation_error.ts" />
 </TabItem>
 </Tabs>
 
@@ -278,28 +159,13 @@ After adding a variant, select it by name at render time:
 
 <Tabs syncKey="construct">
 <TabItem label="Rust">
-```rust
-use prompting_press::GuardConfig;
-
-let vars = GreetVars { name: "Ada".into(), count: 3 };
-let result = formal_greet.render(&vars, Some("formal"), &GuardConfig::default(), false)?;
-result.text;     // "Good day, Ada. You have 3 messages."
-result.variant;  // "formal"
-```
+<Code code={renderVariantRust} lang="rust" title="guides_derive_render_variant.rs" />
 </TabItem>
 <TabItem label="Python">
-```python
-result = derived.render(GreetVars, data={"name": "Ada", "count": 3}, variant="formal")
-print(result.text)     # "Good day, Ada. You have 3 messages."
-print(result.variant)  # "formal"
-```
+<Code code={renderVariantPython} lang="python" title="guides_derive_render_variant.py" />
 </TabItem>
 <TabItem label="TypeScript">
-```ts
-const result = derivedGreet.render(GreetVars, { name: "Ada", count: 3 }, { variant: "formal" });
-console.log(result.text);     // "Good day, Ada. You have 3 messages."
-console.log(result.variant);  // "formal"
-```
+<Code code={renderVariantTs} lang="ts" title="guides_derive_render_variant.ts" />
 </TabItem>
 </Tabs>
 
