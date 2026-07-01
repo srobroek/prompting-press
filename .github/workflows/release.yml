@@ -25,8 +25,10 @@ permissions:
   contents: write
   pull-requests: write
 
-# Serialize release runs on main and NEVER cancel one in flight — a half-finished
-# publish is far worse than a queued run, so cancel-in-progress is false (queue).
+# Serialize release runs. Two pushes to main in quick succession must not race
+# on the draft releases / tags: a second run waits for the first rather than
+# concurrently building + flipping the same draft set. Never cancel a run in
+# flight — a half-finished publish is worse than a queued one.
 concurrency:
   group: release-please-${{ github.ref }}
   cancel-in-progress: false
@@ -270,10 +272,114 @@ jobs:
   #   - npm: Trusted Publisher registered for `prompting-press`.
   # ---------------------------------------------------------------------------
 
+  # ===========================================================================
+  # release-tests — unit + integration tests, re-run on the tagged commit.
+  #
+  # ci.yml already ran these on the release PR, but a workflow cannot depend on
+  # another workflow's result, so we re-run them here as a hard pre-publish gate
+  # (the mise tasks are the SAME ones ci.yml calls — one source of truth). If any
+  # fail, release-gate below fails and NOTHING publishes; the drafts are cleaned
+  # up by finalize-release.
+  # ===========================================================================
+  release-tests:
+    name: Release tests (${{ matrix.suite.name }})
+    needs: release-please
+    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Exactly the suites ci.yml runs on the PR (one source of truth). The
+        # core Rust `cargo test` runs inside test-python + test-node + conformance
+        # (each drives cargo test), so there is no separate rust-unit task.
+        suite:
+          - name: python-binding
+            task: ci:test-python
+          - name: node-binding
+            task: ci:test-node
+          - name: conformance
+            task: ci:conformance
+          - name: consumer-samples
+            task: samples:test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # actions/checkout v7.0.0
+      # setup-python mirrors ci.yml's conformance job (its legs want a 3.12 on
+      # PATH); harmless for the other suites. Kept unconditional so the matrix
+      # stays uniform.
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: '3.12'
+      - name: Install mise toolchain
+        uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac  # v2
+        with:
+          experimental: true
+      - name: Ensure rust components (rustfmt/clippy)
+        run: mise exec -- rustup component add rustfmt clippy
+      - name: Install TS deps (pnpm)
+        run: mise exec -- pnpm -C packages/typescript install --frozen-lockfile
+      - name: Run ${{ matrix.suite.task }}
+        run: mise exec -- moon run ${{ matrix.suite.task }}
+
+  # ===========================================================================
+  # release-gate — THE single go/no-go gate. Every publish job depends on this
+  # and this alone; it depends on every build matrix + the test matrix. It runs
+  # `if: always()` and then asserts each dependency's `result == 'success'`, so a
+  # single failed/cancelled build or test suite fails the gate → no publish job
+  # runs → finalize-release leaves the drafts unpublished. This is the one place
+  # that answers "did EVERYTHING pass?".
+  # ===========================================================================
+  release-gate:
+    name: Release gate (all builds + tests green)
+    needs: [release-please, release-tests, build-wheels, build-sdist, build-node]
+    if: ${{ always() && needs.release-please.outputs.releases_created == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assert every build + test suite succeeded
+        env:
+          R_TESTS: ${{ needs.release-tests.result }}
+          R_WHEELS: ${{ needs.build-wheels.result }}
+          R_SDIST: ${{ needs.build-sdist.result }}
+          R_NODE: ${{ needs.build-node.result }}
+        run: |
+          set -euo pipefail
+          echo "release-tests=$R_TESTS build-wheels=$R_WHEELS build-sdist=$R_SDIST build-node=$R_NODE"
+          fail=0
+          for pair in "release-tests:$R_TESTS" "build-wheels:$R_WHEELS" "build-sdist:$R_SDIST" "build-node:$R_NODE"; do
+            name="${pair%%:*}"; res="${pair##*:}"
+            if [ "$res" != "success" ]; then
+              echo "::error::$name did not succeed (result=$res) — blocking all publishes"
+              fail=1
+            fi
+          done
+          if [ "$fail" -ne 0 ]; then
+            echo "Release gate FAILED — no package will be published; draft releases stay unpublished."
+            exit 1
+          fi
+          echo "Release gate PASSED — all builds + tests green; publishing may proceed."
+
+      # SBOM (CycloneDX) covering the whole workspace — Rust + Python + npm deps.
+      # Generated in the gate (after the green assertion, before any publish) so a
+      # failure blocks every registry cleanly rather than leaving a published-but-
+      # unattested artifact. Uploaded as a workflow artifact (promoting it to a
+      # durable GitHub Release asset is a follow-up). Preserved from PR #232, moved
+      # here from the old monolithic publish job when publishing was split per-OS.
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # actions/checkout v7.0.0
+      - name: Generate SBOM (Syft / CycloneDX)
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610  # v0
+        with:
+          path: .
+          format: cyclonedx-json
+          artifact-name: prompting-press-sbom.cdx.json
+
   # --- Rust → crates.io (OIDC via rust-lang/crates-io-auth-action) ---
+  # Depends on the single release-gate: no registry sees an artifact until every
+  # build AND every test suite has gone green.
   publish-crates:
     name: Publish Rust crates (crates.io via OIDC)
-    needs: release-please
+    needs: [release-please, release-gate]
     if: ${{ needs.release-please.outputs.releases_created == 'true' }}
     runs-on: ubuntu-latest
     environment: release
@@ -398,7 +504,8 @@ jobs:
 
   publish-python:
     name: Publish to PyPI (Trusted Publisher)
-    needs: [build-wheels, build-sdist]
+    # Needs the wheel/sdist artifacts AND the single gate (all builds + tests).
+    needs: [release-gate, build-wheels, build-sdist]
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -491,13 +598,16 @@ jobs:
         run: mise exec -- pnpm -C packages/typescript install --frozen-lockfile
 
       # `-x` (zig cross-build) only for musl; native build for everything else.
+      # The target comes in via env (never interpolate ${{ }} into the script).
       - name: Build native addon
         working-directory: packages/typescript
+        env:
+          TARGET: ${{ matrix.settings.target }}
         run: |
-          if [[ "${{ matrix.settings.target }}" == *musl* ]]; then
-            mise exec -- pnpm build:addon -- --target ${{ matrix.settings.target }} -x
+          if [ "${TARGET#*musl}" != "$TARGET" ]; then
+            mise exec -- pnpm build:addon -- --target "$TARGET" -x
           else
-            mise exec -- pnpm build:addon -- --target ${{ matrix.settings.target }}
+            mise exec -- pnpm build:addon -- --target "$TARGET"
           fi
         shell: bash
 
@@ -518,7 +628,8 @@ jobs:
 
   publish-npm:
     name: Publish to npm (Trusted Publisher)
-    needs: build-node
+    # Needs the prebuilt .node artifacts AND the single gate (all builds + tests).
+    needs: [release-gate, build-node]
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -562,3 +673,62 @@ jobs:
         run: |
           npm install -g npm@latest        # OIDC trusted publishing needs npm >= 11.5.1
           npm publish --provenance --access public
+
+  # ===========================================================================
+  # finalize-release — flip the DRAFT GitHub Releases to public, but ONLY when
+  # every registry publish succeeded. This is the announcement-integrity step:
+  # a release is not "announced" (public, in the feed) until crates.io + PyPI +
+  # npm all have the artifacts. If any publish failed, the drafts stay drafts and
+  # this job fails loudly so the release is visibly incomplete and can be retried.
+  #
+  # release-please cut 6 component draft releases in lockstep (linked-versions),
+  # tagged `<component>-v<version>`. We derive <version> from the manifest (with
+  # no root '.' component, release-please's `version` output can be empty; the
+  # manifest is the reliable lockstep source, same fallback docs-snapshot uses)
+  # and flip every draft release whose tag ends in `-v<version>`.
+  # ===========================================================================
+  finalize-release:
+    name: Finalize release (flip drafts → public)
+    needs: [release-please, publish-crates, publish-python, publish-npm]
+    if: ${{ always() && needs.release-please.outputs.releases_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # edit (publish) the draft GitHub Releases
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # actions/checkout v7.0.0
+
+      - name: Verify every registry published
+        env:
+          R_CRATES: ${{ needs.publish-crates.result }}
+          R_PYPI: ${{ needs.publish-python.result }}
+          R_NPM: ${{ needs.publish-npm.result }}
+        run: |
+          set -euo pipefail
+          echo "publish-crates=$R_CRATES publish-python=$R_PYPI publish-npm=$R_NPM"
+          if [ "$R_CRATES" != "success" ] || [ "$R_PYPI" != "success" ] || [ "$R_NPM" != "success" ]; then
+            echo "::error::A registry publish did not succeed — leaving GitHub Releases as DRAFTS (not announced)."
+            echo "Re-run the failed publish job(s); once all are green, re-run this workflow to finalize."
+            exit 1
+          fi
+
+      - name: Flip all draft releases for this version to public
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Lockstep version = any manifest value (all 6 share it via linked-versions).
+          VERSION="$(node -e "const m=require('./.release-please-manifest.json');console.log(Object.values(m)[0])")"
+          echo "Finalizing releases for version: $VERSION"
+          # List every draft release whose tag ends in -v<version> and publish it.
+          mapfile -t TAGS < <(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,isDraft \
+            --jq ".[] | select(.isDraft and (.tagName | endswith(\"-v${VERSION}\"))) | .tagName")
+          if [ "${#TAGS[@]}" -eq 0 ]; then
+            echo "No draft releases matching -v${VERSION} found (already finalized?). Nothing to do."
+            exit 0
+          fi
+          for tag in "${TAGS[@]}"; do
+            echo "Publishing draft release: $tag"
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false
+          done
+          echo "Finalized ${#TAGS[@]} release(s) for v${VERSION}."

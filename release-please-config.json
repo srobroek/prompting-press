@@ -6,6 +6,10 @@
   "bump-minor-pre-major": true,
   "bump-patch-for-minor-pre-major": true,
 
+  "//draft": "Cut all 6 component GitHub Releases as DRAFTs; the release workflow (finalize-release) flips every draft for the released version to public only after all builds + tests + registry publishes succeed (announcement integrity). force-tag-creation is REQUIRED with draft: GitHub does not create the git tag for a draft release, and without the tag release-please cannot find the prior release on the next run (wrong changelog base). See release.yml finalize-release.",
+  "draft": true,
+  "force-tag-creation": true,
+
   "packages": {
     "crates/prompting-press-core": {
       "release-type": "rust",
