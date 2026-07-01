@@ -2006,7 +2006,7 @@ SOFTWARE.
 
 Used by:
 - **napi-build 2.3.2** — <https://github.com/napi-rs/napi-rs>
-- **napi-derive-backend 5.0.5** — <https://github.com/napi-rs/napi-rs>
+- **napi-derive-backend 5.1.0** — <https://github.com/napi-rs/napi-rs>
 - **napi-derive 3.5.7** — <https://github.com/napi-rs/napi-rs>
 - **napi-sys 3.2.2** — <https://github.com/napi-rs/napi-rs>
 - **napi 3.9.4** — <https://github.com/napi-rs/napi-rs>
