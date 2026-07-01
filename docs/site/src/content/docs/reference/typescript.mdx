@@ -302,7 +302,7 @@ passed(): boolean
 interface Finding
 ```
 
-One actionable lint finding, read-only from JS. Names the `prompt`, the `variant` where applicable (`null` for a prompt-level finding), the failure `kind` (a stable snake_case discriminant string — see the module docs), and a human-readable `detail`. The `detail` carries no bound-value content (it is built by the consumer from prompt/field names only). Surfaced as a plain JS object with all four fields (the natural shape for the `findings` array the TS facade iterates / matches on).
+One actionable lint finding, read-only from JS. Names the `prompt`, the `variant` where applicable (`null` for a prompt-level finding), the failure `kind` (a stable `snake_case` discriminant string — see the module docs), and a human-readable `detail`. The `detail` carries no bound-value content (it is built by the consumer from prompt/field names only). Surfaced as a plain JS object with all four fields (the natural shape for the `findings` array the TS facade iterates / matches on).
 
 #### `detail`
 
@@ -318,7 +318,7 @@ A human-readable, actionable description. Carries no bound-value content.
 kind: string
 ```
 
-The failure kind as a stable snake_case **discriminant string** — the value JS matches on. Currently always `"untrusted_without_guard"`. The kind's inner datum is echoed in [`detail`](Self::detail).
+The failure kind as a stable `snake_case` **discriminant string** — the value JS matches on. Currently always `"untrusted_without_guard"`. The kind's inner datum is echoed in [`detail`](Self::detail).
 
 #### `prompt`
 
@@ -548,7 +548,7 @@ Validate `data` and return a tagged success/failure result without throwing.
 coreVersion(): string
 ```
 
-Returns the version string of the underlying rendering kernel. Surfaces as `coreVersion` in JS (napi renames snake_case → camelCase).
+Returns the version string of the underlying rendering kernel. Surfaces as `coreVersion` in JS (napi renames `snake_case` → camelCase).
 
 ### `ValidatorMap`
 
