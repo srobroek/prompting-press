@@ -479,7 +479,7 @@ dependencies = [
 
 [[package]]
 name = "prompting-press"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "garde",
  "minijinja",
@@ -493,7 +493,7 @@ dependencies = [
 
 [[package]]
 name = "prompting-press-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "arbitrary",
  "minijinja",
@@ -515,7 +515,7 @@ dependencies = [
 
 [[package]]
 name = "prompting-press-node"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "minijinja",
  "napi",
@@ -528,7 +528,7 @@ dependencies = [
 
 [[package]]
 name = "prompting-press-py"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "minijinja",
  "prompting-press",
