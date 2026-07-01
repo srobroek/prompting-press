@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.0](https://github.com/prompting-press/prompting-press/compare/prompting-press-py-v0.1.0...prompting-press-py-v0.1.0) (2026-07-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* per-version documentation sites + corrected, tested examples ([#227](https://github.com/prompting-press/prompting-press/issues/227))
+
+### Features
+
+* per-version documentation sites + corrected, tested examples ([#227](https://github.com/prompting-press/prompting-press/issues/227)) ([688ec29](https://github.com/prompting-press/prompting-press/commit/688ec297b876f1e1fda6ac7bb8190d3acba754da))
+
 ## 0.1.0 (2026-06-30)
 
 
