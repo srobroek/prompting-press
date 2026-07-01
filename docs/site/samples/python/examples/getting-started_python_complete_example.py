@@ -36,7 +36,7 @@ greet = Prompt.from_yaml(GREET_YAML)
 
 # 2 + 3. Render with the typed, Pydantic-validated vars.
 result = greet.render(GreetVars, data={"name": "Ada", "count": 3})
-print(result.text)           # Hi Ada, you have 3 messages.
+print(result.text)  # Hi Ada, you have 3 messages.
 print(result.template_hash)  # 64-char hex
 
 assert result.text == "Hi Ada, you have 3 messages."

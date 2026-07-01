@@ -46,7 +46,9 @@ PROMPT_FILES = sorted(Path("prompts").glob("*.yaml"))
 @pytest.mark.parametrize("path", PROMPT_FILES, ids=lambda p: p.name)
 def test_shipped_prompt_passes_check(path: Path) -> None:
     try:
-        prompt = Prompt.from_yaml(path.read_text())  # construction enforces hard invariants
+        prompt = Prompt.from_yaml(
+            path.read_text()
+        )  # construction enforces hard invariants
     except PromptingPressError as e:
         pytest.fail(f"{path.name}: construction failed: {e}")
 

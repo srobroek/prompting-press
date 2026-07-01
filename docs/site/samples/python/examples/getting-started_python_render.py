@@ -35,7 +35,11 @@ variables:
 result = greet.render(GreetVars, data={"name": "Ada", "count": 3})
 
 assert result.text == "Hi Ada, you have 3 messages."
-assert result.variant == "default"                       # same arm greet.body showed in Step 1
-assert re.fullmatch(r"[0-9a-f]{64}", result.template_hash)  # 64-char lowercase-hex SHA-256 of the template
-assert re.fullmatch(r"[0-9a-f]{64}", result.render_hash)    # 64-char lowercase-hex SHA-256 of result.text
-assert result.guard is None                              # no guard requested
+assert result.variant == "default"  # same arm greet.body showed in Step 1
+assert re.fullmatch(
+    r"[0-9a-f]{64}", result.template_hash
+)  # 64-char lowercase-hex SHA-256 of the template
+assert re.fullmatch(
+    r"[0-9a-f]{64}", result.render_hash
+)  # 64-char lowercase-hex SHA-256 of result.text
+assert result.guard is None  # no guard requested

@@ -18,7 +18,7 @@ variables:
     trusted: true
 """
 
-greet = Prompt.from_yaml(GREET_YAML)     # validates here, or raises
+greet = Prompt.from_yaml(GREET_YAML)  # validates here, or raises
 # from_json / from_toml parse the JSON / TOML forms into the same Prompt.
 
 assert greet.name == "greet"

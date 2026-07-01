@@ -325,3 +325,11 @@ jobs:
         run: mise exec -- moon run samples:test
         env:
           CARGO_TERM_COLOR: always
+
+      # spec 014 — the in-page doc examples are standalone tested programs
+      # (docs/site/samples/**), compiled + run here so a shown example that drifts
+      # from the live API fails the PR citing the source file.
+      - name: 'Doc-sample suites (docs:test-samples)'
+        run: mise exec -- moon run docs:test-samples
+        env:
+          CARGO_TERM_COLOR: always

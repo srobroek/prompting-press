@@ -14,23 +14,29 @@ class UserVars(BaseModel):
     query: str
 
 
-sys_prompt = Prompt({
-    "name": "system-preamble",
-    "role": "system",
-    "body": "{{ instructions }}",
-    "variables": {"instructions": {"type": "string", "trusted": True}},
-})
-user_prompt = Prompt({
-    "name": "user-turn",
-    "role": "user",
-    "body": "{{ query }}",
-    "variables": {"query": {"type": "string", "trusted": False}},
-})
+sys_prompt = Prompt(
+    {
+        "name": "system-preamble",
+        "role": "system",
+        "body": "{{ instructions }}",
+        "variables": {"instructions": {"type": "string", "trusted": True}},
+    }
+)
+user_prompt = Prompt(
+    {
+        "name": "user-turn",
+        "role": "user",
+        "body": "{{ query }}",
+        "variables": {"query": {"type": "string", "trusted": False}},
+    }
+)
 
-comp = Composition.from_messages([
-    (sys_prompt,  SysVars(instructions="Be concise.")),
-    (user_prompt, UserVars(query="What is Rust?")),
-])
+comp = Composition.from_messages(
+    [
+        (sys_prompt, SysVars(instructions="Be concise.")),
+        (user_prompt, UserVars(query="What is Rust?")),
+    ]
+)
 messages = comp.resolve()
 for m in messages:
     print(m.role, m.text)

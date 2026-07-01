@@ -9,10 +9,10 @@ definition = PromptDefinition(
     role="user",
     body="Hi {{ name }}, you have {{ count }} messages.",
     variables={
-        "name":  {"type": "string",  "trusted": True},
+        "name": {"type": "string", "trusted": True},
         "count": {"type": "integer", "trusted": True},
     },
 )
 
-greet = Prompt(definition)   # same validation as the from_* factories
+greet = Prompt(definition)  # same validation as the from_* factories
 assert greet.name == "greet"

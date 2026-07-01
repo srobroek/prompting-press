@@ -14,18 +14,22 @@ class UserVars(BaseModel):
 
 
 # Build the two prompts inline from their shape, so the content is explicit.
-sys_prompt = Prompt({
-    "name": "system-preamble",
-    "role": "system",
-    "body": "{{ instructions }}",
-    "variables": {"instructions": {"type": "string", "trusted": True}},
-})
-user_prompt = Prompt({
-    "name": "user-turn",
-    "role": "user",
-    "body": "{{ query }}",
-    "variables": {"query": {"type": "string", "trusted": False}},
-})
+sys_prompt = Prompt(
+    {
+        "name": "system-preamble",
+        "role": "system",
+        "body": "{{ instructions }}",
+        "variables": {"instructions": {"type": "string", "trusted": True}},
+    }
+)
+user_prompt = Prompt(
+    {
+        "name": "user-turn",
+        "role": "user",
+        "body": "{{ query }}",
+        "variables": {"query": {"type": "string", "trusted": False}},
+    }
+)
 
 comp = Composition()
 comp.append(sys_prompt, SysVars(instructions="Be concise."))

@@ -27,3 +27,45 @@ tasks:
       # snapshot never lands. A side-effecting task must always execute.
       cache: false
       runInCI: true
+
+  # ── Doc-sample suites (spec 014): compile + run every standalone example that a
+  # docs page shows verbatim via ?raw. A failing example (drift from the live API,
+  # a wrong shown output) fails the gate citing the source file.
+  test-samples-rust:
+    description: 'Compile + run every Rust doc-sample program (docs/site/samples/rust/examples/**).'
+    command: 'bash docs/site/samples/rust/run-examples.sh'
+    inputs:
+      - '/docs/site/samples/rust/**/*.rs'
+      - '/docs/site/samples/rust/Cargo.toml'
+      - '/docs/site/samples/rust/run-examples.sh'
+      - '/crates/prompting-press/src/**'
+    options:
+      runFromWorkspaceRoot: true
+
+  test-samples-python:
+    description: 'Run every Python doc-sample program (docs/site/samples/python/examples/**) via pytest.'
+    command: 'bash -c "cd docs/site/samples/python && uv sync && uv run pytest -q"'
+    inputs:
+      - '/docs/site/samples/python/**/*.py'
+      - '/docs/site/samples/python/pyproject.toml'
+      - '/packages/python/**'
+    options:
+      runFromWorkspaceRoot: true
+
+  test-samples-typescript:
+    description: 'Typecheck + run every TypeScript doc-sample program (docs/site/samples/typescript/examples/**).'
+    command: 'bash -c "pnpm -C docs/site/samples/typescript install && pnpm -C docs/site/samples/typescript test"'
+    inputs:
+      - '/docs/site/samples/typescript/**/*.ts'
+      - '/docs/site/samples/typescript/package.json'
+      - '/packages/typescript/src/**'
+    options:
+      runFromWorkspaceRoot: true
+
+  # Aggregate: all three doc-sample suites (the docs:test-samples gate).
+  test-samples:
+    description: 'Compile + run all doc-sample programs across the three languages.'
+    deps:
+      - 'docs:test-samples-rust'
+      - 'docs:test-samples-python'
+      - 'docs:test-samples-typescript'

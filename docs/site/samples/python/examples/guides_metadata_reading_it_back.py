@@ -33,11 +33,11 @@ variants:
 
 p = Prompt.from_yaml(SUMMARY_YAML)
 
-p.metadata           # => {"model_hint": "claude-sonnet-4-6", "max_tokens": 512, "owner": "team-content"}
-p.metadata["model_hint"]   # application code decides what to do with it
+p.metadata  # => {"model_hint": "claude-sonnet-4-6", "max_tokens": 512, "owner": "team-content"}
+p.metadata["model_hint"]  # application code decides what to do with it
 
 # per-variant metadata (each variant is a plain dict):
-p.variants["terse"]["metadata"]   # => {"weight": 0.2, "group": "experiment-q4"}
+p.variants["terse"]["metadata"]  # => {"weight": 0.2, "group": "experiment-q4"}
 
 # The accessors return the maps as-is; nothing is interpreted or mutated.
 assert p.metadata == {
