@@ -54,9 +54,13 @@ serde_json = { workspace = true }
 serde = { workspace = true }
 
 # napi 3.x is the current Node-API binding line; `napi-derive` supplies the `#[napi]`
-# attribute macro. Pinned EXACT (not floating "3") so the ci:check-floating-versions
-# gate stays green. NOTE: the two crates version INDEPENDENTLY — crates.io latest 3.x
-# verified 2026-06-24: napi = 3.9.4, napi-derive = 3.5.7.
+# attribute macro. Pinned EXACT with a LEADING `=` (`=3.9.4`, not `3.9.4`): a bare
+# `3.9.4` is caret `^3.9.4`, which lets a resolver pick a newer 3.x (e.g. 3.10.0) when
+# the registry cache has it. That non-determinism made cargo-about (ci:check-third-
+# party-licenses) generate a DIFFERENT attribution on CI (napi 3.10.0) than the
+# committed one (3.9.4) and fail the freshness gate. `=` forbids the bump so every
+# environment resolves the SAME version. The two crates version INDEPENDENTLY —
+# crates.io latest 3.x verified 2026-06-24: napi = 3.9.4, napi-derive = 3.5.7.
 #
 # Features (verified against the napi 3.9.4 crate `[features]` set — FR-003a / T005):
 #   - `serde-json` (pulls `serde` + `serde_json`): supplies `impl FromNapiValue for
@@ -67,8 +71,8 @@ serde = { workspace = true }
 #     `napi4`; `napi6` is a strict superset.) `dyn-symbols` (a default) is kept so the
 #     `cargo test` rlib harness links without a Node host.
 [dependencies.napi]
-version = "3.9.4"
+version = "=3.9.4"
 features = ["serde-json", "napi6"]
 
 [dependencies.napi-derive]
-version = "3.5.7"
+version = "=3.5.7"
