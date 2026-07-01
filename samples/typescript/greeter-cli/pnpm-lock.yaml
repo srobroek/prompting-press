@@ -1,0 +1,35 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      prompting-press:
+        specifier: file:../../../packages/typescript
+        version: file:../../../packages/typescript(zod@4.4.3)
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+
+packages:
+
+  prompting-press@file:../../../packages/typescript:
+    resolution: {directory: ../../../packages/typescript, type: directory}
+    engines: {node: '>=20'}
+    peerDependencies:
+      zod: 4.4.3
+
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+
+snapshots:
+
+  prompting-press@file:../../../packages/typescript(zod@4.4.3):
+    dependencies:
+      zod: 4.4.3
+
+  zod@4.4.3: {}

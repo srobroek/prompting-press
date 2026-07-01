@@ -16,7 +16,7 @@
     "test:typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "prompting-press": "workspace:*",
+    "prompting-press": "file:../../../packages/typescript",
     "zod": "^4.4.3"
   }
 }
