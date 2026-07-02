@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/prompting-press/prompting-press/compare/prompting-press-py-v0.2.0...prompting-press-py-v0.2.1) (2026-07-02)
+
+
+### Documentation
+
+* use LLM-appropriate prompt examples (system prompt with company var) ([#245](https://github.com/prompting-press/prompting-press/issues/245)) ([c1660b6](https://github.com/prompting-press/prompting-press/commit/c1660b6738847c76ae05f11a678838b313f7ce24))
+
 ## [0.2.0](https://github.com/prompting-press/prompting-press/compare/prompting-press-py-v0.1.0...prompting-press-py-v0.2.0) (2026-07-01)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/prompting-press/prompting-press/compare/prompting-press-core-v0.2.0...prompting-press-core-v0.2.1) (2026-07-02)
+
+
+### Miscellaneous Chores
+
+* **prompting-press-core:** Synchronize prompting-press versions
+
 ## [0.2.0](https://github.com/prompting-press/prompting-press/compare/prompting-press-core-v0.1.0...prompting-press-core-v0.2.0) (2026-07-01)
 
 
