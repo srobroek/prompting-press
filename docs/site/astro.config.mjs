@@ -1,6 +1,8 @@
 // @ts-check
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import { unified } from "@astrojs/markdown-remark";
+import { remarkPrefixInternalLinks } from "./scripts/lib/remark-prefix-internal-links.mjs";
 
 // ---------------------------------------------------------------------------
 // TC01: Per-version build parameterisation (Phase 7).
@@ -34,6 +36,16 @@ const siteTitle = docsVersion
 export default defineConfig({
   site: "https://prompting-press.github.io",
   base: normalizedBase,
+  markdown: {
+    // Rewrites root-absolute internal links (e.g. /guides/variants/) in every
+    // content page to carry this build's version prefix — see the plugin's
+    // header comment for why Starlight's own base-prefixing doesn't do this.
+    // `markdown.remarkPlugins` is deprecated in Astro 7; plugins now attach to
+    // an explicit `unified()` processor instead (@astrojs/markdown-remark).
+    processor: unified({
+      remarkPlugins: [remarkPrefixInternalLinks(normalizedBase)],
+    }),
+  },
   integrations: [
     starlight({
       components: {
