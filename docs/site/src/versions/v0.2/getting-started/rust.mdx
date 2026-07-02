@@ -80,11 +80,13 @@ trusted = true
 
 ### Step 1 — construct a `Prompt` (and validate)
 
-Construct from text with a `from_*` factory, or from an already-built `PromptDefinition` value with
-`Prompt::new`. All routes run the **same** validation immediately:
+Read the definition file and hand its text to a `from_*` factory (`Prompt::from_yaml` / `from_json`
+/ `from_toml`), or build from an already-built `PromptDefinition` value with `Prompt::new`. The
+library does no file I/O — the caller reads the file. All routes run the **same** validation
+immediately:
 
 <Tabs syncKey="construct-route">
-<TabItem label="From text">
+<TabItem label="From a file">
 <Code code={constructFromText} lang="rust" title="getting-started_rust_construct_from_text.rs" />
 </TabItem>
 <TabItem label="From a definition value">
@@ -101,15 +103,19 @@ construction, never as a silent empty render.
 
 ### Step 2 — declare the typed Vars
 
-The render values are a caller-owned struct, validated by [`garde`](https://docs.rs/garde). Its
-field names must match the prompt's `variables` (`company`, `max_words`); the `#[garde(..)]` rules run at
-render time, before the kernel is touched:
+The render values are a caller-owned struct, validated by [`garde`](https://docs.rs/garde), whose
+field names match the prompt's `variables` (`company`, `max_words`). This struct is the
+**render-time gate**: you hand it to `render` in Step 3, and its `#[garde(..)]` rules (here,
+`max_words` must be a positive integer) decide what data is allowed to reach the kernel. Declaring
+it is just the definition — the enforcement happens at render:
 
 <Code code={declareVars} lang="rust" title="getting-started_rust_declare_vars.rs" />
 
-### Step 3 — render, and read the result
+### Step 3 — render (the struct validates the data), and read the result
 
-Hand the `Prompt` from Step 1 the `AssistantVars` from Step 2:
+Hand the `Prompt` from Step 1 the `AssistantVars` from Step 2. Validation runs **first** — valid data
+renders; invalid data (e.g. `max_words: 0`) returns `Err(ConsumerError::Validation(..))` and the
+kernel is never touched. The sample shows both the passing render and the rejection:
 
 <Code code={renderAndRead} lang="rust" title="getting-started_rust_render_and_read.rs" />
 
@@ -119,7 +125,8 @@ Hand the `Prompt` from Step 1 the `AssistantVars` from Step 2:
 - `reveal_render_detail = false` keeps render-error detail scrubbed; pass `false` in all production
   call sites.
 
-The generic `V` is resolved at the **call site**, so "this prompt has a validator for `count`" is a
+Passing `&vars` here is what makes the typed-vars validation from Step 2 actually run — `render`
+calls `vars.validate()` before it ever touches the kernel. The generic `V` is resolved at the **call site**, so "this prompt has a validator for `count`" is a
 compile-time guarantee — no runtime validator object is stored on the `Prompt`. This is the Rust side
 of the per-language validator model.
 

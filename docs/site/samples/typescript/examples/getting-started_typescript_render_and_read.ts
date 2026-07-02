@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { Prompt } from "prompting-press";
+import { Prompt, PromptValidationError } from "prompting-press";
 import { z } from "zod";
 
 const assistantYaml = `name: assistant
@@ -30,4 +30,12 @@ test("render, and read the result", () => {
   assert.match(result.templateHash, /^[0-9a-f]{64}$/); // 64-char lowercase-hex SHA-256 of the template
   assert.match(result.renderHash, /^[0-9a-f]{64}$/); // 64-char lowercase-hex SHA-256 of result.text
   assert.equal(result.guard, null); // => null  (no guard requested)
+});
+
+test("render validates the data through the schema — bad data is rejected before the kernel", () => {
+  // max_words: 0 violates AssistantVars (.int().min(1)); render throws, nothing is rendered.
+  assert.throws(
+    () => assistant.render(AssistantVars, { company: "Acme Robotics", max_words: 0 }),
+    PromptValidationError,
+  );
 });

@@ -2,7 +2,7 @@
 //! Standalone — `cargo run --example getting-started_rust_render_and_read`.
 
 use garde::Validate;
-use prompting_press::{GuardConfig, Prompt};
+use prompting_press::{ConsumerError, GuardConfig, Prompt};
 use serde::Serialize;
 
 #[derive(Serialize, Validate)]
@@ -53,5 +53,19 @@ variables:
         .render_hash
         .chars()
         .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
+
+    // Typed Vars are validated at render, not just declared: `max_words: 0` violates
+    // `#[garde(range(min = 1))]`, so the kernel is never reached — render rejects it.
+    let bad_vars = AssistantVars {
+        company: "Acme Robotics".into(),
+        max_words: 0,
+    };
+    match assistant.render(&bad_vars, None, &GuardConfig::default(), false) {
+        Err(ConsumerError::Validation(rows)) => {
+            assert!(rows.iter().any(|r| r.field == "max_words"));
+        }
+        other => panic!("expected a validation error for max_words = 0, got {other:?}"),
+    }
+
     Ok(())
 }

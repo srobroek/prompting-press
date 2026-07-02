@@ -1,26 +1,18 @@
-//! Construct a `Prompt` from YAML text with a `from_*` factory — validation runs
+//! Construct a `Prompt` from a definition file with a `from_*` factory — validation runs
 //! immediately. Standalone — `cargo run --example getting-started_rust_construct_from_text`.
 
 use prompting_press::Prompt;
+use std::fs;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // A real caller reads this from a file (`std::fs::read_to_string("assistant.yaml")`);
-    // inlined here so the sample is a complete, standalone program.
-    let yaml = r#"
-name: assistant
-role: system
-body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
-variables:
-  company:
-    type: string
-    trusted: true
-  max_words:
-    type: integer
-    trusted: true
-"#;
+    // The caller reads the definition; the library does no file I/O itself.
+    // Resolve the file next to this program (a real app uses its own path).
+    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/examples");
 
-    let assistant = Prompt::from_yaml(yaml)?; // validates here, or returns Err
-                                               // from_json / from_toml parse the JSON / TOML forms into the same Prompt.
+    let assistant = Prompt::from_yaml(&fs::read_to_string(format!("{dir}/assistant.yaml"))?)?; // validates here, or Err
+                                                                                               // The same definition in JSON or TOML parses into an identical Prompt:
+                                                                                               // let assistant = Prompt::from_json(&fs::read_to_string(format!("{dir}/assistant.json"))?)?;
+                                                                                               // let assistant = Prompt::from_toml(&fs::read_to_string(format!("{dir}/assistant.toml"))?)?;
 
     assert_eq!(assistant.name(), "assistant");
     assert_eq!(
