@@ -1,0 +1,96 @@
+---
+title: "Compose multi-message prompts"
+description: "Use Composition to build an ordered sequence of (Prompt, vars, variant?) entries that resolves to a list of role-tagged messages."
+---
+
+import { Aside, Tabs, TabItem, Code } from '@astrojs/starlight/components';
+import rustBuild from '../../../../samples/rust/examples/guides_composition_build.rs?raw';
+import pyBuild from '../../../../samples/python/examples/guides_composition_build.py?raw';
+import pyAppendValidation from '../../../../samples/python/examples/guides_composition_append_validation.py?raw';
+import pyFromMessages from '../../../../samples/python/examples/guides_composition_from_messages.py?raw';
+import tsFromMessages from '../../../../samples/typescript/examples/guides_composition_from-messages.ts?raw';
+
+`Composition` is an **explicit, ordered** sequence of `(Prompt, vars, variant?)` entries that
+resolves to a `Vec<Message>` / `list[Message]` / `Message[]` in append order. It is the
+few-shot / system+user sequence builder.
+
+There is **no registry** — each entry holds a `Prompt` object directly. There is deliberately
+**no fluent `.chain()` API** (it cannot cross the PyO3/napi FFI boundary and collides with
+`Iterator::chain` in Rust / standard JS idiom).
+
+An entry is `(prompt, vars, variant?)` everywhere; only its **spelling** differs by language idiom:
+Rust and Python pass them as positional args to `append` (Python also accepts `(prompt, vars[,
+variant])` tuples in `from_messages`), while TypeScript takes a single `CompositionEntry` object
+(`{ prompt, schema?, data, variant? }`) — matching how `render` is shaped in each language.
+
+## The validate-then-render guarantee
+
+Validation is **eager** — at `append` time in Rust/Python, at `append`/`fromMessages` time in
+TypeScript. An invalid entry is rejected immediately and nothing is stored. `resolve()` therefore
+only ever sees fully-validated entries. If any entry fails at `resolve` (unknown variant,
+strict-undefined reference), the whole call fails and no partial result is returned.
+
+## Building a composition
+
+<Tabs syncKey="lang">
+<TabItem label="Rust">
+<Code code={rustBuild} lang="rust" title="guides_composition_build.rs" />
+
+`Composition::append<V>(&mut self, prompt: &Prompt, vars: &V, variant: Option<&str>)` returns
+`Result<(), ConsumerError>`. On a garde failure the entry is NOT stored.
+
+`Composition::resolve(&self)` returns `Result<Vec<Message>, ConsumerError>`. Each `Message`
+carries `role: String` and `text: String`. `Composition::len()` and `is_empty()` report the entry
+count.
+
+Rust builds a composition with `new()` + `append()` only — there is no bulk `from_messages`
+constructor (that is the Python/TypeScript idiom); push each entry explicitly, as above.
+</TabItem>
+<TabItem label="Python">
+<Code code={pyBuild} lang="python" title="guides_composition_build.py" />
+
+`append` accepts a Pydantic model **instance** (already-constructed). Validation happens eagerly;
+a `PromptValidationError` is raised and nothing is stored on failure.
+
+<Code code={pyAppendValidation} lang="python" title="guides_composition_append_validation.py" />
+
+Build a composition from a list of `(prompt, vars)` or `(prompt, vars, variant)` tuples. The
+optional third element selects a variant of that entry's prompt (omit it for the default arm):
+
+<Code code={pyFromMessages} lang="python" title="guides_composition_from_messages.py" />
+</TabItem>
+<TabItem label="TypeScript">
+<Code code={tsFromMessages} lang="ts" title="guides_composition_from-messages.ts" />
+
+In TypeScript an entry is a `CompositionEntry` object (the analogue of Rust/Python's positional
+args):
+```ts
+{
+  prompt: Prompt;
+  schema?: ZodLikeSchema;  // optional — present → safeParse(data) runs at append
+  data: unknown;
+  variant?: string;
+}
+```
+
+`append(entry)` → `void` (not chainable).
+`Composition.fromMessages(entries)` → `Composition` (all validation runs before any state is
+created; the first failure aborts).
+</TabItem>
+</Tabs>
+
+## Message shape
+
+```
+{ role: string, text: string }
+```
+
+`role` is taken from the `Prompt`'s definition (`"system"` / `"user"` / `"assistant"`).
+`text` is the rendered body. Composition uses no guard expansion — the `RenderResult.guard` field
+is not accessible from composition; use individual `Prompt.render` calls to access the guard.
+
+<Aside type="note">
+**No partial results.** If any entry fails at `resolve` (unknown variant, strict-undefined
+variable), the whole `resolve()` call fails and the partial list built so far is discarded. An
+empty composition resolves to an empty list (`[]` / `Ok(vec![])`) — not an error.
+</Aside>

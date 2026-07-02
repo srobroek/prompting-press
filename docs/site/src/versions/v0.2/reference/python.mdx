@@ -1,0 +1,544 @@
+---
+# AUTO-GENERATED — do not edit by hand.
+# Source: griffe 2.1.0
+# Regenerate: pnpm -C docs/site build  (runs scripts/gen-api-refs.mjs as prebuild).
+title: "Python API reference"
+description: "API reference for the prompting-press python binding. Generated from source doc comments."
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+<Aside type="note">
+Automatically generated from Python source doc comments (griffe 2.1.0).
+</Aside>
+
+Package: `prompting-press`. Version: `latest`.
+
+## Prompt
+
+### `Prompt`
+
+```python
+class Prompt
+```
+
+An immutable, fully-validated prompt object. Wraps a [`prompting_press::Prompt`] (the Rust consumer). All construction invariants —
+shape-valid, template-parseable, agreement-sound, reserved-name clean — are enforced
+at construction time by the Rust consumer. There are no setters; the sole mutator is
+[`derive`](Self::derive). ## Construction Three factory forms:
+- `Prompt(shape, *, validators=None)` — primary constructor. `shape` is a generated `PromptDefinition` instance or a plain `dict`; the optional `validators` kwarg is a Pydantic model class whose `model_fields` covers every `validation_required` variable.
+- `Prompt.from_yaml(text, *, validators=None)` — parse already-read YAML, then validate.
+- `Prompt.from_json(text, *, validators=None)` — parse already-read JSON, then validate.
+- `Prompt.from_toml(text, *, validators=None)` — parse already-read TOML, then validate. TOML parsing is done by the Rust consumer (the `toml` crate); no Python `tomllib` dependency is added here because the text is handed to the Rust consumer intact. Construction **raises** [`PromptValidationError`](crate::error::PromptValidationError)
+on any invariant violation (invalid shape, parse failure, agreement failure, reserved
+variant name, or uncovered `validation_required` variable). Never panics. ## Error scrubbing Every error path routes through [`consumer_error_to_pyerr`] or the consumer's `From`
+scrubber (for `KernelError`). Raw kernel `Parse`/`Render`/`ExcludedFeature` detail is
+never read here.
+
+#### `body`
+
+```python
+body: <read-only property>
+```
+
+The root body template source (the default arm's unrendered template).
+
+#### `metadata`
+
+```python
+metadata: <read-only property>
+```
+
+The `metadata` opaque map (`dict | None`) — library-defined top-level annotations.
+
+#### `name`
+
+```python
+name: <read-only property>
+```
+
+The prompt's `name` field.
+
+#### `output_model`
+
+```python
+output_model: <read-only property>
+```
+
+The `output_model` reference (`str | None`). Carried as metadata only — the
+library never parses against it.
+
+#### `role`
+
+```python
+role: <read-only property>
+```
+
+The conversational role (`"system"` / `"user"` / `"assistant"`). Stringified from the Rust `PromptDefinitionRole` enum (the same `Display`
+implementation the kernel uses for `Message::role` in composition).
+
+#### `variables`
+
+```python
+variables: <read-only property>
+```
+
+The declared variables map (`&#123; name: PromptVariable &#125;`), as a Python `dict`. Serialized via `serde_json` → `depythonize` path so Python receives a plain dict
+matching the schema-generated `PromptVariable` shape. Read-only at the object level
+(returning a new dict each time prevents Python from mutating the inner state).
+
+#### `variants`
+
+```python
+variants: <read-only property>
+```
+
+The named variants map (`&#123; name: PromptVariant &#125;`), as a Python `dict`. Empty when the prompt has no named variants (only the implicit default arm).
+
+#### `check`
+
+```python
+check(self, /)
+```
+
+Pure advisory lint: returns a [`CheckReport`] containing only the trust/guard
+finding class (the only LIVE finding class for a constructed `Prompt`). Construction already enforces agreement, parse, and reserved-name invariants, so
+those finding classes are structurally unreachable here. Pure: takes `&self`, never
+renders, never mutates.
+
+#### `derive`
+
+```python
+derive(self, /, overlay, *, validators=None)
+```
+
+The sole mutator: shallow-replace top-level fields, re-validate, return a new `Prompt`. ```python
+derived = p.derive(overlay, *, validators=None)
+``` `overlay` is a `dict` of top-level fields to replace (any subset of `name`, `role`,
+`body`, `variables`, `variants`, `output_model`, `metadata`). Fields absent
+from the dict are kept from the original. The merged definition is routed through the
+Rust consumer's `Prompt::derive` (full re-validation: agreement, parse, reserved name). Validators carry forward from `self` by default. Pass `validators=SomeModel` to
+override or augment the bound validator on the derived prompt. Coverage is re-checked
+against the merged definition. The original `Prompt` is untouched (immutability guaranteed). # Errors - [`PromptValidationError`](crate::error::PromptValidationError) — the merged definition violates any construction invariant, or the (carried/supplied) validators do not cover a `validation_required` variable in the merged definition.
+- [`LoadError`](crate::error::LoadError) — `overlay` could not be deserialized.
+
+#### `from_json`
+
+```python
+from_json(text, *, validators=None)
+```
+
+`Prompt.from_json(text, *, validators=None)` — parse already-read **JSON** and validate. Delegates to the Rust consumer's `Prompt::from_json`. Error semantics mirror
+[`from_yaml`](Self::from_yaml). # Errors - [`LoadError`](crate::error::LoadError) — `text` is not valid JSON or does not match the `PromptDefinition` shape.
+- [`PromptValidationError`](crate::error::PromptValidationError) — construction invariant violation or uncovered `validation_required` variable.
+
+#### `from_toml`
+
+```python
+from_toml(text, *, validators=None)
+```
+
+`Prompt.from_toml(text, *, validators=None)` — parse already-read **TOML** and validate. Delegates to the Rust consumer's `Prompt::from_toml` (which uses the `toml` crate
+internally). No Python `tomllib` dependency is needed: the text is handed to Rust
+intact. At the abi3-py312 floor `tomllib` is available in stdlib, but is not used
+here — the Rust consumer already owns the TOML parse. Error semantics mirror
+[`from_yaml`](Self::from_yaml). # Errors - [`LoadError`](crate::error::LoadError) — `text` is not valid TOML or does not match the `PromptDefinition` shape.
+- [`PromptValidationError`](crate::error::PromptValidationError) — construction invariant violation or uncovered `validation_required` variable.
+
+#### `from_yaml`
+
+```python
+from_yaml(text, *, validators=None)
+```
+
+`Prompt.from_yaml(text, *, validators=None)` — parse already-read **YAML** and validate. Delegates to the Rust consumer's `Prompt::from_yaml`. The binding reads no files. Error semantics mirror `__init__`. # Errors - [`LoadError`](crate::error::LoadError) — `text` is not valid YAML or does not match the `PromptDefinition` shape.
+- [`PromptValidationError`](crate::error::PromptValidationError) — any construction invariant violation or uncovered `validation_required` variable.
+
+#### `get_source`
+
+```python
+get_source(self, /, *, variant=None)
+```
+
+Return a variant's **unrendered** template source. Pure source lookup: no vars, no validation. `variant = None` returns the root body
+source. # Errors [`PromptRenderError`](crate::error::PromptRenderError) — unknown variant name.
+
+#### `render`
+
+```python
+render(self, /, model=None, *, data=None, variant=None, guard=None, unsafe_reveal_render_detail=False)
+```
+
+Validate-then-render this prompt. ```python
+p.render(model, *, data=None, variant=None, guard=None, unsafe_reveal_render_detail=False)
+``` - When `data` is provided, `model` is treated as a Pydantic model **class** and validated via `model.model_validate(data)`.
+- When `data` is `None`, `model` is treated as an already-constructed model **instance** and re-validated via `type(model).model_validate(model.model_dump(...))`.
+- When `model` is `None` (omitted), the bound `validators` class stored at construction is used as the model class (requires `data` to be provided in that case since we don't have an instance of a type we didn't pass). Validation is owned in Python, BEFORE any templating. On a `pydantic.ValidationError`,
+raises [`PromptValidationError`](crate::error::PromptValidationError) with one row per
+offending field — **the kernel is never reached** on validation failure (`msg` + `loc`
+only, never `input`/`ctx`). `variant = None` selects the default (root body) arm. `guard` is the opt-in
+[`GuardConfig`] plumbed straight through to the kernel. ## `unsafe_reveal_render_detail` — off-by-default render-error detail opt-in Default `False`. When `True`, the full underlying render-error detail is surfaced in
+the raised [`PromptRenderError`](crate::error::PromptRenderError)``.errors[0].message`
+instead of the fixed scrubbed string. **Risk:** enabling this may place **bound-value content** — untrusted input, PII,
+secrets — into the raised exception and into any log line or traceback derived from
+it. Use only in a controlled debug context with a trusted log destination and only
+after deliberately accepting that exposure. Never set `True` by default or via
+ambient configuration. # Errors - [`PromptValidationError`](crate::error::PromptValidationError) — Pydantic rejected the vars. Raised **before** any templating.
+- [`PromptRenderError`](crate::error::PromptRenderError) — the kernel rejected the render (unknown variant, strict-undefined reference, parse/render failure). `Render` detail scrubbed unless `unsafe_reveal_render_detail=True`. `Parse` detail always preserved.
+
+### `core_version`
+
+```python
+def core_version()
+```
+
+Returns the version string of the underlying rendering kernel.
+
+## RenderResult
+
+### `RenderResult`
+
+```python
+class RenderResult
+```
+
+A rendered prompt + its content-addressed provenance, read-only from Python. The Python mirror of the kernel's [`prompting_press_core::RenderResult`]. Surfaced **1:1** —
+the binding adds nothing and interprets nothing. Read-only (`frozen`): a result is produced
+by `prompt.render(...)`, never constructed from Python.
+
+#### `guard`
+
+```python
+guard: <read-only property>
+```
+
+The opt-in guard instruction text (present iff a guard was enabled and the prompt declares
+a `trusted: false` field); `None` for a plain render. Never part of `text`.
+
+#### `name`
+
+```python
+name: <read-only property>
+```
+
+The prompt name.
+
+#### `render_hash`
+
+```python
+render_hash: <read-only property>
+```
+
+Lowercase-hex `SHA256(rendered text)`.
+
+#### `template_hash`
+
+```python
+template_hash: <read-only property>
+```
+
+Lowercase-hex `SHA256(resolved variant source)`.
+
+#### `text`
+
+```python
+text: <read-only property>
+```
+
+The rendered body text. The guard text is NEVER concatenated here.
+
+#### `variant`
+
+```python
+variant: <read-only property>
+```
+
+The resolved variant name (the reserved `default`, or the named arm).
+
+## GuardConfig
+
+### `GuardConfig`
+
+```python
+class GuardConfig
+```
+
+The opt-in guard-expansion config, surfaced to Python and **plumbed through** to the kernel. A 1:1 mirror of the kernel's [`prompting_press_core::GuardConfig`]. This pyclass is
+**config only**; it carries no logic. The kernel owns guard *expansion*; the binding only
+marshals fields across the boundary and surfaces whatever [`RenderResult::guard`] the kernel
+populates. Read-only after construction (`frozen`): build it once via the constructor. ## Advisory override `advisory` replaces the fixed default wording returned in `RenderResult.guard`. The override
+MUST reference the `<untrusted>` opening tag, the `</untrusted>` closing tag, AND an escape
+indication (`&amp;`/`&lt;`/`&gt;` or the word "escap") — otherwise the kernel rejects it and
+raises [`PromptRenderError`] with `errors[0].code == "render"` and
+`errors[0].field == "guard"`.
+
+#### `advisory`
+
+```python
+advisory: <read-only property>
+```
+
+Optional override for the advisory sentence returned in `RenderResult.guard`.
+`None` (the default) ⇒ the fixed default advisory. When provided, must reference
+`<untrusted>`, `</untrusted>`, and an escape indication; otherwise the kernel
+rejects it with a structured [`PromptRenderError`].
+
+#### `enabled`
+
+```python
+enabled: <read-only property>
+```
+
+When `False`, the render is plain and [`RenderResult::guard`] is `None`.
+
+## CheckReport
+
+### `CheckReport`
+
+```python
+class CheckReport
+```
+
+The output of [`Prompt::check`](crate::prompt::Prompt::check): an ordered, read-only list of
+[`Finding`]s. Empty ⇒ the lint passed. The Python mirror of the consumer's [`prompting_press::CheckReport`] (data-model §`CheckReport`;
+FR-020). Surfaced **1:1** — the binding adds nothing and interprets nothing. Read-only
+(`frozen`): a report is produced by `prompt.check`, never constructed from Python.
+
+#### `findings`
+
+```python
+findings: <read-only property>
+```
+
+Every lint failure found, in the consumer's deterministic order. Empty ⇒ pass.
+
+#### `is_empty`
+
+```python
+is_empty(self, /)
+```
+
+`report.is_empty` — alias for [`passed`](Self::passed): `True` iff there are no findings.
+
+#### `passed`
+
+```python
+passed(self, /)
+```
+
+`report.passed` — `True` iff there are no findings (the lint passed). Mirrors the
+consumer's [`CheckReport::passed`](prompting_press::CheckReport::passed); reads clearly at a
+CI gate (`if not prompt.check.passed: sys.exit(1)`).
+
+## Finding
+
+### `Finding`
+
+```python
+class Finding
+```
+
+One actionable lint finding, read-only from Python. Names the `prompt`, the `variant` where applicable (`None` for a prompt-level finding), the
+failure `kind` (a stable `snake_case` discriminant string — see the module docs), and a
+human-readable `detail`. The `detail` carries no bound-value content (it is built from prompt
+and field names only). Read-only (`frozen`): a finding is produced by `prompt.check`, never
+constructed from Python.
+
+#### `detail`
+
+```python
+detail: <read-only property>
+```
+
+A human-readable, actionable description. Carries no bound-value content.
+
+#### `kind`
+
+```python
+kind: <read-only property>
+```
+
+The failure kind as a stable `snake_case` **discriminant string** — the value Python matches
+on. Currently always `"untrusted_without_guard"`. The kind's inner datum is echoed in
+[`detail`](Self::detail).
+
+#### `prompt`
+
+```python
+prompt: <read-only property>
+```
+
+The prompt's name.
+
+#### `variant`
+
+```python
+variant: <read-only property>
+```
+
+The variant the finding pertains to; `None` for a prompt-level provenance finding.
+
+## Composition
+
+### `Composition`
+
+```python
+class Composition
+```
+
+An explicit, ordered sequence of `(Prompt, vars, variant?)` entries that resolves to a
+`list[Message]` in append order. Built with `Composition` +
+[`append`](Self::append) or [`from_messages`](Self::from_messages); there is **no** fluent
+`.chain`.
+
+#### `append`
+
+```python
+append(self, /, prompt, vars, *, variant=None)
+```
+
+`append(prompt, vars, *, variant=None)` — eager-validate + marshal + store one entry. `prompt` is a `Prompt` object; `vars` is a constructed Pydantic model **instance**
+(see module docs); it is validated **now** via the Python-validation path and
+marshaled to the kernel's value type before the entry is stored. On a validation failure
+this raises [`PromptValidationError`](crate::error::PromptValidationError) and **stores
+nothing** — the composition is left exactly as it was (no partial state). Takes `&mut self` and returns `None` (not `self`): the builder is intentionally **not**
+fluent/chainable. # Errors
+[`PromptValidationError`](crate::error::PromptValidationError) — Pydantic rejected
+`vars`. The entry is not stored.
+
+#### `from_messages`
+
+```python
+from_messages(entries)
+```
+
+`Composition.from_messages(entries)` — build a composition from a sequence of
+`(prompt, vars)` or `(prompt, vars, variant)` tuples, eager-validating each in order. `entries` is any Python iterable of 2- or 3-element tuples. `prompt` is a `Prompt`
+object (the phase-4 replacement for a name string); `vars` is a constructed Pydantic
+model **instance** (see module docs); `variant` defaults to `None` (the reserved
+`default` arm) for the 2-tuple form. Each entry is validated + marshaled via the same path [`append`](Self::append) uses, in
+order. The first invalid entry raises
+[`PromptValidationError`](crate::error::PromptValidationError) and the whole construction
+fails — **no** `Composition` is returned (no partial state). # Errors
+- [`PromptValidationError`](crate::error::PromptValidationError) — Pydantic rejected an entry's vars.
+- `TypeError` — an entry is not a 2- or 3-element tuple/sequence, or the first element is not a `Prompt`.
+
+#### `resolve`
+
+```python
+resolve(self, /)
+```
+
+`resolve` — resolve the composition to an ordered `list[Message]`, rendering
+each entry — in append order — through the kernel. For each entry, in order: calls the kernel directly with the entry's bound `Prompt`
+definition and **pre-validated** value (vars were validated at [`append`](Self::append)).
+The render result becomes `Message &#123; role: <def.role stringified>, text: result.text &#125;`.
+Composition uses no guard expansion — a default [`GuardConfig`] is passed, which leaves
+`text` unchanged. One entry's render failure (unknown variant, a strict-undefined reference, a parse/render
+error) propagates as the mapped Python exception and the partial result built so far is
+**discarded** — never returned as success. An empty composition resolves to `[]`. # Errors
+- [`PromptRenderError`](crate::error::PromptRenderError) — the kernel rejected an entry's render (unknown variant, a strict-undefined reference, a parse/render failure). `parse`/`render` detail is scrubbed.
+
+## Message
+
+### `Message`
+
+```python
+class Message
+```
+
+One resolved message in a composition's output: a role-tagged rendered string. `role` is the prompt definition's role stringified (`"system"` / `"user"` / `"assistant"`);
+`text` is that prompt rendered with the entry's own validated vars. Read-only (`frozen`): a
+message is produced by [`Composition::resolve`], never constructed from Python.
+
+#### `role`
+
+```python
+role: <read-only property>
+```
+
+The conversational role, taken from the prompt definition's `role`.
+
+#### `text`
+
+```python
+text: <read-only property>
+```
+
+The rendered body text for this entry. The guard text is never concatenated here.
+
+## Errors
+
+### `FieldError`
+
+```python
+class FieldError
+```
+
+One normalized failure row, readable from Python as `row.field` / `row.code` / `row.message`. The Python mirror of the consumer's [`prompting_press::FieldError`] — the cross-language error
+contract `[&#123;field, code, message&#125;]`. Read-only (`frozen`): the getters
+are the whole surface; rows are produced by the translation, never constructed from Python.
+
+#### `code`
+
+```python
+code: <read-only property>
+```
+
+A stable code from the consumer's closed [`code`](prompting_press::error::code) vocabulary.
+
+#### `field`
+
+```python
+field: <read-only property>
+```
+
+The offending field or path; `""` when no single field applies.
+
+#### `message`
+
+```python
+message: <read-only property>
+```
+
+A human-readable, **scrubbed** message safe to log.
+
+### `LoadError`
+
+```python
+class LoadError(*args, **kwargs)
+```
+
+Malformed YAML/JSON or a shape violation in the dual-input loader (code = "load"). Nothing is partially loaded.
+
+### `PromptRenderError`
+
+```python
+class PromptRenderError(*args, **kwargs)
+```
+
+A kernel render/source/analysis failure (code in unknown_variant|undefined_variable|parse|render|excluded_feature). render/excluded_feature messages are scrubbed; the parse message carries template-syntax detail (pre-binding, no bound values).
+
+### `PromptValidationError`
+
+```python
+class PromptValidationError(*args, **kwargs)
+```
+
+Typed-Vars validation failed (code = "validation"). One row per offending field.
+
+### `PromptingPressError`
+
+```python
+class PromptingPressError(*args, **kwargs)
+```
+
+Base for every Prompting Press error. Carries `.errors`: a list of FieldError rows (&#123;field, code, message&#125;). `except PromptingPressError` catches all subtypes.
+
+## Shape types
+
+- [`PromptDefinition`](/reference/prompt-definition/) — see the Prompt definition shape.
+
+- [`PromptVariable`](/reference/prompt-definition/) — see the Prompt definition shape.
+
+- [`PromptVariant`](/reference/prompt-definition/) — see the Prompt definition shape.

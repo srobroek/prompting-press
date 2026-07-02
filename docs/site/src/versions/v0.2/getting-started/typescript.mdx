@@ -1,0 +1,188 @@
+---
+title: "Getting started — TypeScript"
+description: "Install prompting-press and render a first prompt in TypeScript."
+---
+
+import { Aside, Tabs, TabItem, Code } from '@astrojs/starlight/components';
+import constructFromText from '../../../../samples/typescript/examples/getting-started_typescript_construct_from_text.ts?raw';
+import constructFromObject from '../../../../samples/typescript/examples/getting-started_typescript_construct_from_object.ts?raw';
+import declareVars from '../../../../samples/typescript/examples/getting-started_typescript_declare_vars.ts?raw';
+import renderAndRead from '../../../../samples/typescript/examples/getting-started_typescript_render_and_read.ts?raw';
+import completeExample from '../../../../samples/typescript/examples/getting-started_typescript_complete_example.ts?raw';
+import errorTypes from '../../../../samples/typescript/examples/getting-started_typescript_error_types.ts?raw';
+
+## Install
+
+<Tabs syncKey="ts-pm">
+<TabItem label="npm">
+```bash
+npm install prompting-press zod
+```
+</TabItem>
+<TabItem label="pnpm">
+```bash
+pnpm add prompting-press zod
+```
+</TabItem>
+<TabItem label="yarn">
+```bash
+yarn add prompting-press zod
+```
+</TabItem>
+<TabItem label="bun">
+```bash
+bun add prompting-press zod
+```
+</TabItem>
+</Tabs>
+
+ESM-only · Node 20+ · ships as a native addon (per-platform binary).
+
+`zod` is a peer dependency for the typed-validation facade (the consuming project supplies its own Zod
+version). A Zod schema is passed at render time; the library imports only the structural `safeParse`
+interface, not Zod's identity, so any object exposing `safeParse` works.
+
+## Write a prompt definition
+
+A prompt definition is YAML, JSON, or TOML text — the same shape in any of the three formats. The
+caller reads the text and hands it to the `from*` factories; the library does no file I/O. The
+`greet` definition used throughout this page:
+
+<Tabs syncKey="def-format">
+<TabItem label="YAML">
+```yaml title="greet.yaml"
+name: greet
+role: user
+body: "Hi {{ name }}, you have {{ count }} messages."
+variables:
+  name:
+    type: string
+    trusted: true
+  count:
+    type: integer
+    trusted: true
+```
+</TabItem>
+<TabItem label="JSON">
+```json title="greet.json"
+{
+  "name": "greet",
+  "role": "user",
+  "body": "Hi {{ name }}, you have {{ count }} messages.",
+  "variables": {
+    "name": { "type": "string", "trusted": true },
+    "count": { "type": "integer", "trusted": true }
+  }
+}
+```
+</TabItem>
+<TabItem label="TOML">
+```toml title="greet.toml"
+name = "greet"
+role = "user"
+body = "Hi {{ name }}, you have {{ count }} messages."
+
+[variables.name]
+type = "string"
+trusted = true
+
+[variables.count]
+type = "integer"
+trusted = true
+```
+</TabItem>
+</Tabs>
+
+## Construct and render
+
+### Step 1 — construct a `Prompt` (and validate)
+
+Construct from text with a `from*` factory, or from a typed `PromptDefinition` object with
+`new Prompt(...)`. Both run the **same** validation immediately:
+
+<Tabs syncKey="construct-route">
+<TabItem label="From text">
+<Code code={constructFromText} lang="ts" title="getting-started_typescript_construct_from_text.ts" />
+</TabItem>
+<TabItem label="From an object">
+<Code code={constructFromObject} lang="ts" title="getting-started_typescript_construct_from_object.ts" />
+</TabItem>
+</Tabs>
+
+Construction **validates immediately**: had the body referenced `{{ usrname }}` — a variable
+`variables` doesn't declare — construction would have **thrown** a `PromptRenderError`, **before any
+render** (malformed text throws `LoadError`). A template/variable disagreement is caught at
+construction, never as a silent empty render.
+
+### Step 2 — declare the typed Vars schema
+
+The render values are a caller-owned Zod schema. Its keys match the prompt's `variables`
+(`name`, `count`), and `safeParse` runs before the kernel is touched:
+
+<Code code={declareVars} lang="ts" title="getting-started_typescript_declare_vars.ts" />
+
+### Step 3 — render, and read the result
+
+Hand the `Prompt` from Step 1 the `GreetVars` schema from Step 2 plus the data — Zod validates, then
+the kernel renders:
+
+<Code code={renderAndRead} lang="ts" title="getting-started_typescript_render_and_read.ts" />
+
+`render` has two forms — `variant`/`guard` ride in an optional `opts` object:
+
+```ts
+prompt.render(schema, data, opts?);  // schema form: Zod validates data, then renders
+prompt.render(data, opts?);          // static form: already-typed data, marshaled directly
+// opts: { variant?: string; guard?: GuardConfig | null }
+```
+
+`variant` absent selects the default (root body) arm; `guard` absent opts out of the advisory guard.
+
+<Aside type="note">
+**TS field naming:** `RenderResult` uses camelCase (`templateHash`, `renderHash`) because napi-rs
+maps Rust `snake_case` to JavaScript conventions. The Rust and Python bindings use `template_hash` /
+`render_hash`.
+</Aside>
+
+### Complete example
+
+<Code code={completeExample} lang="ts" title="getting-started_typescript_complete_example.ts" />
+
+## What `RenderResult` carries
+
+| Field | Value |
+|-------|-------|
+| `text` | The rendered body text. |
+| `name` | The prompt name. |
+| `variant` | The resolved variant name (`"default"` when none was selected). |
+| `templateHash` | `SHA256(resolved variant template source)` — lowercase hex. |
+| `renderHash` | `SHA256(rendered output text)` — lowercase hex. |
+| `guard` | `string | null` — advisory guard text when opted in; `null` otherwise. |
+
+## Error types
+
+<Code code={errorTypes} lang="ts" title="getting-started_typescript_error_types.ts" />
+
+The error hierarchy (all extend `Error`):
+
+```
+PromptingPressError          # base; carries .errors: FieldError[]
+├── PromptValidationError    # Zod validation failed      (code "validation")
+├── PromptRenderError        # kernel render failure       (codes: unknown_variant,
+│                            #   undefined_variable, parse, render, excluded_feature)
+└── LoadError                # malformed YAML/JSON/TOML   (code "load")
+```
+
+Each `FieldError` carries `field`, `code`, and `message`. A rejected render value is **never**
+echoed onto the error surface; a parse error carries template-syntax detail (no bound values).
+
+## Next steps
+
+- **[Variants](/guides/variants/)** — declare alternative bodies and select one at render.
+- **[Deriving a prompt](/guides/derive/)** — produce a changed copy of an immutable prompt.
+- **[Metadata](/guides/metadata/)** — attach and read back opaque prompt-level and per-variant metadata.
+- **[Compose multi-message prompts](/guides/composition/)** — aggregate `Prompt` objects into a role-tagged sequence.
+- **[The advisory guard](/guides/guard/)** — tag untrusted variables and surface the advisory guard text.
+- **[Lint prompts in CI](/guides/lint-in-ci/)** — wire `prompt.check()` as a test that fails the build.
+- **[Template features](/templates/)** — which MiniJinja features are supported (and which are deliberately excluded).
+- **[TypeScript API reference](/reference/typescript/)** — full method signatures.

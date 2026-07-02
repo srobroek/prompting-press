@@ -1,0 +1,119 @@
+---
+title: "Template features"
+description: "What MiniJinja template features are supported and which are excluded, with the rationale."
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Prompting Press uses [MiniJinja](https://docs.rs/minijinja) as its template engine — a strict,
+sandboxed subset of the Jinja2 syntax. The feature set is deliberately narrow to preserve the
+**sound agreement check**.
+
+## Supported features
+
+These features are fully supported in prompt templates:
+
+### Interpolation
+
+Variable substitution uses `{{ }}` delimiters:
+
+```jinja
+Hi {{ name }}, you have {{ count }} messages.
+```
+
+Variables referenced in the template must be declared in the prompt's `variables` map — the
+agreement check catches any undeclared reference at construction time, not at render time.
+
+### Conditionals
+
+`{% if %}` / `{% elif %}` / `{% else %}` / `{% endif %}`:
+
+```jinja
+{% if count == 1 %}
+You have 1 message.
+{% elif count > 1 %}
+You have {{ count }} messages.
+{% else %}
+You have no messages.
+{% endif %}
+```
+
+### Loops
+
+`{% for item in items %}` / `{% endfor %}`:
+
+```jinja
+Your items:
+{% for item in items %}
+- {{ item }}
+{% endfor %}
+```
+
+Loop variables (the iteration variable, e.g. `item` above) are **loop-local** — the agreement
+check correctly excludes them from the "undeclared variable" analysis.
+
+### Filters and tests
+
+Standard Jinja2 filters (`| upper`, `| lower`, `| join(", ")`, etc.) and tests (`is defined`,
+`is none`, etc.) are supported. Filter names are part of the engine's built-in globals and are
+excluded from the agreement-check's "required roots" set.
+
+### Whitespace control
+
+`{%- ... -%}` strips surrounding whitespace, as in standard Jinja2.
+
+---
+
+## Excluded features
+
+The following features are **explicitly disabled** and are rejected at construction with a
+`ConsumerError::Kernel` / `PromptRenderError` carrying `code: "excluded_feature"`:
+
+| Feature | Tag(s) | Reason |
+|---------|--------|--------|
+| Template inclusion | `{% include "…" %}` | Requires a cross-template graph walk for the agreement check, which would force the unstable AST API. |
+| Template inheritance | `{% extends "…" %}` | Same: block resolution requires full cross-template analysis. |
+| Import | `{% import "…" as … %}`, `{% from "…" import … %}` | Cross-template dependency. |
+| Macros | `{% macro … %}` / `{% call … %}` | Macro calls introduce their own variable scope, breaking the single-template agreement analysis. |
+| Block | `{% block … %}` | Only meaningful with `extends`; disabled alongside it. |
+
+<Aside type="note">
+**Why the narrow feature set?** The agreement check computes a prompt's required root variable
+names via MiniJinja's stable `undeclared_variables(false)` API.
+That API is sound for the v1 feature set (interpolation, conditionals, loops) but would require
+a cross-template graph walker for includes/macros/inheritance, which would depend on unstable
+MiniJinja internals. Excluding those features is what keeps the soundness guarantee airtight at
+zero additional complexity.
+</Aside>
+
+The enforcement is structural: the Rust engine is compiled with MiniJinja's `macros` and
+`multi_template` features **disabled**. The excluded tags are therefore unrecognised at parse
+time — they cannot be accidentally enabled by configuration.
+
+---
+
+## Strict-undefined behaviour
+
+The engine runs with `UndefinedBehavior::Strict`. A template that references a variable that was
+not supplied in `vars` at render time produces a **loud** `KernelError::UndefinedVariable` (code
+`"undefined_variable"`), never a silent empty string. This is independent of the agreement check:
+the agreement check catches undeclared variables at construction; strict-undefined catches any
+gap that slips through at render time.
+
+---
+
+## The agreement check
+
+The agreement check is the **construction-time** enforcement of the subset invariant:
+
+```
+template references  ⊆  declared variables  (in the prompt's variables map)
+```
+
+If a template references a variable name that is not declared in `variables`, construction fails
+immediately — `Prompt::new`, `from_yaml`, `from_json`, `from_toml` all return an error (or raise
+in Python / throw in TypeScript). A constructed `Prompt` is always agreement-sound.
+
+`prompt.check()` is a **pure advisory** lint for the remaining live finding:
+an untrusted (`trusted: false`) variable without a declared guard. See
+[Lint prompts in CI](/guides/lint-in-ci/).
