@@ -46,7 +46,7 @@ jobs:
       # bespoke pnpm/node setup that lacks rust/uv (which made the prebuild's
       # Python + Rust extractors fail once spec 011 wired them into prebuild).
       - name: Install mise toolchain
-        uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac  # v2
+        uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d  # v4.2.0
         with:
           experimental: true
 
