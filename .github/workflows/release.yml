@@ -369,8 +369,11 @@ jobs:
     needs: [release-please, release-tests, build-wheels, build-sdist, build-node]
     if: ${{ always() && needs.release-please.outputs.releases_created == 'true' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # roll back (delete) draft releases + tags if the gate fails
     steps:
       - name: Assert every build + test suite succeeded
+        id: assert
         env:
           R_TESTS: ${{ needs.release-tests.result }}
           R_WHEELS: ${{ needs.build-wheels.result }}
@@ -388,10 +391,39 @@ jobs:
             fi
           done
           if [ "$fail" -ne 0 ]; then
-            echo "Release gate FAILED — no package will be published; draft releases stay unpublished."
+            echo "Release gate FAILED — no package will be published."
             exit 1
           fi
           echo "Release gate PASSED — all builds + tests green; publishing may proceed."
+
+      # PRE-PUBLISH ROLLBACK. This runs ONLY if the assertion above failed — i.e.
+      # BEFORE any publish job runs (publishers depend on this gate succeeding). At
+      # this point nothing has hit a registry, so deleting the draft releases + tags
+      # is safe and is the ONLY place we ever delete them: it clears the way for a
+      # clean re-cut (release-please skips a version whose tag already exists, so a
+      # stuck draft+tag otherwise blocks every future release — the exact trap we
+      # hit). Forward-only afterward: once publishing starts, tags are NEVER deleted
+      # (registries are append-only; see finalize-release).
+      - name: Checkout (for rollback)
+        if: ${{ failure() && steps.assert.outcome == 'failure' }}
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # actions/checkout v7.0.0
+      - name: Roll back draft releases + tags (gate failed, nothing published)
+        if: ${{ failure() && steps.assert.outcome == 'failure' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="$(node -e "const m=require('./.release-please-manifest.json');console.log(Object.values(m)[0])")"
+          echo "Gate failed before any publish — rolling back draft releases + tags for v${VERSION}."
+          mapfile -t DRAFT_TAGS < <(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,isDraft \
+            --jq ".[] | select(.isDraft and (.tagName | endswith(\"-v${VERSION}\"))) | .tagName")
+          for tag in "${DRAFT_TAGS[@]:-}"; do
+            [ -z "$tag" ] && continue
+            echo "Deleting draft release + tag: $tag"
+            gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || \
+              gh api --method DELETE "/repos/${GITHUB_REPOSITORY}/git/refs/tags/${tag}" || true
+          done
+          echo "Rolled back ${#DRAFT_TAGS[@]} draft release(s)/tag(s). Fix the gate failure and re-cut."
 
       # SBOM (CycloneDX) covering the whole workspace — Rust + Python + npm deps.
       # Generated in the gate (after the green assertion, before any publish) so a
@@ -435,10 +467,33 @@ jobs:
       - name: Authenticate to crates.io (OIDC)
         id: crates-auth
         uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18  # v1.0.5
-      - name: Publish Rust crates
+      # IDEMPOTENT + FORWARD-ONLY: registries are append-only, so a re-run (recovery
+      # after a partial publish, or the deferred crates.io publish once its Trusted
+      # Publisher is set up) must NOT try to re-publish a version that is already
+      # live — cargo publish would hard-fail on "crate version already exists". Query
+      # the crates.io index per crate and skip the ones already at this version, so
+      # publish-crates is safely re-runnable and only fills the gaps.
+      - name: Publish Rust crates (skip already-published)
         run: |
-          mise exec -- cargo publish -p prompting-press-core --token "$CARGO_TOKEN"
-          mise exec -- cargo publish -p prompting-press --token "$CARGO_TOKEN"
+          set -euo pipefail
+          VER="$(node -e "const m=require('./.release-please-manifest.json');console.log(Object.values(m)[0])")"
+          UA="prompting-press-release (github actions)"
+          publish_if_absent() {
+            local crate="$1"
+            local code
+            code="$(curl -s -H "User-Agent: $UA" -o /tmp/ver.json -w '%{http_code}' \
+              "https://crates.io/api/v1/crates/${crate}/${VER}")"
+            if [ "$code" = "200" ]; then
+              echo "✓ ${crate}@${VER} already on crates.io — skipping."
+              return 0
+            fi
+            echo "Publishing ${crate}@${VER} to crates.io..."
+            mise exec -- cargo publish -p "${crate}" --token "$CARGO_TOKEN"
+          }
+          publish_if_absent prompting-press-core
+          # brief pause so the index reflects the kernel before the consumer resolves it
+          sleep 15
+          publish_if_absent prompting-press
         env:
           CARGO_TOKEN: ${{ steps.crates-auth.outputs.token }}
           CARGO_TERM_COLOR: always
@@ -575,6 +630,11 @@ jobs:
         uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b  # release/v1
         with:
           packages-dir: dist
+          # IDEMPOTENT: skip files already on PyPI instead of erroring, so a recovery
+          # re-run (or a re-cut after a partial publish) does not hard-fail on
+          # "File already exists". PyPI is append-only; this makes publish-python
+          # safely re-runnable and gap-filling.
+          skip-existing: true
 
   # ===========================================================================
   # TypeScript → npm: build one prebuilt .node per triple, then bundle + publish
@@ -713,24 +773,42 @@ jobs:
       - name: List bundled binaries
         run: ls -la packages/typescript/*.node
 
-      - name: Publish the TS package
+      - name: Publish the TS package (skip if already published)
         working-directory: packages/typescript
         run: |
+          set -euo pipefail
           npm install -g npm@latest        # OIDC trusted publishing needs npm >= 11.5.1
-          npm publish --provenance --access public
+          VER="$(node -p "require('./package.json').version")"
+          # IDEMPOTENT + FORWARD-ONLY: npm is append-only, so a recovery re-run must
+          # not attempt to re-publish an existing version (npm would hard-fail with
+          # EPUBLISHCONFLICT). Skip if this exact version is already on the registry.
+          if npm view "prompting-press@${VER}" version >/dev/null 2>&1; then
+            echo "✓ prompting-press@${VER} already on npm — skipping."
+          else
+            echo "Publishing prompting-press@${VER} to npm..."
+            npm publish --provenance --access public
+          fi
 
   # ===========================================================================
-  # finalize-release — flip the DRAFT GitHub Releases to public, but ONLY when
-  # every registry publish succeeded. This is the announcement-integrity step:
-  # a release is not "announced" (public, in the feed) until crates.io + PyPI +
-  # npm all have the artifacts. If any publish failed, the drafts stay drafts and
-  # this job fails loudly so the release is visibly incomplete and can be retried.
+  # finalize-release — FORWARD-ONLY. Once publishing has started, registries are
+  # append-only and we NEVER delete a tag (deleting one after, say, npm already
+  # published 0.2.0 would strand a live package with no matching tag — the exact
+  # "unknown state" we must avoid). Pre-publish rollback lives in release-gate.
   #
-  # release-please cut 6 component draft releases in lockstep (linked-versions),
-  # tagged `<component>-v<version>`. We derive <version> from the manifest (with
-  # no root '.' component, release-please's `version` output can be empty; the
-  # manifest is the reliable lockstep source, same fallback docs-snapshot uses)
-  # and flip every draft release whose tag ends in `-v<version>`.
+  # Behavior here:
+  #   - Wired registries (PyPI + npm) BOTH succeeded → flip the DRAFT releases to
+  #     public (announce). Idempotent: a re-run over already-public releases is a
+  #     no-op.
+  #   - A wired registry failed → LEAVE the drafts as drafts, do NOT delete
+  #     anything, and fail loudly naming the registry to retry. Recovery = re-run
+  #     release.yml (push to main / re-dispatch): every publish job is idempotent
+  #     (skip-if-already-published), so a re-run publishes ONLY the missing
+  #     registry and then finalize flips the drafts. No re-cut, no lost tags.
+  #   - crates.io is BEST-EFFORT until its Trusted Publisher + name claim exist
+  #     (issue #234) and never blocks finalize; publish it later via a re-run.
+  #
+  # release-please cut 6 component draft releases (linked-versions), tagged
+  # `<component>-v<version>`; <version> comes from the manifest.
   # ===========================================================================
   finalize-release:
     name: Finalize release (flip drafts → public)
@@ -743,37 +821,59 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # actions/checkout v7.0.0
 
-      - name: Verify every registry published
+      - name: Finalize (flip drafts public if wired registries published)
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           R_CRATES: ${{ needs.publish-crates.result }}
           R_PYPI: ${{ needs.publish-python.result }}
           R_NPM: ${{ needs.publish-npm.result }}
         run: |
           set -euo pipefail
-          echo "publish-crates=$R_CRATES publish-python=$R_PYPI publish-npm=$R_NPM"
-          if [ "$R_CRATES" != "success" ] || [ "$R_PYPI" != "success" ] || [ "$R_NPM" != "success" ]; then
-            echo "::error::A registry publish did not succeed — leaving GitHub Releases as DRAFTS (not announced)."
-            echo "Re-run the failed publish job(s); once all are green, re-run this workflow to finalize."
-            exit 1
-          fi
+          # `needs.<job>.result` is one of: success | failure | cancelled | skipped.
+          echo "publish results — crates=$R_CRATES python=$R_PYPI npm=$R_NPM"
 
-      - name: Flip all draft releases for this version to public
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          # Lockstep version = any manifest value (all 6 share it via linked-versions).
+          # Lockstep version = any manifest value (all 6 components share it via
+          # linked-versions). Used to select this release's draft releases + tags.
           VERSION="$(node -e "const m=require('./.release-please-manifest.json');console.log(Object.values(m)[0])")"
-          echo "Finalizing releases for version: $VERSION"
-          # List every draft release whose tag ends in -v<version> and publish it.
-          mapfile -t TAGS < <(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,isDraft \
+          echo "Release version: $VERSION"
+
+          # Collect this version's DRAFT releases (tag ends in -v<version>).
+          mapfile -t DRAFT_TAGS < <(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,isDraft \
             --jq ".[] | select(.isDraft and (.tagName | endswith(\"-v${VERSION}\"))) | .tagName")
-          if [ "${#TAGS[@]}" -eq 0 ]; then
-            echo "No draft releases matching -v${VERSION} found (already finalized?). Nothing to do."
+
+          # crates.io is BEST-EFFORT until its Trusted Publisher + name claim are in
+          # place (tracked in issue #234): the crate name is in a post-deletion reuse
+          # cooldown and OIDC cannot first-publish a new name, so publish-crates is
+          # expected to fail until that one-time setup is done. Do NOT let that block
+          # the release or trigger a rollback — require only the registries that are
+          # actually wired (PyPI pending-publisher + npm Trusted Publisher). Once
+          # crates.io is set up, promote it back into the required set below.
+          if [ "$R_CRATES" != "success" ]; then
+            echo "::warning::publish-crates=$R_CRATES — treated as best-effort (crates.io not yet claimed; see issue #234). Not blocking the release."
+          fi
+          if [ "$R_PYPI" = "success" ] && [ "$R_NPM" = "success" ]; then
+            # ---- Happy path: the wired registries published → flip drafts public. ----
+            if [ "${#DRAFT_TAGS[@]}" -eq 0 ]; then
+              echo "No draft releases matching -v${VERSION} (already finalized?). Nothing to do."
+              exit 0
+            fi
+            for tag in "${DRAFT_TAGS[@]}"; do
+              echo "Publishing draft release: $tag"
+              gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false
+            done
+            echo "Finalized ${#DRAFT_TAGS[@]} release(s) for v${VERSION}."
             exit 0
           fi
-          for tag in "${TAGS[@]}"; do
-            echo "Publishing draft release: $tag"
-            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false
-          done
-          echo "Finalized ${#TAGS[@]} release(s) for v${VERSION}."
+
+          # ---- Failure path: a REQUIRED registry (PyPI or npm) did not publish. ----
+          # FORWARD-ONLY: do NOT delete tags or releases here. The other registry may
+          # already be live (append-only), so deleting the tag would strand a
+          # published package — the unknown state we must avoid. Leave the drafts as
+          # drafts and fail loudly so the release is visibly incomplete. Recovery is a
+          # plain re-run of release.yml (push to main or re-dispatch): each publish
+          # job is idempotent (skip-if-already-published), so the re-run publishes
+          # ONLY the still-missing registry, then finalize flips the drafts public.
+          echo "::error::A required registry publish did not succeed (python=$R_PYPI npm=$R_NPM; crates=$R_CRATES is best-effort)."
+          echo "Draft releases for v${VERSION} are LEFT INTACT (nothing deleted). Fix the failing"
+          echo "publish job, then re-run this workflow — idempotent publishers fill only the gap."
+          exit 1
