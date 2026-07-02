@@ -280,18 +280,8 @@ jobs:
   #                  publish-npm downloads them ALL into the single package dir and
   #                  publishes ONE `prompting-press` package with every binary
   #                  bundled. The napi loader resolves `./prompting-press.<plat>.node`
-  #                  locally first, so a single package covers every platform — no
-  #                  per-platform optionalDependencies packages to register a
-  #                  Trusted Publisher for (OIDC can't first-publish names that
-  #                  don't exist yet). One package ⇒ one npm Trusted Publisher.
-  #
-  # One-time prerequisites (done out-of-band, see PR notes):
-  #   - crates.io: `prompting-press-core` + `prompting-press` names claimed (a
-  #     new crate name cannot be first-published via OIDC), then Trusted
-  #     Publishing registered per crate.
-  #   - PyPI: a Pending Publisher registered for `prompting-press` (supports
-  #     first publish via OIDC).
-  #   - npm: Trusted Publisher registered for `prompting-press`.
+  #                  locally first, so a single package covers every platform with
+  #                  no per-platform optionalDependencies packages.
   # ---------------------------------------------------------------------------
 
   # ===========================================================================
@@ -467,12 +457,11 @@ jobs:
       - name: Authenticate to crates.io (OIDC)
         id: crates-auth
         uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18  # v1.0.5
-      # IDEMPOTENT + FORWARD-ONLY: registries are append-only, so a re-run (recovery
-      # after a partial publish, or the deferred crates.io publish once its Trusted
-      # Publisher is set up) must NOT try to re-publish a version that is already
-      # live — cargo publish would hard-fail on "crate version already exists". Query
-      # the crates.io index per crate and skip the ones already at this version, so
-      # publish-crates is safely re-runnable and only fills the gaps.
+      # IDEMPOTENT + FORWARD-ONLY: registries are append-only, so a re-run must NOT
+      # try to re-publish a version that is already live — cargo publish would
+      # hard-fail on "crate version already exists". Query the crates.io index per
+      # crate and skip the ones already at this version, so publish-crates is safely
+      # re-runnable and only fills the gaps.
       - name: Publish Rust crates (skip already-published)
         run: |
           set -euo pipefail
@@ -804,8 +793,7 @@ jobs:
   #     release.yml (push to main / re-dispatch): every publish job is idempotent
   #     (skip-if-already-published), so a re-run publishes ONLY the missing
   #     registry and then finalize flips the drafts. No re-cut, no lost tags.
-  #   - crates.io is BEST-EFFORT until its Trusted Publisher + name claim exist
-  #     (issue #234) and never blocks finalize; publish it later via a re-run.
+  #   - Any lagging registry is published later via a re-run (idempotent).
   #
   # release-please cut 6 component draft releases (linked-versions), tagged
   # `<component>-v<version>`; <version> comes from the manifest.
@@ -841,39 +829,35 @@ jobs:
           mapfile -t DRAFT_TAGS < <(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,isDraft \
             --jq ".[] | select(.isDraft and (.tagName | endswith(\"-v${VERSION}\"))) | .tagName")
 
-          # crates.io is BEST-EFFORT until its Trusted Publisher + name claim are in
-          # place (tracked in issue #234): the crate name is in a post-deletion reuse
-          # cooldown and OIDC cannot first-publish a new name, so publish-crates is
-          # expected to fail until that one-time setup is done. Do NOT let that block
-          # the release or trigger a rollback — require only the registries that are
-          # actually wired (PyPI pending-publisher + npm Trusted Publisher). Once
-          # crates.io is set up, promote it back into the required set below.
-          if [ "$R_CRATES" != "success" ]; then
-            echo "::warning::publish-crates=$R_CRATES — treated as best-effort (crates.io not yet claimed; see issue #234). Not blocking the release."
-          fi
-          if [ "$R_PYPI" = "success" ] && [ "$R_NPM" = "success" ]; then
-            # ---- Happy path: the wired registries published → flip drafts public. ----
-            if [ "${#DRAFT_TAGS[@]}" -eq 0 ]; then
-              echo "No draft releases matching -v${VERSION} (already finalized?). Nothing to do."
-              exit 0
-            fi
+          # A registry publish is irreversible and the git tags are already public,
+          # so the moment ANY registry has this version it demonstrably exists and
+          # the GitHub Release must be public to match — a draft next to a live
+          # package is an inconsistent record. Flip drafts public if at least one
+          # registry published (gh release edit on an already-public release is a
+          # no-op, so this is safe on re-runs).
+          ANY_PUBLISHED=false
+          for r in "$R_CRATES" "$R_PYPI" "$R_NPM"; do
+            [ "$r" = "success" ] && ANY_PUBLISHED=true
+          done
+          if [ "$ANY_PUBLISHED" = true ] && [ "${#DRAFT_TAGS[@]}" -gt 0 ]; then
+            echo "A registry published → flipping ${#DRAFT_TAGS[@]} draft release(s) public."
             for tag in "${DRAFT_TAGS[@]}"; do
-              echo "Publishing draft release: $tag"
+              echo "Publishing GitHub Release: $tag"
               gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false
             done
-            echo "Finalized ${#DRAFT_TAGS[@]} release(s) for v${VERSION}."
+          fi
+
+          # Green only when all three registries published.
+          if [ "$R_CRATES" = "success" ] && [ "$R_PYPI" = "success" ] && [ "$R_NPM" = "success" ]; then
+            echo "All registries published; release v${VERSION} finalized (public)."
             exit 0
           fi
 
-          # ---- Failure path: a REQUIRED registry (PyPI or npm) did not publish. ----
-          # FORWARD-ONLY: do NOT delete tags or releases here. The other registry may
-          # already be live (append-only), so deleting the tag would strand a
-          # published package — the unknown state we must avoid. Leave the drafts as
-          # drafts and fail loudly so the release is visibly incomplete. Recovery is a
-          # plain re-run of release.yml (push to main or re-dispatch): each publish
-          # job is idempotent (skip-if-already-published), so the re-run publishes
-          # ONLY the still-missing registry, then finalize flips the drafts public.
-          echo "::error::A required registry publish did not succeed (python=$R_PYPI npm=$R_NPM; crates=$R_CRATES is best-effort)."
-          echo "Draft releases for v${VERSION} are LEFT INTACT (nothing deleted). Fix the failing"
-          echo "publish job, then re-run this workflow — idempotent publishers fill only the gap."
+          # Forward-only incomplete release: a registry did not publish. Nothing is
+          # deleted (a sibling may be live; registries are append-only) and the
+          # releases are already public if anything shipped. Fail loudly so the
+          # release reads as incomplete; recovery is a plain re-run of this workflow,
+          # where each idempotent publish job fills only the missing registry.
+          echo "::error::A registry publish did not succeed (crates=$R_CRATES python=$R_PYPI npm=$R_NPM)."
+          echo "Release v${VERSION}: nothing deleted; re-run this workflow to publish the missing registry."
           exit 1
