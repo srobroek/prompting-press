@@ -1,0 +1,189 @@
+---
+title: "Variants"
+description: "Declare named alternative bodies that share a prompt's variables, and select one at render."
+---
+
+import { Aside, Code, Tabs, TabItem } from '@astrojs/starlight/components';
+import constructInlineRust from '../../../../samples/rust/examples/guides_variants_construct_inline.rs?raw';
+import constructInlinePy from '../../../../samples/python/examples/guides_variants_construct_inline.py?raw';
+import constructInlineTs from '../../../../samples/typescript/examples/guides_variants_construct_inline.ts?raw';
+import selectRust from '../../../../samples/rust/examples/guides_variants_select.rs?raw';
+import selectPy from '../../../../samples/python/examples/guides_variants_select.py?raw';
+import selectTs from '../../../../samples/typescript/examples/guides_variants_select.ts?raw';
+import discoverRust from '../../../../samples/rust/examples/guides_variants_discover.rs?raw';
+import discoverPy from '../../../../samples/python/examples/guides_variants_discover.py?raw';
+import discoverTs from '../../../../samples/typescript/examples/guides_variants_discover.ts?raw';
+
+A **variant** is a named alternative *body* for a prompt that shares the same declared `variables`,
+`role`, and `output_model`. Variants are the mechanism for parallel, coexisting wordings of the same
+prompt (`concise`, `formal`, an experiment arm) — the caller selects one by name at render time.
+
+This guide covers **declaring** variants in a prompt document and **selecting** one at render. To add
+a variant to an already-constructed `Prompt` at runtime, see
+**[Deriving a prompt](/guides/derive/)**.
+
+## The default arm
+
+Every prompt has an implicit default arm: the **root `body`**. It is surfaced under the reserved
+variant name `"default"`, and it renders when no variant is selected
+(`variant = None` / omitted). A variant literally named `default` is rejected at construction — that
+name is reserved for the root body.
+
+## Declaring variants in the document
+
+Add a `variants` map to the prompt definition. Each entry has its **own `body`** and may carry an
+opaque per-variant `metadata` map. Variants share the prompt's `variables`, `role`, and
+`output_model` — a variant that tries to redefine those is rejected (it differs **only** in
+body + metadata).
+
+<Tabs syncKey="def-format">
+<TabItem label="YAML">
+```yaml title="summary.yaml"
+name: summary
+role: user
+body: "Summarise the following article in {{ max_words }} words:\n\n{{ article }}"
+variables:
+  article:
+    type: string
+    trusted: false
+  max_words:
+    type: integer
+    trusted: true
+variants:
+  concise:
+    body: "In one sentence, summarise: {{ article }}"
+  structured:
+    body: "Summarise {{ article }} as a title, three bullets, and a one-line conclusion."
+    metadata:
+      group: experiment-q4   # opaque to the library — the caller interprets it
+```
+</TabItem>
+<TabItem label="JSON">
+```json title="summary.json"
+{
+  "name": "summary",
+  "role": "user",
+  "body": "Summarise the following article in {{ max_words }} words:\n\n{{ article }}",
+  "variables": {
+    "article": { "type": "string", "trusted": false },
+    "max_words": { "type": "integer", "trusted": true }
+  },
+  "variants": {
+    "concise": { "body": "In one sentence, summarise: {{ article }}" },
+    "structured": {
+      "body": "Summarise {{ article }} as a title, three bullets, and a one-line conclusion.",
+      "metadata": { "group": "experiment-q4" }
+    }
+  }
+}
+```
+</TabItem>
+<TabItem label="TOML">
+```toml title="summary.toml"
+name = "summary"
+role = "user"
+body = "Summarise the following article in {{ max_words }} words:\n\n{{ article }}"
+
+[variables.article]
+type = "string"
+trusted = false
+
+[variables.max_words]
+type = "integer"
+trusted = true
+
+[variants.concise]
+body = "In one sentence, summarise: {{ article }}"
+
+[variants.structured]
+body = "Summarise {{ article }} as a title, three bullets, and a one-line conclusion."
+metadata = { group = "experiment-q4" }   # opaque to the library — the caller interprets it
+```
+</TabItem>
+</Tabs>
+
+This prompt has three arms: the default (the root `body`), `concise`, and `structured`. All three see
+the same `article` / `max_words` variables — the agreement check covers every arm, and a variant
+body that referenced an undeclared variable would fail at construction.
+
+## Constructing inline from a shape object
+
+The same three-arm prompt can be built directly from a typed shape object — no text to parse. The
+`variants` map mirrors the document form one-to-one, and construction runs the **same** validation
+(agreement over every arm, reserved-name check).
+
+<Tabs syncKey="lang">
+<TabItem label="Rust">
+<Code code={constructInlineRust} lang="rust" title="guides_variants_construct_inline.rs" />
+</TabItem>
+<TabItem label="Python">
+<Code code={constructInlinePy} lang="python" title="guides_variants_construct_inline.py" />
+</TabItem>
+<TabItem label="TypeScript">
+<Code code={constructInlineTs} lang="ts" title="guides_variants_construct_inline.ts" />
+</TabItem>
+</Tabs>
+
+## Selecting a variant at render
+
+Pass the variant name at render; omit it (or pass `None` / no `variant`) for the default arm. The
+resolved name comes back on `RenderResult.variant`, and `RenderResult.text` is that arm's rendered
+body — selecting a different variant produces a different `text`.
+
+<Tabs syncKey="lang">
+<TabItem label="Rust">
+<Code code={selectRust} lang="rust" title="guides_variants_select.rs" />
+An unknown variant name returns `Err(ConsumerError::Kernel(..))` with code `"unknown_variant"`.
+</TabItem>
+<TabItem label="Python">
+<Code code={selectPy} lang="python" title="guides_variants_select.py" />
+An unknown variant name raises `PromptRenderError` with code `"unknown_variant"`.
+</TabItem>
+<TabItem label="TypeScript">
+<Code code={selectTs} lang="ts" title="guides_variants_select.ts" />
+An unknown variant name throws `PromptRenderError` with code `"unknown_variant"`.
+</TabItem>
+</Tabs>
+
+The variant name is a plain string resolved at render time — the set of variants is whatever the
+prompt document declares, so it is not a compile-time enum. The names are readable from the prompt
+object, and an unknown name fails loudly, never silently.
+
+## Discovering the available variants
+
+The `variants` accessor returns the declared variant map; read its keys to see what is selectable
+(the default arm is always available and is not listed there — it is the root body, name `"default"`).
+
+<Tabs>
+<TabItem label="Rust">
+<Code code={discoverRust} lang="rust" title="guides_variants_discover.rs" />
+</TabItem>
+<TabItem label="Python">
+<Code code={discoverPy} lang="python" title="guides_variants_discover.py" />
+</TabItem>
+<TabItem label="TypeScript">
+<Code code={discoverTs} lang="ts" title="guides_variants_discover.ts" />
+</TabItem>
+</Tabs>
+
+Passing a name that is not declared returns/raises/throws a structured error with code
+`"unknown_variant"` (shown per language above) — bad selections surface immediately.
+
+<Aside type="note" title="Selection is caller-owned">
+The library validates the variant name and renders that arm — it does **not** own
+experiment-assignment logic or select a variant automatically. Which arm to render (an A/B split, a
+feature flag, a per-tenant choice) is the application's decision; pass the chosen name.
+</Aside>
+
+## Per-variant metadata
+
+Each variant can carry an opaque `metadata` map (weights, group labels) for the caller's selection
+logic — the library stores and echoes it but never acts on it. See
+**[Metadata](/guides/metadata/)** for how per-variant and prompt-level `metadata`
+work and how to read them back.
+
+## Next
+
+- **[Deriving a prompt](/guides/derive/)** — add or change a variant on an
+  already-constructed `Prompt` (immutable copy-with-overlay).
+- **[Template features](/templates/)** — what each variant body may use.

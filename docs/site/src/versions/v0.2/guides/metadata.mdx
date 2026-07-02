@@ -1,0 +1,78 @@
+---
+title: "Metadata"
+description: "Attach opaque metadata to a prompt and its variants, and read it back in application code."
+---
+
+import { Aside, Tabs, TabItem, Code } from '@astrojs/starlight/components';
+import readRust from '../../../../samples/rust/examples/guides_metadata_reading_it_back.rs?raw';
+import readPython from '../../../../samples/python/examples/guides_metadata_reading_it_back.py?raw';
+import readTs from '../../../../samples/typescript/examples/guides_metadata_reading_it_back.ts?raw';
+
+Both the prompt and each individual variant carry one opaque `metadata` map. The library stores
+these maps, echoes them through accessors, and never interprets or acts on them. They exist so
+application code can attach whatever annotations are needed and read them back.
+
+| Where | Field | Purpose |
+|-------|-------|---------|
+| Prompt (top-level) | `metadata` | Arbitrary prompt annotations — model hints, param hints, tags, ownership. |
+| Each variant | `metadata` | Per-variant labels for the caller's selection logic — weights, group labels, tags. |
+
+Neither map is schema-constrained beyond "an object", and neither affects rendering or the content
+hashes. `output_model` is a separate top-level string field with the same opaque, carried-only
+contract.
+
+There is one documented exception: if the prompt-level `metadata` map contains a key named `"guard"`
+(any value), `check()` suppresses the `untrusted_without_guard` advisory for that prompt. The
+library only checks for the key's presence — its value is not read.
+
+## Declaring metadata
+
+```yaml title="summary.yaml"
+name: summary
+role: user
+body: "Summarise {{ article }}."
+variables:
+  article:
+    type: string
+    trusted: false
+metadata:                 # prompt-level: anything to carry
+  model_hint: claude-sonnet-4-6
+  max_tokens: 512
+  owner: team-content
+variants:
+  terse:
+    body: "TL;DR of {{ article }}."
+    metadata:             # per-variant: drives the caller's selection logic
+      weight: 0.2
+      group: experiment-q4
+```
+
+## Reading it back
+
+The accessors return the maps as-is; application code interprets them.
+
+<Tabs syncKey="lang">
+<TabItem label="Rust">
+<Code code={readRust} lang="rust" title="guides_metadata_reading_it_back.rs" />
+</TabItem>
+<TabItem label="Python">
+<Code code={readPython} lang="python" title="guides_metadata_reading_it_back.py" />
+</TabItem>
+<TabItem label="TypeScript">
+<Code code={readTs} lang="ts" title="guides_metadata_reading_it_back.ts" />
+</TabItem>
+</Tabs>
+
+<Aside type="note">
+**The library never reads these.** `metadata` maps never affect rendering, validation, or the
+content hashes (`template_hash` / `render_hash`). A `model_hint` does not pick a model; a variant
+`weight` does not pick a variant — those are decisions the application makes after reading the
+values back. (Variant *selection* itself is caller-owned — see
+[Variants](/guides/variants/).)
+</Aside>
+
+## Updating metadata on a derived prompt
+
+`metadata` is overlayable like any other top-level field — `derive` replaces the whole map
+(shallow), so read-then-spread to add a key without dropping the rest. See
+[Deriving a prompt](/guides/derive/).
