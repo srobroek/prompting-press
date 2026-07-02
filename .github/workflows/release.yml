@@ -257,7 +257,11 @@ jobs:
               --title "docs: snapshot version ${VER}" \
               --body "Automated docs snapshot for the ${VER} release (spec 012). Freezes \`docs/site/src/versions/\` + updates \`versions.json\`. Auto-merges once required checks pass; the merge triggers the docs publish."
           fi
-          gh pr merge "$branch" --squash --auto --delete-branch
+          # No --delete-branch: gh rejects it when the merge queue is enabled
+          # ("Cannot use -d/--delete-branch when merge queue enabled"). The repo's
+          # delete_branch_on_merge setting cleans up the branch after the queue
+          # squash-merges it.
+          gh pr merge "$branch" --squash --auto
 
   # ---------------------------------------------------------------------------
   # publish — via TRUSTED PUBLISHERS (OIDC). No long-lived registry tokens.
