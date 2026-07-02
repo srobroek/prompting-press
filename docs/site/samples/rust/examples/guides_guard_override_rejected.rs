@@ -6,6 +6,7 @@
 use garde::Validate;
 use prompting_press::{ConsumerError, GuardConfig, Prompt};
 use serde::Serialize;
+use std::fs;
 
 #[derive(Serialize, Validate)]
 struct Ask {
@@ -14,17 +15,8 @@ struct Ask {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let ask = Prompt::from_yaml(
-        r#"
-name: ask
-role: user
-body: "Tell me about {{ topic }}."
-variables:
-  topic:
-    type: string
-    trusted: false
-"#,
-    )?;
+    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/examples");
+    let ask = Prompt::from_yaml(&fs::read_to_string(format!("{dir}/ask.yaml"))?)?;
     let vars = Ask {
         topic: "rivers".into(),
     };

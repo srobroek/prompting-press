@@ -1,0 +1,7 @@
+name: ask
+role: user
+body: "Tell me about {{ topic }}."
+variables:
+  topic:
+    type: string
+    trusted: false

@@ -1,19 +1,16 @@
 """The one-variable `ask` prompt used throughout the guard guide: `topic` is
 declared untrusted (trusted: false). Standalone — run directly or under pytest."""
 
+from pathlib import Path
+
 from prompting_press import Prompt
 from pydantic import BaseModel, Field
 
 # The prompt: `topic` is declared untrusted (trusted: false).
-ask = Prompt.from_yaml("""
-name: ask
-role: user
-body: "Tell me about {{ topic }}."
-variables:
-  topic:
-    type: string
-    trusted: false
-""")
+# The caller reads the definition; the library does no file I/O itself.
+# Resolve the file next to this program (a real app uses its own path).
+_HERE = Path(__file__).parent
+ask = Prompt.from_yaml((_HERE / "ask.yaml").read_text())
 
 
 # The typed vars model handed to render().

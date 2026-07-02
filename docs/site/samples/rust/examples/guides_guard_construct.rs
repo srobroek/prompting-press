@@ -5,20 +5,14 @@
 use garde::Validate;
 use prompting_press::Prompt;
 use serde::Serialize;
+use std::fs;
 
 // The prompt: `topic` is declared untrusted (trusted: false).
 fn ask() -> Result<Prompt, Box<dyn std::error::Error>> {
-    Ok(Prompt::from_yaml(
-        r#"
-name: ask
-role: user
-body: "Tell me about {{ topic }}."
-variables:
-  topic:
-    type: string
-    trusted: false
-"#,
-    )?)
+    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/examples");
+    Ok(Prompt::from_yaml(&fs::read_to_string(format!(
+        "{dir}/ask.yaml"
+    ))?)?)
 }
 
 // The typed vars handed to render().

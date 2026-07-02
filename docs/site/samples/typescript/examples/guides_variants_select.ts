@@ -5,31 +5,21 @@
  */
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { Prompt } from "prompting-press";
 import { z } from "zod";
 
-const summaryYaml = `
-name: summary
-role: user
-body: "Summarise the following article in {{ max_words }} words:\\n\\n{{ article }}"
-variables:
-  article:
-    type: string
-    trusted: false
-  max_words:
-    type: integer
-    trusted: true
-variants:
-  concise:
-    body: "In one sentence, summarise: {{ article }}"
-`;
+// The caller reads the definition; the library does no file I/O itself.
+// Resolve the file next to this program (a real app uses its own path).
+const defFile = (name: string) => fileURLToPath(new URL(name, import.meta.url));
 
 const SummaryVars = z.object({
   article: z.string().min(1),
   max_words: z.number().int().min(1),
 });
 
-const summary = Prompt.fromYaml(summaryYaml);
+const summary = Prompt.fromYaml(readFileSync(defFile("summary.yaml"), "utf8"));
 const data = { article: "The Nile floods yearly.", max_words: 20 };
 
 const def = summary.render(SummaryVars, data); // default (root body)

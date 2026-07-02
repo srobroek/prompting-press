@@ -3,6 +3,7 @@ it validates + renders in one call, returning a RenderResult. The same Vars clas
 also rejects bad data at render, before the kernel ever sees it."""
 
 import re
+from pathlib import Path
 
 from prompting_press import Prompt, PromptValidationError
 from pydantic import BaseModel, field_validator
@@ -20,18 +21,10 @@ class AssistantVars(BaseModel):
         return v
 
 
-assistant = Prompt.from_yaml("""\
-name: assistant
-role: system
-body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
-variables:
-  company:
-    type: string
-    trusted: true
-  max_words:
-    type: integer
-    trusted: true
-""")
+# The caller reads the definition; the library does no file I/O itself.
+# Resolve the file next to this program (a real app uses its own path).
+_HERE = Path(__file__).parent
+assistant = Prompt.from_yaml((_HERE / "assistant.yaml").read_text())
 
 result = assistant.render(
     AssistantVars, data={"company": "Acme Robotics", "max_words": 50}

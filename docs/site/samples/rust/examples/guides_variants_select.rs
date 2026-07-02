@@ -6,6 +6,7 @@
 use garde::Validate;
 use prompting_press::{GuardConfig, Prompt};
 use serde::Serialize;
+use std::fs;
 
 #[derive(Serialize, Validate)]
 struct SummaryVars {
@@ -15,24 +16,9 @@ struct SummaryVars {
     max_words: i64,
 }
 
-const SUMMARY_YAML: &str = r#"
-name: summary
-role: user
-body: "Summarise the following article in {{ max_words }} words:\n\n{{ article }}"
-variables:
-  article:
-    type: string
-    trusted: false
-  max_words:
-    type: integer
-    trusted: true
-variants:
-  concise:
-    body: "In one sentence, summarise: {{ article }}"
-"#;
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let summary = Prompt::from_yaml(SUMMARY_YAML)?;
+    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/examples");
+    let summary = Prompt::from_yaml(&fs::read_to_string(format!("{dir}/summary_select.yaml"))?)?;
     let vars = SummaryVars {
         article: "The Nile floods yearly.".into(),
         max_words: 20,

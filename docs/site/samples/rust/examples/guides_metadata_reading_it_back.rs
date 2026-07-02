@@ -3,33 +3,14 @@
 //! them. Standalone — `cargo run --example guides_metadata_reading_it_back`.
 
 use prompting_press::Prompt;
-
-// A real consumer would read this from a file; inlined here so the sample is standalone.
-const SUMMARY_YAML: &str = r#"
-name: summary
-role: user
-body: "Summarise {{ article }}."
-variables:
-  article:
-    type: string
-    trusted: false
-metadata:                 # prompt-level: anything to carry
-  model_hint: claude-sonnet-4-6
-  max_tokens: 512
-  owner: team-content
-variants:
-  terse:
-    body: "TL;DR of {{ article }}."
-    metadata:             # per-variant: drives the caller's selection logic
-      weight: 0.2
-      group: experiment-q4
-"#;
+use std::fs;
 
 /// Stand-in for the caller's routing logic — the library never calls this.
 fn route_to_model(_hint: &str) {}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let p = Prompt::from_yaml(SUMMARY_YAML)?;
+    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/examples");
+    let p = Prompt::from_yaml(&fs::read_to_string(format!("{dir}/summary_metadata.yaml"))?)?;
 
     // metadata() returns &serde_json::Map<String, serde_json::Value>.
     if let Some(hint) = p.metadata().get("model_hint") {

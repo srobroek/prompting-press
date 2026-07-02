@@ -4,27 +4,11 @@
 //! `cargo run --example guides_variants_discover`.
 
 use prompting_press::Prompt;
-
-const SUMMARY_YAML: &str = r#"
-name: summary
-role: user
-body: "Summarise the following article in {{ max_words }} words:\n\n{{ article }}"
-variables:
-  article:
-    type: string
-    trusted: false
-  max_words:
-    type: integer
-    trusted: true
-variants:
-  concise:
-    body: "In one sentence, summarise: {{ article }}"
-  structured:
-    body: "Summarise {{ article }} as a title, three bullets, and a one-line conclusion."
-"#;
+use std::fs;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let summary = Prompt::from_yaml(SUMMARY_YAML)?;
+    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/examples");
+    let summary = Prompt::from_yaml(&fs::read_to_string(format!("{dir}/summary.yaml"))?)?;
 
     let mut keys = summary.variants().keys().collect::<Vec<_>>(); // ["concise", "structured"]
     keys.sort();

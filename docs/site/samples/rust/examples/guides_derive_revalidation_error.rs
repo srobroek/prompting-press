@@ -3,17 +3,11 @@
 //! Standalone — `cargo run --example guides_derive_revalidation_error`.
 
 use prompting_press::{ConsumerError, Prompt, PromptOverlay};
+use std::fs;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let assistant_yaml = r#"
-name: assistant
-role: system
-body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
-variables:
-  company: { type: string, trusted: true }
-  max_words: { type: integer, trusted: true }
-"#;
-    let assistant = Prompt::from_yaml(assistant_yaml)?;
+    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/examples");
+    let assistant = Prompt::from_yaml(&fs::read_to_string(format!("{dir}/assistant.yaml"))?)?;
 
     let bad = assistant.derive(PromptOverlay {
         body: Some("You help {{ ghost }}.".to_string()),

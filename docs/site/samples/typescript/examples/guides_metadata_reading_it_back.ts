@@ -8,30 +8,15 @@
  */
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { Prompt } from "prompting-press";
 
-// A real consumer would read this from a file; inlined here so the sample is standalone.
-const yamlText = `
-name: summary
-role: user
-body: "Summarise {{ article }}."
-variables:
-  article:
-    type: string
-    trusted: false
-metadata:
-  model_hint: claude-sonnet-4-6
-  max_tokens: 512
-  owner: team-content
-variants:
-  terse:
-    body: "TL;DR of {{ article }}."
-    metadata:
-      weight: 0.2
-      group: experiment-q4
-`;
+// The caller reads the definition; the library does no file I/O itself.
+// Resolve the file next to this program (a real app uses its own path).
+const defFile = (name: string) => fileURLToPath(new URL(name, import.meta.url));
 
-const p = Prompt.fromYaml(yamlText);
+const p = Prompt.fromYaml(readFileSync(defFile("summary-metadata.yaml"), "utf8"));
 
 p.metadata;          // => { model_hint: "claude-sonnet-4-6", max_tokens: 512, owner: "team-content" }
 p.metadata.model_hint;     // application code decides what to do with it

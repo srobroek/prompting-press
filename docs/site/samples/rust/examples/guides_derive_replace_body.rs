@@ -4,6 +4,7 @@
 use garde::Validate;
 use prompting_press::{GuardConfig, Prompt, PromptOverlay};
 use serde::Serialize;
+use std::fs;
 
 #[derive(Serialize, Validate)]
 struct AssistantVars {
@@ -14,15 +15,8 @@ struct AssistantVars {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let assistant_yaml = r#"
-name: assistant
-role: system
-body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
-variables:
-  company: { type: string, trusted: true }
-  max_words: { type: integer, trusted: true }
-"#;
-    let assistant = Prompt::from_yaml(assistant_yaml)?;
+    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/examples");
+    let assistant = Prompt::from_yaml(&fs::read_to_string(format!("{dir}/assistant.yaml"))?)?;
 
     let brief_assistant = assistant.derive(PromptOverlay {
         body: Some("You are a support assistant for {{ company }}.".to_string()),
@@ -34,6 +28,9 @@ variables:
         max_words: 50,
     };
     let result = brief_assistant.render(&vars, None, &GuardConfig::default(), false)?;
-    assert_eq!(result.text, "You are a support assistant for Acme Robotics.");
+    assert_eq!(
+        result.text,
+        "You are a support assistant for Acme Robotics."
+    );
     Ok(())
 }
