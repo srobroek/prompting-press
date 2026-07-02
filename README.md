@@ -5,13 +5,7 @@ system. It turns *typed inputs + a template* into *rendered text + content-addre
 across **Rust, Python, and TypeScript** from one shared compiled Rust engine. Byte-identical
 output across all three by construction (constitution Principle I), not by re-implementation.
 
-**The headline feature:** the **sound agreement check** catches a template that references a
-variable the prompt never declared — at construction time and as a CI lint — never as a silent
-empty render.
 
-> **Status:** Specs 001–009 implemented. Prompts render with typed-input validation, the
-> agreement lint, content-addressed provenance, variants, and multi-message composition from
-> Rust, Python, and TypeScript today.
 
 ## Documentation
 
@@ -31,7 +25,7 @@ The docs site covers:
 ```toml
 # Cargo.toml
 [dependencies]
-prompting-press = "0.0.0"
+prompting-press = "0.2.0"
 garde = { version = "0.22", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 ```
