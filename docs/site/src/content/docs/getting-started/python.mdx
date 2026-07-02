@@ -95,11 +95,13 @@ trusted = true
 
 ### Step 1 — construct a `Prompt` (and validate)
 
-Construct from text with a `from_*` factory, or from a shape object with `Prompt(...)` — either a
-typed `PromptDefinition` or a plain `dict`. Every route runs the **same** validation immediately:
+Read the definition file and hand its text to a `from_*` factory (`from_yaml` / `from_json` /
+`from_toml`), or build from a shape object with `Prompt(...)` — either a typed `PromptDefinition` or
+a plain `dict`. The library does no file I/O — the caller reads the file. Every route runs the
+**same** validation immediately:
 
 <Tabs syncKey="construct-route">
-<TabItem label="From text">
+<TabItem label="From a file">
 <Code code={constructFromText} lang="python" title="getting-started_python_construct_from_text.py" />
 </TabItem>
 <TabItem label="From a typed PromptDefinition">
@@ -117,15 +119,19 @@ template/variable disagreement is caught at construction, never as a silent empt
 
 ### Step 2 — declare the typed Vars model
 
-The render values are a caller-owned Pydantic model. Its fields match the prompt's `variables`
-(`company`, `max_words`), and its validators run before the kernel is touched:
+The render values are a caller-owned Pydantic model whose fields match the prompt's `variables`
+(`company`, `max_words`). This model is the **render-time gate**: you hand it to `render` in Step 3,
+and its validators (here, `max_words` must be a positive integer) decide what data is allowed to
+reach the kernel. Declaring it is just the definition — the enforcement happens at render:
 
 <Code code={varsModel} lang="python" title="getting-started_python_vars_model.py" />
 
-### Step 3 — render, and read the result
+### Step 3 — render (the model validates the data), and read the result
 
-Hand the `Prompt` from Step 1 the `AssistantVars` from Step 2 — pass the **class** plus a `data` dict and
-it validates + renders in one call:
+Hand the `Prompt` from Step 1 the `AssistantVars` from Step 2 — pass the **class** plus a `data` dict.
+The model runs **first** — valid data renders; invalid data (e.g. `max_words: 0`) raises
+`PromptValidationError` and the kernel is never touched. The sample shows both the passing render
+and the rejection:
 
 <Code code={renderExample} lang="python" title="getting-started_python_render.py" />
 
@@ -133,6 +139,8 @@ it validates + renders in one call:
 keyword-only:
 - Pass a Pydantic **class** + `data=` dict (as above), **or** a pre-built **instance** as `model`
   with no `data`.
+- The class-plus-`data` form is the one to reach for by default — it is what makes the typed-vars
+  validation above actually run.
 - `variant=None` selects the default (root body) arm; `guard=None` opts out of the advisory guard.
 
 ### Complete example

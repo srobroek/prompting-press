@@ -1,0 +1,9 @@
+{
+  "name": "assistant",
+  "role": "system",
+  "body": "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words.",
+  "variables": {
+    "company": { "type": "string", "trusted": true },
+    "max_words": { "type": "integer", "trusted": true }
+  }
+}

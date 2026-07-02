@@ -97,11 +97,12 @@ trusted = true
 
 ### Step 1 — construct a `Prompt` (and validate)
 
-Construct from text with a `from*` factory, or from a typed `PromptDefinition` object with
-`new Prompt(...)`. Both run the **same** validation immediately:
+Read the definition file and hand its text to a `from*` factory (`fromYaml` / `fromJson` / `fromToml`),
+or build from a typed `PromptDefinition` object with `new Prompt(...)`. The library does no file I/O —
+the caller reads the file. Both routes run the **same** validation immediately:
 
 <Tabs syncKey="construct-route">
-<TabItem label="From text">
+<TabItem label="From a file">
 <Code code={constructFromText} lang="ts" title="getting-started_typescript_construct_from_text.ts" />
 </TabItem>
 <TabItem label="From an object">
@@ -116,27 +117,32 @@ construction, never as a silent empty render.
 
 ### Step 2 — declare the typed Vars schema
 
-The render values are a caller-owned Zod schema. Its keys match the prompt's `variables`
-(`company`, `max_words`), and `safeParse` runs before the kernel is touched:
+The render values are a caller-owned Zod schema whose keys match the prompt's `variables`
+(`company`, `max_words`). This schema is the **render-time gate**: you hand it to `render` in Step 3,
+and its rules (here `max_words` must be a positive integer) decide what data is allowed to reach the
+kernel. Declaring it is just the definition — the enforcement happens at render:
 
 <Code code={declareVars} lang="ts" title="getting-started_typescript_declare_vars.ts" />
 
-### Step 3 — render, and read the result
+### Step 3 — render (the schema validates the data), and read the result
 
-Hand the `Prompt` from Step 1 the `AssistantVars` schema from Step 2 plus the data — Zod validates, then
-the kernel renders:
+Hand `render` the `AssistantVars` schema plus the data. The schema runs **first** — valid data renders;
+invalid data (e.g. `max_words: 0`) throws `PromptValidationError` and the kernel is never touched. The
+sample shows both the passing render and the rejection:
 
 <Code code={renderAndRead} lang="ts" title="getting-started_typescript_render_and_read.ts" />
 
-`render` has two forms — `variant`/`guard` ride in an optional `opts` object:
+`render` has two forms, and the optional `variant`/`guard` config rides in a trailing `opts` object:
 
 ```ts
-prompt.render(schema, data, opts?);  // schema form: Zod validates data, then renders
+prompt.render(schema, data, opts?);  // schema form: Zod validates data first, then renders
 prompt.render(data, opts?);          // static form: already-typed data, marshaled directly
 // opts: { variant?: string; guard?: GuardConfig | null }
 ```
 
-`variant` absent selects the default (root body) arm; `guard` absent opts out of the advisory guard.
+The schema form is the one to reach for by default — it is what makes the typed-vars validation above
+actually run. `variant` absent selects the default (root body) arm; `guard` absent opts out of the
+advisory guard.
 
 <Aside type="note">
 **TS field naming:** `RenderResult` uses camelCase (`templateHash`, `renderHash`) because napi-rs
