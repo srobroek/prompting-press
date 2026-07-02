@@ -68,8 +68,8 @@ new map directly — there is nothing to preserve.)
 `.variants()` is a **read accessor** (it returns the current map; it never mutates). `derive` is the
 **only mutator**. The pattern below uses both together: read with `.variants()`, write with `derive`.
 
-The examples on this page start from a `greet` prompt (a `name` + `count` body) and a matching
-`GreetVars` — the same pair from **[Getting started](/getting-started/rust/)**:
+The examples on this page start from an `assistant` prompt (a `company` + `max_words` body) and a matching
+`AssistantVars` — the same pair from **[Getting started](/getting-started/rust/)**:
 
 <Tabs syncKey="lang">
 <TabItem label="Rust">
@@ -90,20 +90,20 @@ The examples on this page start from a `greet` prompt (a `name` + `count` body) 
 <TabItem label="Python">
 <Code code={addVariantPython} lang="python" title="guides_derive_add_variant.py" />
 
-`derive(overlay, *, validators=None)` — `overlay` is a plain dict. `greet.variants` is the read-only
+`derive(overlay, *, validators=None)` — `overlay` is a plain dict. `assistant.variants` is the read-only
 accessor for the current map.
 </TabItem>
 <TabItem label="TypeScript">
 <Code code={addVariantTs} lang="ts" title="guides_derive_add_variant.ts" />
 
-`derive(overlay, validators?)` — `overlay` is a partial `PromptDefinition` object. `greet.variants` is
+`derive(overlay, validators?)` — `overlay` is a partial `PromptDefinition` object. `assistant.variants` is
 the read-only accessor for the current map.
 </TabItem>
 </Tabs>
 
 <Aside type="caution" title="Don't drop existing variants by accident">
 Because `variants` is replaced, not merged, passing `{ formal: {...} }` **without** spreading
-`greet.variants` first would discard every variant the prompt already had. Read-then-spread is the
+`assistant.variants` first would discard every variant the prompt already had. Read-then-spread is the
 safe idiom whenever the prompt may already carry variants.
 </Aside>
 

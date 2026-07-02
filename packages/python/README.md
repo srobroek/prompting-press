@@ -24,18 +24,20 @@ from prompting_press import Prompt
 from pydantic import BaseModel
 
 class Vars(BaseModel):
-    name: str
+    company: str
+    max_words: int
 
-greet = Prompt.from_yaml("""
-name: greet
-role: user
-body: "Hi {{ name }}"
+assistant = Prompt.from_yaml("""
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name: { type: string, trusted: true }
+  company: { type: string, trusted: true }
+  max_words: { type: integer, trusted: true }
 """)
 
-result = greet.render(Vars, data={"name": "Ada"})
-result.text           # "Hi Ada"
+result = assistant.render(Vars, data={"company": "Acme Robotics", "max_words": 50})
+result.text           # "You are a support assistant for Acme Robotics. Keep your replies under 50 words."
 result.template_hash  # 64-char SHA-256 of the template source
 result.render_hash    # 64-char SHA-256 of the rendered output
 ```

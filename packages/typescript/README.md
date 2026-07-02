@@ -24,18 +24,19 @@ bun add prompting-press zod
 import { z } from "zod";
 import { Prompt } from "prompting-press";
 
-const Vars = z.object({ name: z.string() });
+const Vars = z.object({ company: z.string(), max_words: z.number().int() });
 
-const greet = Prompt.fromYaml(`
-name: greet
-role: user
-body: "Hi {{ name }}"
+const assistant = Prompt.fromYaml(`
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name: { type: string, trusted: true }
+  company: { type: string, trusted: true }
+  max_words: { type: integer, trusted: true }
 `);
 
-const r = greet.render(Vars, { name: "Ada" });
-r.text;          // "Hi Ada"
+const r = assistant.render(Vars, { company: "Acme Robotics", max_words: 50 });
+r.text;          // "You are a support assistant for Acme Robotics. Keep your replies under 50 words."
 r.templateHash;  // 64-char SHA-256 of the template source
 r.renderHash;    // 64-char SHA-256 of the rendered output
 ```

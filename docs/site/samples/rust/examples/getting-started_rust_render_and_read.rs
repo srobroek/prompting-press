@@ -1,4 +1,4 @@
-//! Render the `Prompt` with the typed `GreetVars` and read the result fields.
+//! Render the `Prompt` with the typed `AssistantVars` and read the result fields.
 //! Standalone — `cargo run --example getting-started_rust_render_and_read`.
 
 use garde::Validate;
@@ -6,37 +6,40 @@ use prompting_press::{GuardConfig, Prompt};
 use serde::Serialize;
 
 #[derive(Serialize, Validate)]
-struct GreetVars {
+struct AssistantVars {
     #[garde(length(min = 1))]
-    name: String,
-    #[garde(range(min = 0))]
-    count: i64,
+    company: String,
+    #[garde(range(min = 1))]
+    max_words: i64,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let greet = Prompt::from_yaml(
+    let assistant = Prompt::from_yaml(
         r#"
-name: greet
-role: user
-body: "Hi {{ name }}, you have {{ count }} messages."
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name:
+  company:
     type: string
     trusted: true
-  count:
+  max_words:
     type: integer
     trusted: true
 "#,
     )?;
 
-    let vars = GreetVars {
-        name: "Ada".into(),
-        count: 3,
+    let vars = AssistantVars {
+        company: "Acme Robotics".into(),
+        max_words: 50,
     };
 
-    let result = greet.render(&vars, None, &GuardConfig::default(), false)?;
+    let result = assistant.render(&vars, None, &GuardConfig::default(), false)?;
 
-    assert_eq!(result.text, "Hi Ada, you have 3 messages."); // the rendered body
+    assert_eq!(
+        result.text,
+        "You are a support assistant for Acme Robotics. Keep your replies under 50 words."
+    ); // the rendered body
     assert_eq!(result.variant, "default"); // no variant selected → the default arm
 
     // template_hash / render_hash are 64-char lowercase-hex SHA-256 strings.

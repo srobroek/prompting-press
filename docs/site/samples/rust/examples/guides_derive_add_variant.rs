@@ -7,34 +7,34 @@ use prompting_press::{Prompt, PromptOverlay};
 use serde_json::json;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let greet_yaml = r#"
-name: greet
-role: user
-body: "Hi {{ name }}, you have {{ count }} messages."
+    let assistant_yaml = r#"
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name: { type: string, trusted: true }
-  count: { type: integer, trusted: true }
+  company: { type: string, trusted: true }
+  max_words: { type: integer, trusted: true }
 "#;
 
-    let greet = Prompt::from_yaml(greet_yaml)?;
+    let assistant = Prompt::from_yaml(assistant_yaml)?;
 
     // READ the current variants, then add to a clone — so existing arms survive.
-    let mut variants = greet.variants().clone();
+    let mut variants = assistant.variants().clone();
     variants.insert(
         "formal".to_string(),
         serde_json::from_value(json!({
-            "body": "Good day, {{ name }}. You have {{ count }} messages."
+            "body": "You are the official support assistant for {{ company }}. Please keep every reply under {{ max_words }} words."
         }))?,
     );
 
     // WRITE the merged map back via the sole mutator.
-    let formal_greet = greet.derive(PromptOverlay {
+    let formal_assistant = assistant.derive(PromptOverlay {
         variants: Some(variants),
         ..Default::default()
     })?;
-    // greet is unchanged; formal_greet is a new, fully-validated Prompt.
+    // assistant is unchanged; formal_assistant is a new, fully-validated Prompt.
 
-    assert!(greet.variants().is_empty(), "original is untouched");
-    assert!(formal_greet.variants().contains_key("formal"));
+    assert!(assistant.variants().is_empty(), "original is untouched");
+    assert!(formal_assistant.variants().contains_key("formal"));
     Ok(())
 }

@@ -8,41 +8,44 @@ use serde::Serialize;
 use serde_json::json;
 
 #[derive(Serialize, Validate)]
-struct GreetVars {
+struct AssistantVars {
     #[garde(length(min = 1))]
-    name: String,
-    #[garde(range(min = 0))]
-    count: i64,
+    company: String,
+    #[garde(range(min = 1))]
+    max_words: i64,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let greet_yaml = r#"
-name: greet
-role: user
-body: "Hi {{ name }}, you have {{ count }} messages."
+    let assistant_yaml = r#"
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name: { type: string, trusted: true }
-  count: { type: integer, trusted: true }
+  company: { type: string, trusted: true }
+  max_words: { type: integer, trusted: true }
 "#;
-    let greet = Prompt::from_yaml(greet_yaml)?;
-    let mut variants = greet.variants().clone();
+    let assistant = Prompt::from_yaml(assistant_yaml)?;
+    let mut variants = assistant.variants().clone();
     variants.insert(
         "formal".to_string(),
         serde_json::from_value(json!({
-            "body": "Good day, {{ name }}. You have {{ count }} messages."
+            "body": "You are the official support assistant for {{ company }}. Please keep every reply under {{ max_words }} words."
         }))?,
     );
-    let formal_greet = greet.derive(PromptOverlay {
+    let formal_assistant = assistant.derive(PromptOverlay {
         variants: Some(variants),
         ..Default::default()
     })?;
 
-    let vars = GreetVars {
-        name: "Ada".into(),
-        count: 3,
+    let vars = AssistantVars {
+        company: "Acme Robotics".into(),
+        max_words: 50,
     };
-    let result = formal_greet.render(&vars, Some("formal"), &GuardConfig::default(), false)?;
-    assert_eq!(result.text, "Good day, Ada. You have 3 messages.");
+    let result = formal_assistant.render(&vars, Some("formal"), &GuardConfig::default(), false)?;
+    assert_eq!(
+        result.text,
+        "You are the official support assistant for Acme Robotics. Please keep every reply under 50 words."
+    );
     assert_eq!(result.variant, "formal");
     Ok(())
 }

@@ -9,20 +9,20 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Prompt, PromptRenderError } from "prompting-press";
 
-const greetYaml = `
-name: greet
-role: user
-body: "Hi {{ name }}, you have {{ count }} messages."
+const assistantYaml = `
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name: { type: string, trusted: true }
-  count: { type: integer, trusted: true }
+  company: { type: string, trusted: true }
+  max_words: { type: integer, trusted: true }
 `;
 
 test("derive re-validates the merged whole and rejects an undeclared variable", () => {
-	const greet = Prompt.fromYaml(greetYaml);
+	const assistant = Prompt.fromYaml(assistantYaml);
 
 	try {
-		const bad = greet.derive({ body: "Hi {{ ghost }}" });
+		const bad = assistant.derive({ body: "You help {{ ghost }}." });
 		throw new Error(`expected PromptRenderError, got ${JSON.stringify(bad)}`);
 	} catch (err) {
 		if (err instanceof PromptRenderError) {

@@ -20,16 +20,16 @@ import { Prompt } from "prompting-press";
 const dir = mkdtempSync(join(tmpdir(), "pp-lint-in-ci-"));
 mkdirSync(join(dir, "prompts"));
 writeFileSync(
-  join(dir, "prompts", "greet.yaml"),
+  join(dir, "prompts", "assistant.yaml"),
   `
-name: greet
-role: user
-body: "Hi {{ name }}, you have {{ count }} messages."
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name:
+  company:
     type: string
     trusted: true
-  count:
+  max_words:
     type: integer
     trusted: true
 `,

@@ -46,47 +46,47 @@ interface, not Zod's identity, so any object exposing `safeParse` works.
 
 A prompt definition is YAML, JSON, or TOML text — the same shape in any of the three formats. The
 caller reads the text and hands it to the `from*` factories; the library does no file I/O. The
-`greet` definition used throughout this page:
+`assistant` definition used throughout this page:
 
 <Tabs syncKey="def-format">
 <TabItem label="YAML">
-```yaml title="greet.yaml"
-name: greet
-role: user
-body: "Hi {{ name }}, you have {{ count }} messages."
+```yaml title="assistant.yaml"
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name:
+  company:
     type: string
     trusted: true
-  count:
+  max_words:
     type: integer
     trusted: true
 ```
 </TabItem>
 <TabItem label="JSON">
-```json title="greet.json"
+```json title="assistant.json"
 {
-  "name": "greet",
-  "role": "user",
-  "body": "Hi {{ name }}, you have {{ count }} messages.",
+  "name": "assistant",
+  "role": "system",
+  "body": "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words.",
   "variables": {
-    "name": { "type": "string", "trusted": true },
-    "count": { "type": "integer", "trusted": true }
+    "company": { "type": "string", "trusted": true },
+    "max_words": { "type": "integer", "trusted": true }
   }
 }
 ```
 </TabItem>
 <TabItem label="TOML">
-```toml title="greet.toml"
-name = "greet"
-role = "user"
-body = "Hi {{ name }}, you have {{ count }} messages."
+```toml title="assistant.toml"
+name = "assistant"
+role = "system"
+body = "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 
-[variables.name]
+[variables.company]
 type = "string"
 trusted = true
 
-[variables.count]
+[variables.max_words]
 type = "integer"
 trusted = true
 ```
@@ -109,7 +109,7 @@ Construct from text with a `from*` factory, or from a typed `PromptDefinition` o
 </TabItem>
 </Tabs>
 
-Construction **validates immediately**: had the body referenced `{{ usrname }}` — a variable
+Construction **validates immediately**: had the body referenced `{{ industry }}` — a variable
 `variables` doesn't declare — construction would have **thrown** a `PromptRenderError`, **before any
 render** (malformed text throws `LoadError`). A template/variable disagreement is caught at
 construction, never as a silent empty render.
@@ -117,13 +117,13 @@ construction, never as a silent empty render.
 ### Step 2 — declare the typed Vars schema
 
 The render values are a caller-owned Zod schema. Its keys match the prompt's `variables`
-(`name`, `count`), and `safeParse` runs before the kernel is touched:
+(`company`, `max_words`), and `safeParse` runs before the kernel is touched:
 
 <Code code={declareVars} lang="ts" title="getting-started_typescript_declare_vars.ts" />
 
 ### Step 3 — render, and read the result
 
-Hand the `Prompt` from Step 1 the `GreetVars` schema from Step 2 plus the data — Zod validates, then
+Hand the `Prompt` from Step 1 the `AssistantVars` schema from Step 2 plus the data — Zod validates, then
 the kernel renders:
 
 <Code code={renderAndRead} lang="ts" title="getting-started_typescript_render_and_read.ts" />

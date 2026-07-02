@@ -9,37 +9,37 @@ import {
 } from "prompting-press";
 import { z } from "zod";
 
-const greetYaml = `name: greet
-role: user
-body: "Hi {{ name }}, you have {{ count }} messages."
+const assistantYaml = `name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name:
+  company:
     type: string
     trusted: true
-  count:
+  max_words:
     type: integer
     trusted: true
 `;
 
-const GreetVars = z.object({
-  name: z.string().min(1),
-  count: z.number().int().nonnegative(),
+const AssistantVars = z.object({
+  company: z.string().min(1),
+  max_words: z.number().int().min(1),
 });
 
-const greet = Prompt.fromYaml(greetYaml);
+const assistant = Prompt.fromYaml(assistantYaml);
 
 test("a rejected render surfaces a structured PromptValidationError", () => {
   let caught = false;
   try {
-    greet.render(GreetVars, { name: "Ada", count: -1 });
+    assistant.render(AssistantVars, { company: "Acme Robotics", max_words: 0 });
   } catch (err) {
     if (err instanceof PromptValidationError) {
       caught = true;
       for (const row of err.errors) {
         console.error(row.field, row.code, row.message);
-        // "count"  "validation"  "Too small: expected number to be >=0"
+        // "max_words"  "validation"  "Too small: expected number to be >=1"
       }
-      assert.equal(err.errors[0]?.field, "count");
+      assert.equal(err.errors[0]?.field, "max_words");
       assert.equal(err.errors[0]?.code, "validation");
     }
   }

@@ -6,37 +6,37 @@ use prompting_press::{error::code, ConsumerError, GuardConfig, Prompt};
 use serde::Serialize;
 
 #[derive(Serialize, Validate)]
-struct GreetVars {
+struct AssistantVars {
     #[garde(length(min = 1))]
-    name: String,
-    #[garde(range(min = 0))]
-    count: i64,
+    company: String,
+    #[garde(range(min = 1))]
+    max_words: i64,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let greet = Prompt::from_yaml(
+    let assistant = Prompt::from_yaml(
         r#"
-name: greet
-role: user
-body: "Hi {{ name }}, you have {{ count }} messages."
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name:
+  company:
     type: string
     trusted: true
-  count:
+  max_words:
     type: integer
     trusted: true
 "#,
     )?;
 
-    // An empty name violates `#[garde(length(min = 1))]` → ConsumerError::Validation.
-    let vars = GreetVars {
-        name: String::new(),
-        count: 3,
+    // An empty company violates `#[garde(length(min = 1))]` → ConsumerError::Validation.
+    let vars = AssistantVars {
+        company: String::new(),
+        max_words: 50,
     };
 
     // ConsumerError is a closed three-variant enum — the match is exhaustive.
-    match greet.render(&vars, None, &GuardConfig::default(), false) {
+    match assistant.render(&vars, None, &GuardConfig::default(), false) {
         Ok(_result) => { /* ... */ }
         Err(ConsumerError::Validation(rows)) => {
             for row in &rows {
@@ -44,7 +44,7 @@ variables:
             }
             // Every validation row carries the stable `"validation"` code.
             assert!(rows.iter().all(|r| r.code == code::VALIDATION));
-            assert!(rows.iter().any(|r| r.field == "name"));
+            assert!(rows.iter().any(|r| r.field == "company"));
             return Ok(());
         }
         Err(ConsumerError::Kernel(_rows)) => { /* parse/render/agreement failure */ }

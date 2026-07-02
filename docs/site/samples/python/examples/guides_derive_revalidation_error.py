@@ -6,21 +6,21 @@ Standalone — the docs page displays this file verbatim; run it directly to che
 
 from prompting_press import Prompt, PromptRenderError
 
-greet_yaml = """
-name: greet
-role: user
-body: "Hi {{ name }}, you have {{ count }} messages."
+assistant_yaml = """
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name: { type: string, trusted: true }
-  count: { type: integer, trusted: true }
+  company: { type: string, trusted: true }
+  max_words: { type: integer, trusted: true }
 """
 
 
 def main() -> None:
-    greet = Prompt.from_yaml(greet_yaml)
+    assistant = Prompt.from_yaml(assistant_yaml)
 
     try:
-        bad = greet.derive({"body": "Hi {{ ghost }}"})
+        bad = assistant.derive({"body": "You help {{ ghost }}."})
     except PromptRenderError as exc:
         print(exc.errors[0].code)  # "undefined_variable"
         print(exc.errors[0].field)  # "ghost"

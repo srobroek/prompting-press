@@ -29,47 +29,47 @@ across the FFI bridge.
 
 A prompt definition is a YAML, JSON, or TOML document — the same shape in any of the three formats.
 The caller reads the text and hands it to the `from_*` factories; the library does no file I/O. The
-`greet` definition used throughout this page:
+`assistant` definition used throughout this page:
 
 <Tabs syncKey="def-format">
 <TabItem label="YAML">
-```yaml title="greet.yaml"
-name: greet
-role: user
-body: "Hi {{ name }}, you have {{ count }} messages."
+```yaml title="assistant.yaml"
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name:
+  company:
     type: string
     trusted: true
-  count:
+  max_words:
     type: integer
     trusted: true
 ```
 </TabItem>
 <TabItem label="JSON">
-```json title="greet.json"
+```json title="assistant.json"
 {
-  "name": "greet",
-  "role": "user",
-  "body": "Hi {{ name }}, you have {{ count }} messages.",
+  "name": "assistant",
+  "role": "system",
+  "body": "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words.",
   "variables": {
-    "name": { "type": "string", "trusted": true },
-    "count": { "type": "integer", "trusted": true }
+    "company": { "type": "string", "trusted": true },
+    "max_words": { "type": "integer", "trusted": true }
   }
 }
 ```
 </TabItem>
 <TabItem label="TOML">
-```toml title="greet.toml"
-name = "greet"
-role = "user"
-body = "Hi {{ name }}, you have {{ count }} messages."
+```toml title="assistant.toml"
+name = "assistant"
+role = "system"
+body = "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 
-[variables.name]
+[variables.company]
 type = "string"
 trusted = true
 
-[variables.count]
+[variables.max_words]
 type = "integer"
 trusted = true
 ```
@@ -95,26 +95,26 @@ already-constructed `PromptDefinition` (e.g. one built programmatically).
 </Tabs>
 
 Construction **validates immediately**. If the template referenced a variable that `variables` does not
-declare — say the body said `{{ usrname }}` — construction returns `Err(ConsumerError::Kernel(..))`
+declare — say the body said `{{ industry }}` — construction returns `Err(ConsumerError::Kernel(..))`
 **before any render**: a disagreement between the template and its declared variables is caught at
 construction, never as a silent empty render.
 
 ### Step 2 — declare the typed Vars
 
 The render values are a caller-owned struct, validated by [`garde`](https://docs.rs/garde). Its
-field names must match the prompt's `variables` (`name`, `count`); the `#[garde(..)]` rules run at
+field names must match the prompt's `variables` (`company`, `max_words`); the `#[garde(..)]` rules run at
 render time, before the kernel is touched:
 
 <Code code={declareVars} lang="rust" title="getting-started_rust_declare_vars.rs" />
 
 ### Step 3 — render, and read the result
 
-Hand the `Prompt` from Step 1 the `GreetVars` from Step 2:
+Hand the `Prompt` from Step 1 the `AssistantVars` from Step 2:
 
 <Code code={renderAndRead} lang="rust" title="getting-started_rust_render_and_read.rs" />
 
 `render::<V>(&self, vars: &V, variant: Option<&str>, guard: &GuardConfig, reveal_render_detail: bool)`:
-- `variant = None` selects the default (root body) arm — the same arm `greet.body()` showed in Step 1.
+- `variant = None` selects the default (root body) arm — the same arm `assistant.body()` showed in Step 1.
 - `guard = &GuardConfig::default()` opts out of the advisory guard text (so `result.guard` is `None`).
 - `reveal_render_detail = false` keeps render-error detail scrubbed; pass `false` in all production
   call sites.

@@ -10,27 +10,29 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Prompt } from "prompting-press";
 
-const greetYaml = `
-name: greet
-role: user
-body: "Hi {{ name }}, you have {{ count }} messages."
+const assistantYaml = `
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name: { type: string, trusted: true }
-  count: { type: integer, trusted: true }
+  company: { type: string, trusted: true }
+  max_words: { type: integer, trusted: true }
 `;
 
 test("derive adds a variant, leaving the original untouched", () => {
-	const greet = Prompt.fromYaml(greetYaml);
+	const assistant = Prompt.fromYaml(assistantYaml);
 
 	// READ the current variants (spread), then add one — so existing arms survive.
-	const derivedGreet = greet.derive({
+	const derivedAssistant = assistant.derive({
 		variants: {
-			...greet.variants, // keep what's already there
-			formal: { body: "Good day, {{ name }}. You have {{ count }} messages." },
+			...assistant.variants, // keep what's already there
+			formal: {
+				body: "You are the official support assistant for {{ company }}. Please keep every reply under {{ max_words }} words.",
+			},
 		},
 	});
-	// greet is unchanged; derivedGreet is a new, fully-validated Prompt.
+	// assistant is unchanged; derivedAssistant is a new, fully-validated Prompt.
 
-	assert.deepEqual(greet.variants ?? {}, {}, "original is untouched");
-	assert.ok("formal" in (derivedGreet.variants ?? {}));
+	assert.deepEqual(assistant.variants ?? {}, {}, "original is untouched");
+	assert.ok("formal" in (derivedAssistant.variants ?? {}));
 });

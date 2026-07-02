@@ -6,16 +6,16 @@ test("construct from an object", () => {
   // The constructor takes a typed PromptDefinition — an editor type-checks the
   // shape (field names, the role enum, each variable's `trusted` flag) at author time.
   const definition: PromptDefinition = {
-    name: "greet",
-    role: "user",
-    body: "Hi {{ name }}, you have {{ count }} messages.",
+    name: "assistant",
+    role: "system",
+    body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words.",
     variables: {
-      name: { type: "string", trusted: true },
-      count: { type: "integer", trusted: true },
+      company: { type: "string", trusted: true },
+      max_words: { type: "integer", trusted: true },
     },
   };
 
-  const greet = new Prompt(definition); // same validation as the from* factories
+  const assistant = new Prompt(definition); // same validation as the from* factories
 
-  assert.equal(greet.name, "greet"); // => "greet"
+  assert.equal(assistant.name, "assistant"); // => "assistant"
 });

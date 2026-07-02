@@ -6,34 +6,34 @@ use prompting_press::{GuardConfig, Prompt, PromptOverlay};
 use serde::Serialize;
 
 #[derive(Serialize, Validate)]
-struct GreetVars {
+struct AssistantVars {
     #[garde(length(min = 1))]
-    name: String,
-    #[garde(range(min = 0))]
-    count: i64,
+    company: String,
+    #[garde(range(min = 1))]
+    max_words: i64,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let greet_yaml = r#"
-name: greet
-role: user
-body: "Hi {{ name }}, you have {{ count }} messages."
+    let assistant_yaml = r#"
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name: { type: string, trusted: true }
-  count: { type: integer, trusted: true }
+  company: { type: string, trusted: true }
+  max_words: { type: integer, trusted: true }
 "#;
-    let greet = Prompt::from_yaml(greet_yaml)?;
+    let assistant = Prompt::from_yaml(assistant_yaml)?;
 
-    let brief_greet = greet.derive(PromptOverlay {
-        body: Some("Hi {{ name }}!".to_string()),
+    let brief_assistant = assistant.derive(PromptOverlay {
+        body: Some("You are a support assistant for {{ company }}.".to_string()),
         ..Default::default()
     })?;
 
-    let vars = GreetVars {
-        name: "Ada".into(),
-        count: 3,
+    let vars = AssistantVars {
+        company: "Acme Robotics".into(),
+        max_words: 50,
     };
-    let result = brief_greet.render(&vars, None, &GuardConfig::default(), false)?;
-    assert_eq!(result.text, "Hi Ada!");
+    let result = brief_assistant.render(&vars, None, &GuardConfig::default(), false)?;
+    assert_eq!(result.text, "You are a support assistant for Acme Robotics.");
     Ok(())
 }

@@ -16,16 +16,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let prompts = dir.join("prompts");
     fs::create_dir_all(&prompts)?;
     fs::write(
-        prompts.join("greet.yaml"),
+        prompts.join("assistant.yaml"),
         r#"
-name: greet
-role: user
-body: "Hi {{ name }}, you have {{ count }} messages."
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name:
+  company:
     type: string
     trusted: true
-  count:
+  max_words:
     type: integer
     trusted: true
 "#,

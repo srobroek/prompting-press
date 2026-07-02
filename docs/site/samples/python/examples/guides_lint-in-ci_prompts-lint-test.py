@@ -22,16 +22,16 @@ from prompting_press import Prompt, PromptingPressError
 # A clean, shipped prompt: its untrusted-free variable needs no guard, so check() passes.
 _TMP = Path(tempfile.mkdtemp(prefix="pp_lint_in_ci_"))
 (_TMP / "prompts").mkdir()
-(_TMP / "prompts" / "greet.yaml").write_text(
+(_TMP / "prompts" / "assistant.yaml").write_text(
     """
-name: greet
-role: user
-body: "Hi {{ name }}, you have {{ count }} messages."
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name:
+  company:
     type: string
     trusted: true
-  count:
+  max_words:
     type: integer
     trusted: true
 """

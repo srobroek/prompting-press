@@ -44,47 +44,47 @@ required (the wheel is `abi3-py312` — one wheel covers CPython 3.12 and up).
 
 A prompt definition is YAML, JSON, or TOML text — the same shape in any of the three formats. The
 caller reads the text and hands it to the `from_*` factories; the library does no file I/O. The
-`greet` definition used throughout this page:
+`assistant` definition used throughout this page:
 
 <Tabs syncKey="def-format">
 <TabItem label="YAML">
-```yaml title="greet.yaml"
-name: greet
-role: user
-body: "Hi {{ name }}, you have {{ count }} messages."
+```yaml title="assistant.yaml"
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name:
+  company:
     type: string
     trusted: true
-  count:
+  max_words:
     type: integer
     trusted: true
 ```
 </TabItem>
 <TabItem label="JSON">
-```json title="greet.json"
+```json title="assistant.json"
 {
-  "name": "greet",
-  "role": "user",
-  "body": "Hi {{ name }}, you have {{ count }} messages.",
+  "name": "assistant",
+  "role": "system",
+  "body": "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words.",
   "variables": {
-    "name": { "type": "string", "trusted": true },
-    "count": { "type": "integer", "trusted": true }
+    "company": { "type": "string", "trusted": true },
+    "max_words": { "type": "integer", "trusted": true }
   }
 }
 ```
 </TabItem>
 <TabItem label="TOML">
-```toml title="greet.toml"
-name = "greet"
-role = "user"
-body = "Hi {{ name }}, you have {{ count }} messages."
+```toml title="assistant.toml"
+name = "assistant"
+role = "system"
+body = "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 
-[variables.name]
+[variables.company]
 type = "string"
 trusted = true
 
-[variables.count]
+[variables.max_words]
 type = "integer"
 trusted = true
 ```
@@ -110,7 +110,7 @@ typed `PromptDefinition` or a plain `dict`. Every route runs the **same** valida
 </TabItem>
 </Tabs>
 
-Construction **validates immediately**: if the body had referenced `{{ usrname }}` — a variable
+Construction **validates immediately**: if the body had referenced `{{ industry }}` — a variable
 `variables` doesn't declare — construction would have raised `PromptRenderError` (code
 `undefined_variable`), **before any render** (a malformed document raises `LoadError`). A
 template/variable disagreement is caught at construction, never as a silent empty render.
@@ -118,13 +118,13 @@ template/variable disagreement is caught at construction, never as a silent empt
 ### Step 2 — declare the typed Vars model
 
 The render values are a caller-owned Pydantic model. Its fields match the prompt's `variables`
-(`name`, `count`), and its validators run before the kernel is touched:
+(`company`, `max_words`), and its validators run before the kernel is touched:
 
 <Code code={varsModel} lang="python" title="getting-started_python_vars_model.py" />
 
 ### Step 3 — render, and read the result
 
-Hand the `Prompt` from Step 1 the `GreetVars` from Step 2 — pass the **class** plus a `data` dict and
+Hand the `Prompt` from Step 1 the `AssistantVars` from Step 2 — pass the **class** plus a `data` dict and
 it validates + renders in one call:
 
 <Code code={renderExample} lang="python" title="getting-started_python_render.py" />

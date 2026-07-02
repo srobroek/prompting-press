@@ -18,7 +18,7 @@ These features are fully supported in prompt templates:
 Variable substitution uses `{{ }}` delimiters:
 
 ```jinja
-Hi {{ name }}, you have {{ count }} messages.
+You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words.
 ```
 
 Variables referenced in the template must be declared in the prompt's `variables` map — the

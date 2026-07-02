@@ -43,18 +43,22 @@ use serde::Serialize;
 use prompting_press_core::GuardConfig;
 
 #[derive(Serialize, Validate)]
-struct Vars { #[garde(length(min = 1))] name: String }
+struct Vars {
+    #[garde(length(min = 1))] company: String,
+    #[garde(range(min = 1))] max_words: i64,
+}
 
 let p = Prompt::from_yaml(r#"
-name: greet
-role: user
-body: "Hi {{ name }}"
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name: { type: string, trusted: true }
+  company: { type: string, trusted: true }
+  max_words: { type: integer, trusted: true }
 "#)?;
 
-let result = p.render(&Vars { name: "Ada".into() }, None, &GuardConfig::default())?;
-println!("{}", result.text);           // "Hi Ada"
+let result = p.render(&Vars { company: "Acme Robotics".into(), max_words: 50 }, None, &GuardConfig::default())?;
+println!("{}", result.text);           // "You are a support assistant for Acme Robotics. Keep your replies under 50 words."
 println!("{}", result.template_hash);  // 64-char SHA-256
 ```
 
@@ -69,18 +73,20 @@ from prompting_press import Prompt
 from pydantic import BaseModel
 
 class Vars(BaseModel):
-    name: str
+    company: str
+    max_words: int
 
 p = Prompt.from_yaml("""
-name: greet
-role: user
-body: "Hi {{ name }}"
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name: { type: string, trusted: true }
+  company: { type: string, trusted: true }
+  max_words: { type: integer, trusted: true }
 """)
 
-result = p.render(Vars, data={"name": "Ada"})
-print(result.text)           # "Hi Ada"
+result = p.render(Vars, data={"company": "Acme Robotics", "max_words": 50})
+print(result.text)           # "You are a support assistant for Acme Robotics. Keep your replies under 50 words."
 print(result.template_hash)  # 64-char SHA-256
 ```
 
@@ -94,18 +100,19 @@ npm install prompting-press zod
 import { z } from "zod";
 import { Prompt } from "prompting-press";
 
-const Vars = z.object({ name: z.string() });
+const Vars = z.object({ company: z.string(), max_words: z.number().int() });
 
 const p = Prompt.fromYaml(`
-name: greet
-role: user
-body: "Hi {{ name }}"
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name: { type: string, trusted: true }
+  company: { type: string, trusted: true }
+  max_words: { type: integer, trusted: true }
 `);
 
-const result = p.render(Vars, { name: "Ada" });
-console.log(result.text);          // "Hi Ada"
+const result = p.render(Vars, { company: "Acme Robotics", max_words: 50 });
+console.log(result.text);          // "You are a support assistant for Acme Robotics. Keep your replies under 50 words."
 console.log(result.templateHash);  // 64-char SHA-256
 ```
 

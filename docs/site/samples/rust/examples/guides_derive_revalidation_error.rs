@@ -5,18 +5,18 @@
 use prompting_press::{ConsumerError, Prompt, PromptOverlay};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let greet_yaml = r#"
-name: greet
-role: user
-body: "Hi {{ name }}, you have {{ count }} messages."
+    let assistant_yaml = r#"
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name: { type: string, trusted: true }
-  count: { type: integer, trusted: true }
+  company: { type: string, trusted: true }
+  max_words: { type: integer, trusted: true }
 "#;
-    let greet = Prompt::from_yaml(greet_yaml)?;
+    let assistant = Prompt::from_yaml(assistant_yaml)?;
 
-    let bad = greet.derive(PromptOverlay {
-        body: Some("Hi {{ ghost }}".to_string()),
+    let bad = assistant.derive(PromptOverlay {
+        body: Some("You help {{ ghost }}.".to_string()),
         ..Default::default()
     });
     match bad {

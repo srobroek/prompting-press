@@ -7,33 +7,34 @@ Standalone — the docs page displays this file verbatim; run it directly to che
 
 from prompting_press import Prompt
 
-greet_yaml = """
-name: greet
-role: user
-body: "Hi {{ name }}, you have {{ count }} messages."
+assistant_yaml = """
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name: { type: string, trusted: true }
-  count: { type: integer, trusted: true }
+  company: { type: string, trusted: true }
+  max_words: { type: integer, trusted: true }
 """
 
 
 def main() -> None:
-    greet = Prompt.from_yaml(greet_yaml)
+    assistant = Prompt.from_yaml(assistant_yaml)
 
     # READ the current variants (spread), then add one — so existing arms survive.
-    derived = greet.derive(
+    derived = assistant.derive(
         {
             "variants": {
-                **greet.variants,  # keep what's already there
+                **assistant.variants,  # keep what's already there
                 "formal": {
-                    "body": "Good day, {{ name }}. You have {{ count }} messages."
+                    "body": "You are the official support assistant for {{ company }}. "
+                    "Please keep every reply under {{ max_words }} words."
                 },
             }
         }
     )
-    # greet is unchanged; derived is a new, fully-validated Prompt.
+    # assistant is unchanged; derived is a new, fully-validated Prompt.
 
-    assert dict(greet.variants) == {}, "original is untouched"
+    assert dict(assistant.variants) == {}, "original is untouched"
     assert "formal" in derived.variants
 
 

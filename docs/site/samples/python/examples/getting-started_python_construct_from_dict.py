@@ -4,16 +4,16 @@ from prompting_press import Prompt
 
 # A plain dict works too — convenient when the shape comes from already-parsed
 # config. The Rust loader validates the shape on the way in, the same as the typed form.
-greet = Prompt(
+assistant = Prompt(
     {
-        "name": "greet",
-        "role": "user",
-        "body": "Hi {{ name }}, you have {{ count }} messages.",
+        "name": "assistant",
+        "role": "system",
+        "body": "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words.",
         "variables": {
-            "name": {"type": "string", "trusted": True},
-            "count": {"type": "integer", "trusted": True},
+            "company": {"type": "string", "trusted": True},
+            "max_words": {"type": "integer", "trusted": True},
         },
     }
 )
 
-assert greet.name == "greet"
+assert assistant.name == "assistant"

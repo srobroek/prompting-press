@@ -4,30 +4,41 @@ Standalone — the docs page displays this file verbatim; run it directly to che
 """
 
 from prompting_press import Prompt
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, field_validator
 
-greet_yaml = """
-name: greet
-role: user
-body: "Hi {{ name }}, you have {{ count }} messages."
+assistant_yaml = """
+name: assistant
+role: system
+body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
 variables:
-  name: { type: string, trusted: true }
-  count: { type: integer, trusted: true }
+  company: { type: string, trusted: true }
+  max_words: { type: integer, trusted: true }
 """
 
 
-class GreetVars(BaseModel):
-    name: str = Field(min_length=1)
-    count: int = Field(ge=0)
+class AssistantVars(BaseModel):
+    company: str
+    max_words: int
+
+    @field_validator("max_words")
+    @classmethod
+    def _at_least_one(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("max_words must be at least 1")
+        return v
 
 
 def main() -> None:
-    greet = Prompt.from_yaml(greet_yaml)
+    assistant = Prompt.from_yaml(assistant_yaml)
 
-    brief_greet = greet.derive({"body": "Hi {{ name }}!"})
+    brief_assistant = assistant.derive(
+        {"body": "You are a support assistant for {{ company }}."}
+    )
 
-    result = brief_greet.render(GreetVars, data={"name": "Ada", "count": 3})
-    assert result.text == "Hi Ada!"
+    result = brief_assistant.render(
+        AssistantVars, data={"company": "Acme Robotics", "max_words": 50}
+    )
+    assert result.text == "You are a support assistant for Acme Robotics."
 
 
 if __name__ == "__main__":
