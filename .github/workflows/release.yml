@@ -689,15 +689,18 @@ jobs:
 
       # `-x` (zig cross-build) only for musl; native build for everything else.
       # The target comes in via env (never interpolate ${{ }} into the script).
+      # `--target`/`-x` are napi's own flags, so they pass to `pnpm build:addon`
+      # WITHOUT a `--` separator — a `--` would route them to cargo (which rejects
+      # `-x`), the target's std being all cargo can consume.
       - name: Build native addon
         working-directory: packages/typescript
         env:
           TARGET: ${{ matrix.settings.target }}
         run: |
           if [ "${TARGET#*musl}" != "$TARGET" ]; then
-            mise exec -- pnpm build:addon -- --target "$TARGET" -x
+            mise exec -- pnpm build:addon --target "$TARGET" -x
           else
-            mise exec -- pnpm build:addon -- --target "$TARGET"
+            mise exec -- pnpm build:addon --target "$TARGET"
           fi
         shell: bash
 
