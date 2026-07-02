@@ -1,26 +1,20 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { Prompt, PromptValidationError } from "prompting-press";
 import { z } from "zod";
 
-const assistantYaml = `name: assistant
-role: system
-body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
-variables:
-  company:
-    type: string
-    trusted: true
-  max_words:
-    type: integer
-    trusted: true
-`;
+// The caller reads the definition; the library does no file I/O itself.
+// Resolve the file next to this program (a real app uses its own path).
+const defFile = (name: string) => fileURLToPath(new URL(name, import.meta.url));
 
 const AssistantVars = z.object({
   company: z.string().min(1),
   max_words: z.number().int().min(1),
 });
 
-const assistant = Prompt.fromYaml(assistantYaml);
+const assistant = Prompt.fromYaml(readFileSync(defFile("assistant.yaml"), "utf8"));
 
 test("render, and read the result", () => {
   const result = assistant.render(AssistantVars, { company: "Acme Robotics", max_words: 50 });

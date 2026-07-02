@@ -1,6 +1,7 @@
 """Complete example — construct (validates), then render with typed, Pydantic-validated vars."""
 
 import re
+from pathlib import Path
 
 from prompting_press import Prompt
 from pydantic import BaseModel, field_validator
@@ -19,20 +20,10 @@ class AssistantVars(BaseModel):
 
 
 # 1. Construct (validates here).
-# The caller reads the text; this program embeds it so it runs standalone.
-ASSISTANT_YAML = """\
-name: assistant
-role: system
-body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
-variables:
-  company:
-    type: string
-    trusted: true
-  max_words:
-    type: integer
-    trusted: true
-"""
-assistant = Prompt.from_yaml(ASSISTANT_YAML)
+# The caller reads the definition; the library does no file I/O itself.
+# Resolve the file next to this program (a real app uses its own path).
+_HERE = Path(__file__).parent
+assistant = Prompt.from_yaml((_HERE / "assistant.yaml").read_text())
 
 # 2 + 3. Render with the typed, Pydantic-validated vars.
 result = assistant.render(

@@ -5,6 +5,7 @@ use garde::Validate;
 use prompting_press::GuardConfig;
 use prompting_press::Prompt;
 use serde::Serialize;
+use std::fs;
 
 #[derive(Serialize, Validate)]
 struct AssistantVars {
@@ -15,21 +16,11 @@ struct AssistantVars {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Construct (validates here). A real caller reads this from a file
-    //    (`std::fs::read_to_string("assistant.yaml")`); inlined here to stay standalone.
-    let yaml = r#"
-name: assistant
-role: system
-body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
-variables:
-  company:
-    type: string
-    trusted: true
-  max_words:
-    type: integer
-    trusted: true
-"#;
-    let assistant = Prompt::from_yaml(yaml)?;
+    // 1. Construct (validates here). The caller reads the definition; the library does
+    //    no file I/O itself. Resolve the file next to this program (a real app uses its
+    //    own path).
+    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/examples");
+    let assistant = Prompt::from_yaml(&fs::read_to_string(format!("{dir}/assistant.yaml"))?)?;
 
     // 2 + 3. Render with typed, garde-validated vars.
     let vars = AssistantVars {

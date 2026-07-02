@@ -8,30 +8,15 @@ test harness executes it and its assertions.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from prompting_press import Prompt
 
-# A real consumer would read this from a file; inlined here so the sample is standalone.
-SUMMARY_YAML = """
-name: summary
-role: user
-body: "Summarise {{ article }}."
-variables:
-  article:
-    type: string
-    trusted: false
-metadata:
-  model_hint: claude-sonnet-4-6
-  max_tokens: 512
-  owner: team-content
-variants:
-  terse:
-    body: "TL;DR of {{ article }}."
-    metadata:
-      weight: 0.2
-      group: experiment-q4
-"""
+# The caller reads the definition; the library does no file I/O itself.
+# Resolve the file next to this program (a real app uses its own path).
+_HERE = Path(__file__).parent
 
-p = Prompt.from_yaml(SUMMARY_YAML)
+p = Prompt.from_yaml((_HERE / "summary_metadata.yaml").read_text())
 
 p.metadata  # => {"model_hint": "claude-sonnet-4-6", "max_tokens": 512, "owner": "team-content"}
 p.metadata["model_hint"]  # application code decides what to do with it

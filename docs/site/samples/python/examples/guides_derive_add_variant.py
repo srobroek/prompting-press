@@ -5,20 +5,17 @@ sole mutator; the original is untouched.
 Standalone — the docs page displays this file verbatim; run it directly to check.
 """
 
+from pathlib import Path
+
 from prompting_press import Prompt
 
-assistant_yaml = """
-name: assistant
-role: system
-body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
-variables:
-  company: { type: string, trusted: true }
-  max_words: { type: integer, trusted: true }
-"""
+# The caller reads the definition; the library does no file I/O itself.
+# Resolve the file next to this program (a real app uses its own path).
+_HERE = Path(__file__).parent
 
 
 def main() -> None:
-    assistant = Prompt.from_yaml(assistant_yaml)
+    assistant = Prompt.from_yaml((_HERE / "assistant.yaml").read_text())
 
     # READ the current variants (spread), then add one — so existing arms survive.
     derived = assistant.derive(

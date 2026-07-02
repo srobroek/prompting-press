@@ -2,20 +2,18 @@
 // declared untrusted (trusted: false). Standalone — run under `node --test`.
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { Prompt } from "prompting-press";
 import { z } from "zod";
 
+// The caller reads the definition; the library does no file I/O itself.
+// Resolve the file next to this program (a real app uses its own path).
+const defFile = (name: string) => fileURLToPath(new URL(name, import.meta.url));
+
 // The prompt: `topic` is declared untrusted (trusted: false).
-const ask = Prompt.fromYaml(`
-name: ask
-role: user
-body: "Tell me about {{ topic }}."
-variables:
-  topic:
-    type: string
-    trusted: false
-`);
+const ask = Prompt.fromYaml(readFileSync(defFile("ask.yaml"), "utf8"));
 
 // The typed vars schema handed to render().
 const Ask = z.object({ topic: z.string().min(1) });

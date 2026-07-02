@@ -5,17 +5,14 @@ this.
 Standalone — the docs page displays this file verbatim; run it directly to check.
 """
 
+from pathlib import Path
+
 from prompting_press import Prompt
 from pydantic import BaseModel, field_validator
 
-assistant_yaml = """
-name: assistant
-role: system
-body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
-variables:
-  company: { type: string, trusted: true }
-  max_words: { type: integer, trusted: true }
-"""
+# The caller reads the definition; the library does no file I/O itself.
+# Resolve the file next to this program (a real app uses its own path).
+_HERE = Path(__file__).parent
 
 
 class AssistantVars(BaseModel):
@@ -33,7 +30,7 @@ class AssistantVars(BaseModel):
 def main() -> None:
     # The pair parses and validates: the body's {{ company }}/{{ max_words }} agree with
     # AssistantVars.
-    assistant = Prompt.from_yaml(assistant_yaml)
+    assistant = Prompt.from_yaml((_HERE / "assistant.yaml").read_text())
     assert assistant.name == "assistant"
 
     # AssistantVars is a plain Pydantic model — construct one to prove the shape.

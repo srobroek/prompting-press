@@ -1,0 +1,15 @@
+name: summary
+role: user
+body: "Summarise the following article in {{ max_words }} words:\n\n{{ article }}"
+variables:
+  article:
+    type: string
+    trusted: false
+  max_words:
+    type: integer
+    trusted: true
+variants:
+  concise:
+    body: "In one sentence, summarise: {{ article }}"
+  structured:
+    body: "Summarise {{ article }} as a title, three bullets, and a one-line conclusion."

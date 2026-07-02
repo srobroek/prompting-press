@@ -4,6 +4,7 @@
 use garde::Validate;
 use prompting_press::{ConsumerError, GuardConfig, Prompt};
 use serde::Serialize;
+use std::fs;
 
 #[derive(Serialize, Validate)]
 struct AssistantVars {
@@ -14,20 +15,8 @@ struct AssistantVars {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let assistant = Prompt::from_yaml(
-        r#"
-name: assistant
-role: system
-body: "You are a support assistant for {{ company }}. Keep your replies under {{ max_words }} words."
-variables:
-  company:
-    type: string
-    trusted: true
-  max_words:
-    type: integer
-    trusted: true
-"#,
-    )?;
+    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/examples");
+    let assistant = Prompt::from_yaml(&fs::read_to_string(format!("{dir}/assistant.yaml"))?)?;
 
     let vars = AssistantVars {
         company: "Acme Robotics".into(),

@@ -7,29 +7,17 @@ what is selectable (the default arm is not listed — it is the root body, name
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from prompting_press import Prompt
 
-SUMMARY_YAML = """
-name: summary
-role: user
-body: "Summarise the following article in {{ max_words }} words:\\n\\n{{ article }}"
-variables:
-  article:
-    type: string
-    trusted: false
-  max_words:
-    type: integer
-    trusted: true
-variants:
-  concise:
-    body: "In one sentence, summarise: {{ article }}"
-  structured:
-    body: "Summarise {{ article }} as a title, three bullets, and a one-line conclusion."
-"""
+# The caller reads the definition; the library does no file I/O itself.
+# Resolve the file next to this program (a real app uses its own path).
+_HERE = Path(__file__).parent
 
 
 def main() -> None:
-    summary = Prompt.from_yaml(SUMMARY_YAML)
+    summary = Prompt.from_yaml((_HERE / "summary.yaml").read_text())
 
     assert sorted(summary.variants) == ["concise", "structured"]
     assert "concise" in summary.variants  # True

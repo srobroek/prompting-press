@@ -1,0 +1,17 @@
+name: summary
+role: user
+body: "Summarise {{ article }}."
+variables:
+  article:
+    type: string
+    trusted: false
+metadata:                 # prompt-level: anything to carry
+  model_hint: claude-sonnet-4-6
+  max_tokens: 512
+  owner: team-content
+variants:
+  terse:
+    body: "TL;DR of {{ article }}."
+    metadata:             # per-variant: drives the caller's selection logic
+      weight: 0.2
+      group: experiment-q4
