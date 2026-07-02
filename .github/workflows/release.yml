@@ -345,6 +345,14 @@ jobs:
         run: mise exec -- rustup component add rustfmt clippy
       - name: Install TS deps (pnpm)
         run: mise exec -- pnpm -C packages/typescript install --frozen-lockfile
+      # The consumer-samples leg runs the greeter-cli apps, and the TypeScript one
+      # depends on `prompting-press` via `file:../../../packages/typescript` — which
+      # only resolves once the package is BUILT (napi addon + tsc facade → dist/ +
+      # index.*). ci.yml's samples-test job builds it first; mirror that here so the
+      # TS sample can import the package. Cheap + harmless for the other suites.
+      - name: Build the TS package (for the consumer-samples leg)
+        if: ${{ matrix.suite.name == 'consumer-samples' }}
+        run: mise exec -- pnpm -C packages/typescript run build
       - name: Run ${{ matrix.suite.task }}
         run: mise exec -- moon run ${{ matrix.suite.task }}
 
