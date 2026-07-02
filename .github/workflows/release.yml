@@ -598,13 +598,22 @@ jobs:
       id-token: write # OIDC → PyPI Trusted Publisher
       attestations: write # actions/attest-build-provenance for every wheel + sdist
     steps:
-      # This job's only `needs` are build-wheels + build-sdist, so downloading
-      # every artifact yields exactly the per-platform wheels + the sdist.
-      # merge-multiple flattens them all into one dist/ dir for the upload.
-      - name: Download all wheels + sdist
+      # Scope the download to the Python artifacts ONLY. download-artifact with no
+      # `pattern` pulls EVERY artifact in the run — including the node-* addon
+      # bundles (which carry index.js/index.d.ts) — and twine then rejects
+      # index.d.ts as an "Unknown distribution format". The wheels are named
+      # `wheel-<target>` and the sdist `sdist`; both patterns land in one dist/.
+      - name: Download wheels
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
         with:
           path: dist
+          pattern: wheel-*
+          merge-multiple: true
+      - name: Download sdist
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        with:
+          path: dist
+          pattern: sdist
           merge-multiple: true
       - name: List distribution files
         run: ls -la dist
@@ -747,14 +756,15 @@ jobs:
           node-version: '22.14.0'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Install TS deps + build the facade (dist/)
-        run: |
-          mise exec -- pnpm -C packages/typescript install --frozen-lockfile
-          mise exec -- pnpm -C packages/typescript run build:facade
+      - name: Install TS deps
+        run: mise exec -- pnpm -C packages/typescript install --frozen-lockfile
 
       # Pull every prebuilt binary into the package dir. The napi loader tries
       # ./prompting-press.<platform>.node FIRST, so bundling all of them into the
       # one package makes it install everywhere with no platform sub-packages.
+      # This MUST run before build:facade: the node-* artifacts also carry the
+      # generated napi loader (index.js/index.d.ts), and src/index.ts imports
+      # from ../index.js — so tsc can't compile the facade until they're present.
       - name: Download all prebuilt addons
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
         with:
@@ -764,6 +774,10 @@ jobs:
 
       - name: List bundled binaries
         run: ls -la packages/typescript/*.node
+
+      # Now that the loader (index.js/index.d.ts) is in place, compile the facade.
+      - name: Build the facade (dist/)
+        run: mise exec -- pnpm -C packages/typescript run build:facade
 
       - name: Publish the TS package (skip if already published)
         working-directory: packages/typescript
